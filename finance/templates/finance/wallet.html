@@ -16,16 +16,30 @@
     {% else %}
 
         <div class="fin-stats">
-            <div class="fin-stat fin-stat-totaal">
+            <div class="fin-char-totaal">
                 <span class="l">{% translate "Totaal" %}</span>
                 <span class="v">{{ totaal_fmt }}</span>
-                <span class="s">{% translate "alle characters samen" %}</span>
+                <span class="s">{{ characters|length }} {% translate "characters" %}</span>
             </div>
+
             {% for c in characters %}
-                <div class="fin-stat {% if not c.gekoppeld %}fin-stat-leeg{% endif %}">
-                    <span class="l">{{ c.naam }}</span>
-                    <span class="v">{{ c.saldo_fmt }}</span>
-                    <span class="s">{% if c.gekoppeld %}ISK{% else %}{% translate "niet gekoppeld" %}{% endif %}</span>
+                <div class="fin-char {% if not c.gekoppeld %}fin-char-los{% endif %}">
+                    <img class="fin-char-portret" loading="lazy" alt=""
+                         src="https://images.evetech.net/characters/{{ c.character_id }}/portrait?size=64">
+                    <div class="fin-char-body">
+                        <div class="fin-char-naam" title="{{ c.naam }}">{{ c.naam }}</div>
+                        <div class="fin-char-saldo">{{ c.saldo_fmt }}</div>
+                        {% if c.gekoppeld %}
+                            <div class="fin-char-onder">
+                                <span class="fin-char-spoor">
+                                    {% if c.saldo %}<span class="fin-char-vulling" style="width: {{ c.aandeel }}%;"></span>{% endif %}
+                                </span>
+                                <span class="fin-char-pct">{{ c.aandeel_fmt }}</span>
+                            </div>
+                        {% else %}
+                            <div class="fin-char-pct">{% translate "niet gekoppeld" %}</div>
+                        {% endif %}
+                    </div>
                 </div>
             {% endfor %}
         </div>

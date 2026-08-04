@@ -88,6 +88,15 @@ def wallet(user):
             "gekoppeld": saldo is not None,
         })
 
+    # Rijkste eerst, en per character het aandeel in je totale vermogen. Met een
+    # balkje ernaast zie je in één blik waar je ISK staat — bij zes characters
+    # is dat uit losse getallen niet af te lezen.
+    per_char.sort(key=lambda c: -(c["saldo"] or 0))
+    for c in per_char:
+        aandeel = (float(c["saldo"]) / totaal * 100) if (totaal and c["saldo"]) else 0
+        c["aandeel"] = round(aandeel)
+        c["aandeel_fmt"] = f"{aandeel:.0f}%" if aandeel >= 1 else "<1%"
+
     regels = []
     for c in chars:
         for e in esi.journal(c.character_id):

@@ -63,6 +63,46 @@
 .fin-app .fin-stat-totaal .v { color: var(--fin-gold); }
 .fin-app .fin-stat-leeg .v { color: var(--fin-dim); font-size: 1.1rem; }
 
+/* ── Character-tegels op de wallet ────────────────────────────────────── */
+.fin-app .fin-char {
+    flex: 1 1 190px; padding: .6rem .75rem; border-radius: 8px;
+    background: var(--fin-surface); border: 1px solid var(--fin-border);
+    display: flex; gap: .6rem; align-items: center; min-width: 0;
+}
+.fin-app .fin-char:hover { border-color: #2a2a4a; }
+.fin-app .fin-char-portret {
+    width: 44px; height: 44px; border-radius: 6px; flex: none;
+    border: 1px solid var(--fin-border);
+}
+.fin-app .fin-char-body { min-width: 0; flex: 1 1 auto; }
+/* Namen kunnen lang zijn; afkappen is netter dan de tegel laten uitrekken. */
+.fin-app .fin-char-naam {
+    font-size: .68rem; letter-spacing: .05em; text-transform: uppercase;
+    color: var(--fin-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.fin-app .fin-char-saldo { font-size: 1.15rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.fin-app .fin-char-onder { display: flex; align-items: center; gap: .4rem; margin-top: .25rem; }
+.fin-app .fin-char-spoor {
+    flex: 1 1 auto; height: 4px; border-radius: 2px;
+    background: rgba(255, 255, 255, .07); overflow: hidden;
+}
+/* Minimumbreedte: een character met een half procent van je vermogen zou
+   anders een balkje van nul pixels krijgen en lijken te ontbreken. */
+.fin-app .fin-char-vulling { height: 100%; min-width: 3px; background: var(--fin-gold); border-radius: 2px; }
+.fin-app .fin-char-pct { font-size: .66rem; color: var(--fin-dim); flex: none; }
+.fin-app .fin-char-los { opacity: .55; }
+
+/* Totaal-tegel: mag opvallen tussen de characters. */
+.fin-app .fin-char-totaal {
+    flex: 1 1 190px; padding: .6rem .9rem; border-radius: 8px;
+    background: linear-gradient(135deg, rgba(240, 192, 64, .12), var(--fin-surface) 60%);
+    border: 1px solid rgba(240, 192, 64, .35);
+    display: flex; flex-direction: column; justify-content: center;
+}
+.fin-app .fin-char-totaal .l { font-size: .68rem; letter-spacing: .06em; text-transform: uppercase; color: var(--fin-gold); }
+.fin-app .fin-char-totaal .v { font-size: 1.45rem; font-weight: 700; color: var(--fin-gold); font-variant-numeric: tabular-nums; }
+.fin-app .fin-char-totaal .s { font-size: .72rem; color: var(--fin-dim); }
+
 /* ── Tabellen ─────────────────────────────────────────────────────────── */
 .fin-app .fin-tablewrap { overflow-x: auto; border-radius: 8px; border: 1px solid var(--fin-border); }
 .fin-app .fin-table { width: 100%; border-collapse: collapse; background: var(--fin-surface); }
