@@ -91,12 +91,42 @@
 .fin-app .fin-badge-open { color: var(--fin-gold); background: rgba(240, 192, 64, .13); border: 1px solid rgba(240, 192, 64, .4); }
 .fin-app .fin-badge-rest { color: var(--fin-dim); background: rgba(138, 144, 176, .13); border: 1px solid rgba(138, 144, 176, .35); }
 
-/* Contract-type. Drie soorten, dus drie eigen tinten — die zijn identiteit,
-   geen status, en mogen dus niet uit het groen/rood-palet komen. */
+/* Contract-type. Drie soorten, dus drie eigen tinten — identiteit, geen status,
+   dus bewust buiten het groen/rood-palet gehouden.
+
+   Deze drie zijn nagerekend tegen de donkere achtergrond en halen álle checks,
+   ook onderling paarsgewijs: lichtheid binnen de band voor donkere modus,
+   chroma boven de vloer, en bij kleurenblindheid nog ΔE 9,0 (protanopie) uit
+   elkaar. Een eerdere set met paars en teal zakte daar hard doorheen: teal was
+   zo grijs dat hij onder de chroma-vloer viel en paars/teal scheidde maar
+   ΔE 6,5 bij deuteranopie. De tekst in de badge is bovendien de tweede
+   aanwijzing, zodat kleur nooit alleen staat. */
 .fin-app .fin-type { border: 1px solid currentColor; background: transparent; }
-.fin-app .fin-type-item-exchange { color: #9d8cd6; }
-.fin-app .fin-type-courier { color: #4bb3b8; }
-.fin-app .fin-type-auction { color: #d68c6a; }
+.fin-app .fin-type-item-exchange { color: #1a7fb5; }
+.fin-app .fin-type-courier { color: #b8790f; }
+.fin-app .fin-type-auction { color: #c4448c; }
+
+/* Inhoud van een contract, uitklapbaar met <details> — geen JavaScript nodig. */
+.fin-app .fin-inhoud { margin-top: .25rem; }
+.fin-app .fin-inhoud > summary {
+    cursor: pointer; font-size: .72rem; color: var(--fin-blue);
+    list-style: none; display: inline-flex; align-items: center; gap: .3rem;
+}
+.fin-app .fin-inhoud > summary::-webkit-details-marker { display: none; }
+.fin-app .fin-inhoud > summary::before { content: "▸"; font-size: .7rem; }
+.fin-app .fin-inhoud[open] > summary::before { content: "▾"; }
+.fin-app .fin-inhoud > summary:hover { text-decoration: underline; }
+.fin-app .fin-inhoud-lijst {
+    margin: .4rem 0 .2rem; padding: .4rem .6rem; border-radius: 6px;
+    background: rgba(0, 0, 0, .25); border: 1px solid var(--fin-border);
+}
+.fin-app .fin-inhoud-item {
+    display: flex; align-items: center; gap: .45rem;
+    font-size: .76rem; padding: .12rem 0;
+}
+.fin-app .fin-inhoud-item img { width: 22px; height: 22px; border-radius: 3px; flex: none; }
+.fin-app .fin-inhoud-aantal { color: var(--fin-dim); font-variant-numeric: tabular-nums; margin-left: auto; }
+.fin-app .fin-inhoud-gevraagd { color: var(--fin-red); font-size: .68rem; text-transform: uppercase; }
 
 /* Rol: heb je het contract zelf uitgegeven of aangenomen? */
 .fin-app .fin-rol { font-size: .68rem; letter-spacing: .04em; text-transform: uppercase; color: var(--fin-dim); }

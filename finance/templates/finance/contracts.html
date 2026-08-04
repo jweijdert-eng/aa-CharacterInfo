@@ -78,7 +78,30 @@
                                         <span class="fin-badge fin-badge-rest">{{ r.status }}</span>
                                     {% endif %}
                                 </td>
-                                <td class="fin-omschrijving">{{ r.titel }}</td>
+                                <td class="fin-omschrijving">
+                                    {{ r.titel }}
+                                    {% if r.inhoud %}
+                                        <details class="fin-inhoud">
+                                            <summary>{{ r.inhoud_soorten }}
+                                                {% blocktranslate count n=r.inhoud_soorten %}soort{% plural %}soorten{% endblocktranslate %},
+                                                {{ r.inhoud_aantal }} {% translate "stuks" %}</summary>
+                                            <div class="fin-inhoud-lijst">
+                                                {% for i in r.inhoud %}
+                                                    <div class="fin-inhoud-item">
+                                                        <img loading="lazy" alt=""
+                                                             src="https://images.evetech.net/types/{{ i.type_id }}/icon?size=32">
+                                                        <span>{{ i.naam }}</span>
+                                                        {% if i.gevraagd %}
+                                                            <span class="fin-inhoud-gevraagd"
+                                                                  title="{% translate 'De uitgever vraagt dit in ruil' %}">{% translate "gevraagd" %}</span>
+                                                        {% endif %}
+                                                        <span class="fin-inhoud-aantal">×{{ i.aantal }}</span>
+                                                    </div>
+                                                {% endfor %}
+                                            </div>
+                                        </details>
+                                    {% endif %}
+                                </td>
                                 <td class="fin-nowrap {% if r.ben_uitgever %}fin-pos{% else %}fin-dim{% endif %}">
                                     {{ r.uitgever }}
                                 </td>
@@ -87,9 +110,14 @@
                                 </td>
                                 <td class="fin-getal fin-dim">{{ r.prijs_fmt }}</td>
                                 <td class="fin-getal fin-dim">{{ r.beloning_fmt }}</td>
-                                {# Alleen bij een afgerond contract is er geld verplaatst. Bij een
-                                   verwijderd of mislukt contract zou een bedrag hier een
-                                   geldstroom suggereren die nooit heeft plaatsgevonden. #}
+                                {% comment %}
+                                    Alleen bij een afgerond contract is er geld verplaatst. Bij een
+                                    verwijderd of mislukt contract zou een bedrag hier een geldstroom
+                                    suggereren die nooit heeft plaatsgevonden.
+
+                                    NB: {# … #} werkt in Django alleen op één regel; over meerdere
+                                    regels wordt het gewoon als tekst afgedrukt.
+                                {% endcomment %}
                                 <td class="fin-getal {% if r.netto_positief %}fin-pos{% elif r.netto %}fin-neg{% endif %}">
                                     {% if r.is_klaar and r.netto %}
                                         {% if r.netto_positief %}+{% endif %}{{ r.netto_fmt }}

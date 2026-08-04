@@ -197,6 +197,26 @@ def contracts(character_id):
     return rows
 
 
+def contract_items(character_id, contract_id):
+    """De spullen in één contract.
+
+    De inhoud van een contract ligt vast zodra het bestaat, dus dit mag lang in
+    de cache — anders zou elke paginaweergave één call per contract kosten.
+    """
+    key = f"fin_citems_{contract_id}"
+    hit = cache.get(key)
+    if hit is not None:
+        return hit
+
+    token = token_for(character_id, CONTRACTS_SCOPE)
+    rows = None
+    if token:
+        rows = _request(f"/characters/{character_id}/contracts/{contract_id}/items/", token)
+    rows = rows or []
+    cache.set(key, rows, 7 * 86400)
+    return rows
+
+
 # --------------------------------------------------------------------------
 # Namen
 # --------------------------------------------------------------------------

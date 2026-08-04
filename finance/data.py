@@ -176,18 +176,48 @@ def contracten(user):
     chars = esi.characters(user)
     mijn = {c.character_id: c.character_name for c in chars}
 
+    # Onthouden wélk character dit contract zag: alleen met díens token mogen we
+    # straks de inhoud opvragen.
     ruw = {}
     for c in chars:
         for k in esi.contracts(c.character_id):
-            ruw[k["contract_id"]] = k
+            ruw[k["contract_id"]] = (c.character_id, k)
 
-    lijst = list(ruw.values())
+    lijst = [k for _, k in ruw.values()]
+
+    # De inhoud van alle contracten ophalen en de type-ids meteen meenemen in
+    # dezelfde naam-opvraag als de characters — scheelt een tweede ronde.
+    inhoud = {}
+    for contract_id, (char_id, _k) in ruw.items():
+        inhoud[contract_id] = esi.contract_items(char_id, contract_id)
+
     ids = set()
     for k in lijst:
         for veld in ("issuer_id", "assignee_id", "acceptor_id"):
             if k.get(veld):
                 ids.add(k[veld])
+    for spullen in inhoud.values():
+        for it in spullen:
+            if it.get("type_id"):
+                ids.add(it["type_id"])
     namen = esi.names(ids) if ids else {}
+
+    def _inhoud(contract_id):
+        """Items van een contract, dubbele type-ids opgeteld, grootste eerst."""
+        per_type = {}
+        for it in inhoud.get(contract_id, []):
+            tid = it.get("type_id")
+            if not tid:
+                continue
+            vak = per_type.setdefault(tid, {"type_id": tid, "aantal": 0, "gevraagd": False})
+            vak["aantal"] += int(it.get("quantity") or 0)
+            # is_included=False betekent dat de uitgever dit juist vráágt in ruil.
+            if not it.get("is_included", True):
+                vak["gevraagd"] = True
+        rijen = sorted(per_type.values(), key=lambda x: -x["aantal"])
+        for r in rijen:
+            r["naam"] = namen.get(r["type_id"]) or f"Type {r['type_id']}"
+        return rijen
 
     rijen = []
     for k in lijst:
@@ -207,8 +237,12 @@ def contracten(user):
         else:
             netto = 0.0
 
+        spullen = _inhoud(k["contract_id"])
         rijen.append({
             "id": k["contract_id"],
+            "inhoud": spullen,
+            "inhoud_aantal": sum(s["aantal"] for s in spullen),
+            "inhoud_soorten": len(spullen),
             "type": soort.replace("_", " "),
             "type_kort": {"item_exchange": "Exchange", "courier": "Koerier",
                           "auction": "Veiling"}.get(soort, soort or "—"),
