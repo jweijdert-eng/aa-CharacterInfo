@@ -127,15 +127,11 @@ def wallet(user):
             "gekoppeld": saldo is not None,
         })
 
-    # Rijkste eerst, en per character het aandeel in je totale vermogen. Met een
-    # balkje ernaast zie je in één blik waar je ISK staat — bij zes characters
-    # is dat uit losse getallen niet af te lezen.
+    # Rijkste eerst. Geen aandeelbalk of percentage meer: naast een volledig
+    # saldo voegde dat niets toe en maakte het de tegel alleen maar druk.
     kleuren = _kleur_per_character(per_char)
     per_char.sort(key=lambda c: -(c["saldo"] or 0))
     for c in per_char:
-        aandeel = (float(c["saldo"]) / totaal * 100) if (totaal and c["saldo"]) else 0
-        c["aandeel"] = round(aandeel)
-        c["aandeel_fmt"] = f"{aandeel:.0f}%" if aandeel >= 1 else "<1%"
         c["kleur"] = kleuren[c["character_id"]]
 
     regels = []

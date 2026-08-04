@@ -30,14 +30,7 @@
                     <div class="fin-char-body">
                         <div class="fin-char-naam" title="{{ c.naam }}">{{ c.naam }}</div>
                         <div class="fin-char-saldo">{{ c.saldo_fmt }}{% if c.gekoppeld %}<span class="fin-eenheid">ISK</span>{% endif %}</div>
-                        {% if c.gekoppeld %}
-                            <div class="fin-char-onder">
-                                <span class="fin-char-spoor">
-                                    {% if c.saldo %}<span class="fin-char-vulling" style="width: {{ c.aandeel }}%;"></span>{% endif %}
-                                </span>
-                                <span class="fin-char-pct">{{ c.aandeel_fmt }}</span>
-                            </div>
-                        {% else %}
+                        {% if not c.gekoppeld %}
                             <div class="fin-char-pct">{% translate "niet gekoppeld" %}</div>
                         {% endif %}
                     </div>
