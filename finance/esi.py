@@ -21,6 +21,10 @@ WALLET_SCOPE = "esi-wallet.read_character_wallet.v1"
 CONTRACTS_SCOPE = "esi-contracts.read_character_contracts.v1"
 MINING_SCOPE = "esi-industry.read_character_mining.v1"
 PLANETS_SCOPE = "esi-planets.manage_planets.v1"
+# Niet gevraagd bij het koppelen: spelersstructuren zijn mooi meegenomen, maar
+# er een herkoppeling voor afdwingen is het niet waard. Bijna elk account heeft
+# dit token al liggen van een andere plugin — dan gebruiken we dat.
+STRUCTURES_SCOPE = "esi-universe.read_structures.v1"
 
 TTL_BALANCE = 300           # saldo verandert vaak, maar niet elke seconde
 TTL_JOURNAL = 900           # journaal-regels zijn onveranderlijk zodra ze er staan
@@ -105,6 +109,55 @@ def token_for(character_id, scope):
         except Exception:  # noqa: BLE001 — verlopen of ingetrokken
             continue
     return None
+
+
+def _tokens_met_scope(character_ids, scope):
+    """Alle geldige tokens van deze characters met deze scope, nieuwste eerst."""
+    from esi.models import Token
+
+    uit = []
+    for token in (Token.objects
+                  .filter(character_id__in=list(character_ids), scopes__name=scope)
+                  .order_by("-created")):
+        try:
+            uit.append(token.valid_access_token())
+        except Exception:  # noqa: BLE001 — verlopen of ingetrokken
+            continue
+    return uit
+
+
+def structure_names(structure_ids, character_ids):
+    """Namen van spelersstructuren.
+
+    Eén token is niet genoeg: `/universe/structures/{id}/` geeft **403** als dát
+    character geen dockingrechten heeft. Dat is per structuur verschillend, dus
+    we proberen ze allemaal tot er één werkt — de les uit aa-corp-hauling, waar
+    alleen het eerste token geprobeerd werd en alles "Onbekende locatie" heette.
+
+    Namen veranderen zelden, dus 7 dagen cache. Een mislukking cachen we kort
+    (een uur), zodat een nieuw token of nieuwe dockingrechten vanzelf helpt.
+    """
+    uit, ontbreekt = {}, []
+    for sid in set(structure_ids):
+        hit = cache.get(f"fin_struct_{sid}")
+        if hit is not None:
+            uit[sid] = hit
+        else:
+            ontbreekt.append(sid)
+    if not ontbreekt:
+        return uit
+
+    tokens = _tokens_met_scope(character_ids, STRUCTURES_SCOPE)
+    for sid in ontbreekt:
+        naam = ""
+        for token in tokens:
+            r = _request(f"/universe/structures/{sid}/", token)
+            if r:
+                naam = r.get("name") or ""
+                break
+        uit[sid] = naam
+        cache.set(f"fin_struct_{sid}", naam, 7 * 86400 if naam else 3600)
+    return uit
 
 
 def has_token(character_ids, scope):

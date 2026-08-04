@@ -41,6 +41,9 @@ def wallet(request: WSGIRequest) -> HttpResponse:
     ctx = _basis(request, "wallet")
     if ctx["heeft_wallet"]:
         ctx.update(data.wallet(request.user))
+        # Beide tabellen meteen meesturen: het wisselen tussen de twee gebeurt
+        # in CSS, dus een tweede paginaverzoek zou alleen maar vertragen.
+        ctx.update(data.transacties(request.user))
     return render(request, "finance/wallet.html", ctx)
 
 

@@ -333,3 +333,47 @@
     .fin-app .fin-omschrijving { max-width: 200px; }
     .fin-app .fin-hero-icon { display: none; }
 }
+
+/* ── Sub-tabbladen (Transactions / Market Transactions) ───────────────── */
+/* Omschakelen zonder JavaScript: de keuzerondjes staan verborgen en het
+   aangevinkte rondje bepaalt via ~ welk paneel zichtbaar is. Beide tabellen
+   staan al in de pagina, dus het wisselen is direct. */
+.fin-app .fin-subtabs > input[type="radio"] { position: absolute; opacity: 0; pointer-events: none; }
+.fin-app .fin-subtab-balk {
+    display: flex; gap: .3rem; margin: 1.2rem 0 .8rem;
+    border-bottom: 1px solid var(--fin-border);
+}
+.fin-app .fin-subtab {
+    padding: .4rem .85rem; border-radius: 6px 6px 0 0; cursor: pointer;
+    font-size: .84rem; font-weight: 600; color: var(--fin-dim);
+    border: 1px solid transparent; border-bottom: 0; margin-bottom: -1px;
+    display: flex; align-items: center; gap: .45rem;
+}
+.fin-app .fin-subtab:hover { color: var(--fin-text); }
+.fin-app .fin-subtab-aantal {
+    font-size: .7rem; font-weight: 600; padding: .05rem .35rem; border-radius: 999px;
+    background: rgba(128, 128, 128, .18); color: var(--fin-dim);
+}
+/* Zichtbaarheid volgt het aangevinkte rondje; :focus-visible zodat het ook met
+   het toetsenbord te bedienen blijft. */
+.fin-app .fin-paneel { display: none; }
+.fin-app #fin-tx-journaal:checked ~ .fin-subtab-balk label[for="fin-tx-journaal"],
+.fin-app #fin-tx-markt:checked ~ .fin-subtab-balk label[for="fin-tx-markt"] {
+    color: var(--fin-gold); background: var(--fin-surface);
+    border-color: var(--fin-border);
+}
+.fin-app #fin-tx-journaal:focus-visible ~ .fin-subtab-balk label[for="fin-tx-journaal"],
+.fin-app #fin-tx-markt:focus-visible ~ .fin-subtab-balk label[for="fin-tx-markt"] {
+    outline: 2px solid var(--fin-blue); outline-offset: 2px;
+}
+.fin-app #fin-tx-journaal:checked ~ .fin-paneel-journaal,
+.fin-app #fin-tx-markt:checked ~ .fin-paneel-markt { display: block; }
+.fin-app .fin-onderschrift { font-size: .8rem; color: var(--fin-dim); margin: 0 0 .6rem; }
+/* Plaatsvervanger voor items zonder plaatje. Houdt de kolom uitgelijnd in
+   plaats van de naam naar links te laten springen, en zet bij een SKIN een
+   penseeltje neer — CCP publiceert daar geen plaatjes van. */
+.fin-app .fin-geen-icoon {
+    width: 22px; height: 22px; border-radius: 3px; flex: none;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: rgba(128, 128, 128, .12); color: var(--fin-dim); font-size: .72rem;
+}

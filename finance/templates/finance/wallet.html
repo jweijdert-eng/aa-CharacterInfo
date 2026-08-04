@@ -60,41 +60,118 @@
             </div>
         {% endif %}
 
-        <h2 class="fin-kop">{% translate "Journaal" %}
-            <span>— {% translate "laatste 200 regels" %}</span></h2>
-        {% if regels %}
-            <div class="fin-tablewrap">
-                <table class="fin-table">
-                    <thead>
-                        <tr>
-                            <th>{% translate "Datum" %}</th>
-                            <th>{% translate "Character" %}</th>
-                            <th>{% translate "Soort" %}</th>
-                            <th>{% translate "Omschrijving" %}</th>
-                            <th class="fin-getal">{% translate "Bedrag" %}</th>
-                            <th class="fin-getal">{% translate "Saldo" %}</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for r in regels %}
-                            <tr>
-                                <td class="fin-nowrap fin-dim">{{ r.datum|date:"d-m-Y H:i" }}</td>
-                                <td class="fin-nowrap">
-                                    <span class="fin-stip" style="background: {{ r.kleur }};"></span>{{ r.character }}
-                                </td>
-                                <td class="fin-nowrap">{{ r.soort }}</td>
-                                <td class="fin-omschrijving fin-dim">{{ r.omschrijving }}</td>
-                                <td class="fin-getal {% if r.positief %}fin-pos{% else %}fin-neg{% endif %}">
-                                    {{ r.bedrag_fmt }}
-                                </td>
-                                <td class="fin-getal fin-dim">{{ r.saldo_fmt }}</td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+        {% comment %}
+            Twee tabellen naast elkaar als tabbladen. De keuzerondjes staan
+            verborgen en het omschakelen gebeurt in CSS — geen JavaScript, en
+            geen tweede paginaverzoek: beide tabellen staan er al.
+        {% endcomment %}
+        <div class="fin-subtabs">
+            <input type="radio" name="fin-tx" id="fin-tx-journaal" checked>
+            <input type="radio" name="fin-tx" id="fin-tx-markt">
+            <div class="fin-subtab-balk">
+                <label for="fin-tx-journaal" class="fin-subtab">
+                    {% translate "Transactions" %}
+                    <span class="fin-subtab-aantal">{{ regels|length }}</span>
+                </label>
+                <label for="fin-tx-markt" class="fin-subtab">
+                    {% translate "Market Transactions" %}
+                    <span class="fin-subtab-aantal">{{ tx_aantal }}</span>
+                </label>
             </div>
-        {% else %}
-            <div class="fin-melding">{% translate "Geen journaalregels gevonden." %}</div>
-        {% endif %}
+
+            <section class="fin-paneel fin-paneel-journaal">
+                {% if regels %}
+                    <div class="fin-tablewrap">
+                        <table class="fin-table">
+                            <thead>
+                                <tr>
+                                    <th>{% translate "Datum" %}</th>
+                                    <th>{% translate "Character" %}</th>
+                                    <th>{% translate "Soort" %}</th>
+                                    <th>{% translate "Omschrijving" %}</th>
+                                    <th class="fin-getal">{% translate "Bedrag" %}</th>
+                                    <th class="fin-getal">{% translate "Saldo" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for r in regels %}
+                                    <tr>
+                                        <td class="fin-nowrap fin-dim">{{ r.datum|date:"d-m-Y H:i" }}</td>
+                                        <td class="fin-nowrap">
+                                            <span class="fin-stip" style="background: {{ r.kleur }};"></span>{{ r.character }}
+                                        </td>
+                                        <td class="fin-nowrap">{{ r.soort }}</td>
+                                        <td class="fin-omschrijving fin-dim">{{ r.omschrijving }}</td>
+                                        <td class="fin-getal {% if r.positief %}fin-pos{% else %}fin-neg{% endif %}">
+                                            {{ r.bedrag_fmt }}
+                                        </td>
+                                        <td class="fin-getal fin-dim">{{ r.saldo_fmt }}</td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="fin-melding">{% translate "Geen journaalregels gevonden." %}</div>
+                {% endif %}
+            </section>
+
+            <section class="fin-paneel fin-paneel-markt">
+                {% if tx %}
+                    <p class="fin-onderschrift">
+                        {% blocktranslate %}{{ tx_verkocht }} keer verkocht voor {{ tx_verkocht_fmt }} ISK, {{ tx_gekocht }} keer gekocht voor {{ tx_gekocht_fmt }} ISK.{% endblocktranslate %}
+                        {% if tx_aantal > 200 %}{% translate "Hieronder de laatste 200." %}{% endif %}
+                    </p>
+                    <div class="fin-tablewrap">
+                        <table class="fin-table">
+                            <thead>
+                                <tr>
+                                    <th>{% translate "Datum" %}</th>
+                                    <th>{% translate "Character" %}</th>
+                                    <th>{% translate "Item" %}</th>
+                                    <th class="fin-getal">{% translate "Aantal" %}</th>
+                                    <th class="fin-getal">{% translate "Prijs per stuk" %}</th>
+                                    <th class="fin-getal">{% translate "Totaal" %}</th>
+                                    <th>{% translate "Locatie" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for t in tx %}
+                                    <tr class="{% if t.koop %}fin-uit{% else %}fin-in{% endif %}">
+                                        <td class="fin-nowrap fin-dim">{{ t.datum|date:"d-m-Y H:i" }}</td>
+                                        <td class="fin-nowrap">
+                                            <span class="fin-stip" style="background: {{ t.kleur }};"></span>{{ t.character }}
+                                        </td>
+                                        <td class="fin-nowrap">
+                                            <span class="fin-erts">
+                                                {% if t.plaatje %}
+                                                    <img loading="lazy" alt="" src="{{ t.plaatje }}">
+                                                {% else %}
+                                                    <span class="fin-geen-icoon"
+                                                          title="{% if t.skin %}{% translate 'CCP publiceert geen plaatjes van SKINs' %}{% endif %}">
+                                                        {% if t.skin %}<i class="fas fa-palette"></i>{% endif %}
+                                                    </span>
+                                                {% endif %}
+                                                {{ t.item }}
+                                            </span>
+                                        </td>
+                                        <td class="fin-getal">{{ t.aantal_fmt }}</td>
+                                        <td class="fin-getal fin-dim">{{ t.prijs_fmt }}</td>
+                                        <td class="fin-getal {% if t.koop %}fin-neg{% else %}fin-pos{% endif %}">
+                                            {{ t.totaal_fmt }}
+                                        </td>
+                                        <td class="fin-nowrap fin-dim" title="{{ t.klant }}">{{ t.locatie }}</td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="fin-melding">
+                        {% translate "Geen markttransacties gevonden. EVE bewaart deze ongeveer 30 dagen." %}
+                    </div>
+                {% endif %}
+            </section>
+        </div>
     {% endif %}
 {% endblock %}

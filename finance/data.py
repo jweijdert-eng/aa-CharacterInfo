@@ -165,6 +165,108 @@ def wallet(user):
     }
 
 
+PLAATJE = "https://images.evetech.net/types/%s/%s?size=32"
+CAT_BLUEPRINT = 9
+CAT_SKIN = 91
+
+
+def _type_info(type_ids):
+    """Naam en plaatje-adres per type, uit django-eveuniverse (lokaal).
+
+    Het plaatje-adres hangt van de categorie af, en dat kun je niet raden:
+    - blueprints hebben `/bp`; `/icon` geeft daar een **400**
+    - van SKINs bestaat bij CCP geen enkel plaatje: /icon, /bp en /render geven
+      alle drie 404, en de plaatjes-server kent zo'n type niet eens (bij een
+      gewoon item geeft /types/{id}/ netjes ["render","icon"] terug). Dat geldt
+      voor alle ~11.800 SKINs, dus we doen er geen verzoek voor en zetten er een
+      penseeltje neer
+    """
+    try:
+        from eveuniverse.models import EveType
+    except ImportError:
+        return {}
+
+    uit = {}
+    for t in EveType.objects.select_related("eve_group").filter(id__in=list(type_ids)):
+        try:
+            categorie = t.eve_group.eve_category_id
+        except Exception:  # noqa: BLE001 — groep niet geladen
+            categorie = 0
+        skin = categorie == CAT_SKIN
+        plaatje = "" if skin else PLAATJE % (
+            t.id, "bp" if categorie == CAT_BLUEPRINT else "icon")
+        uit[t.id] = {"naam": t.name, "plaatje": plaatje, "skin": skin}
+    return uit
+
+
+def transacties(user, limiet=200):
+    """Markttransacties van alle characters: wat je gekocht en verkocht hebt.
+
+    Andere gegevens dan het journaal: hier staat wélk item, hoeveel en tegen
+    welke prijs per stuk. Het journaal kent alleen het bedrag.
+    """
+    chars = esi.characters(user)
+    kleuren = _kleur_per_character([{"character_id": c.character_id} for c in chars])
+
+    rijen = []
+    for c in chars:
+        for t in esi.transactions(c.character_id):
+            rijen.append({**t, "_char": c.character_name,
+                          "_kleur": kleuren[c.character_id]})
+    if not rijen:
+        return {"tx": [], "tx_aantal": 0, "tx_gekocht": 0, "tx_verkocht": 0,
+                "tx_gekocht_fmt": "0", "tx_verkocht_fmt": "0"}
+
+    rijen.sort(key=lambda t: t.get("date") or "", reverse=True)
+    zichtbaar = rijen[:limiet]
+
+    info = _type_info({t["type_id"] for t in zichtbaar})
+    # Stations lossen op via /universe/names; spelersstructuren niet — die
+    # hebben een eigen endpoint mét token. De grens ligt bij 1e12.
+    locaties = {t["location_id"] for t in zichtbaar}
+    stations = {i for i in locaties if i < 1_000_000_000_000}
+    structuren = locaties - stations
+    plaatsnamen = esi.names(stations | {t["client_id"] for t in zichtbaar})
+    plaatsnamen.update(esi.structure_names(structuren,
+                                           [c.character_id for c in chars]))
+
+    tx = []
+    for t in zichtbaar:
+        aantal = int(t.get("quantity") or 0)
+        prijs = float(t.get("unit_price") or 0)
+        totaal = aantal * prijs
+        koop = bool(t.get("is_buy"))
+        tx.append({
+            "datum": _parse(t.get("date")),
+            "character": t["_char"],
+            "kleur": t["_kleur"],
+            "koop": koop,
+            "item": (info.get(t["type_id"]) or {}).get("naam") or f"#{t['type_id']}",
+            "plaatje": (info.get(t["type_id"]) or {}).get("plaatje", ""),
+            "skin": (info.get(t["type_id"]) or {}).get("skin", False),
+            "aantal": aantal,
+            "aantal_fmt": _nl(f"{aantal:,d}"),
+            "prijs_fmt": fmt_isk_vol(prijs),
+            # Koop is geld eruit, verkoop geld erin — zelfde tekens als het journaal.
+            "totaal_fmt": fmt_isk_vol(-totaal if koop else totaal),
+            "locatie": plaatsnamen.get(t["location_id"]) or f"#{t['location_id']}",
+            "klant": plaatsnamen.get(t["client_id"]) or "",
+        })
+
+    gekocht = sum(int(t["quantity"] or 0) * float(t["unit_price"] or 0)
+                  for t in rijen if t.get("is_buy"))
+    verkocht = sum(int(t["quantity"] or 0) * float(t["unit_price"] or 0)
+                   for t in rijen if not t.get("is_buy"))
+    return {
+        "tx": tx,
+        "tx_aantal": len(rijen),
+        "tx_gekocht": sum(1 for t in rijen if t.get("is_buy")),
+        "tx_verkocht": sum(1 for t in rijen if not t.get("is_buy")),
+        "tx_gekocht_fmt": fmt_isk_vol(gekocht),
+        "tx_verkocht_fmt": fmt_isk_vol(verkocht),
+    }
+
+
 def _journaalregel(e):
     return {
         "datum": _parse(e.get("date")),

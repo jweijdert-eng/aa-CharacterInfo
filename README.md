@@ -7,7 +7,7 @@ Alliance Auth-plugin die je **eigen** gegevens op één plek toont: wallet, cont
 
 Vijf tabbladen:
 
-- **Wallet** — saldo per character, waar je geld de afgelopen 30 dagen vandaan kwam, en het gecombineerde journaal
+- **Wallet** — saldo per character, waar je geld de afgelopen 30 dagen vandaan kwam, en twee tabellen: **Transactions** (het journaal) en **Market Transactions** (wat je gekocht en verkocht hebt, per item)
 - **Contracts** — je persoonlijke contracten met status, beloningen en de inhoud
 - **Ratting** — bounty- en ESS-inkomsten, per dag uitgezet
 - **Mining** — je ledger per ertssoort, systeem en dag, met volume en geschatte waarde
