@@ -10,12 +10,14 @@
     --fin-green: #3ecf6e;
     --fin-red: #e05555;
 
-    /* Seriekleuren voor de grafiek. Deze twee zijn niet op gevoel gekozen maar
-       nagerekend tegen de donkere achtergrond: lichtheid binnen de band voor
-       donkere modus, en onderling ΔE 19 bij protanopie / 24 bij normaal zicht —
-       ruim boven de drempel, dus ook bij kleurenblindheid te onderscheiden. */
-    --fin-bounty: #b8860b;
-    --fin-ess: #0e86a8;
+    /* Seriekleuren: het goud en blauw van het dashboard, maar op 70% dekking
+       over deze achtergrond in plaats van 60%. Dat is nagerekend — bij 60%
+       zakken beide onder de chroma-vloer en lezen ze als vaalgrijs; bij 75% en
+       hoger valt het goud juist buiten de lichtheidsband voor donkere modus.
+       Op 70% worden het #ac8b37 en #0582a1, die alles halen: lichtheid,
+       chroma, ΔE 17,3 bij protanopie en contrast boven 3:1. */
+    --fin-bounty: rgba(240, 192, 64, .70);
+    --fin-ess: rgba(0, 180, 216, .70);
 
     color: var(--fin-text);
 }
@@ -163,14 +165,14 @@
 /* De as-labels staan links, de balken vullen de rest. */
 .fin-app .fin-grafiek-rij { display: flex; gap: .6rem; }
 .fin-app .fin-as {
-    width: 62px; flex: none; position: relative; height: 150px;
+    width: 62px; flex: none; position: relative; height: 200px;
     font-size: .68rem; color: var(--fin-dim); text-align: right;
 }
 .fin-app .fin-as-punt { position: absolute; right: 0; transform: translateY(-50%); }
 /* Opvuller onder de as, even breed maar zonder hoogte — anders staat er een
    lege kolom van 150px onder de grafiek. */
 .fin-app .fin-as-leeg { width: 62px; flex: none; }
-.fin-app .fin-plot { flex: 1 1 auto; position: relative; height: 150px; }
+.fin-app .fin-plot { flex: 1 1 auto; position: relative; height: 200px; }
 /* Hulplijnen: net zichtbaar genoeg om een hoogte te kunnen schatten, niet zo
    sterk dat ze met de balken concurreren. */
 .fin-app .fin-lijn {

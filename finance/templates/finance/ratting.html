@@ -80,14 +80,11 @@
                     </div>
                 </div>
 
-                {# Alleen de eerste, laatste en elke vijfde dag benoemen; alle dagen labelen is onleesbaar. #}
                 <div class="fin-grafiek-rij">
                     <div class="fin-as-leeg"></div>
                     <div class="fin-dagen">
                         {% for d in grafiek %}
-                            <span class="fin-dag-label">
-                                {% if forloop.first or forloop.last or forloop.counter0|divisibleby:5 %}{{ d.dag_kort }}{% endif %}
-                            </span>
+                            <span class="fin-dag-label">{% if d.toon_label %}{{ d.dag_kort }}{% endif %}</span>
                         {% endfor %}
                     </div>
                 </div>
@@ -95,7 +92,7 @@
                 <div class="fin-legenda">
                     <span><i class="fin-legenda-punt" style="background: var(--fin-bounty);"></i>{% translate "Bounty" %}</span>
                     <span><i class="fin-legenda-punt" style="background: var(--fin-ess);"></i>{% translate "ESS" %}</span>
-                    <span style="margin-left:auto;">{{ actieve_dagen }} {% translate "van" %} {{ grafiek|length }} {% translate "dagen gerat" %}</span>
+                    <span style="margin-left:auto;">{% blocktranslate %}{{ actieve_dagen }} dagen gerat in de laatste 30{% endblocktranslate %}</span>
                 </div>
             </div>
         {% endif %}
