@@ -214,7 +214,10 @@
     font-size: .66rem; font-weight: 700; color: var(--fin-gold); white-space: nowrap;
 }
 
-.fin-app .fin-dagen { display: flex; gap: 2px; margin-top: .35rem; }
+/* Zelfde breedte en dezelfde tussenruimte als .fin-balken, anders staan de
+   datums niet onder hun eigen balk. Zonder flex-groei krimpt deze rij naar z'n
+   inhoud en schuift alles naar links. */
+.fin-app .fin-dagen { flex: 1 1 auto; display: flex; gap: 2px; margin-top: .35rem; }
 .fin-app .fin-dag-label {
     flex: 1 1 0; min-width: 3px; font-size: .62rem; color: var(--fin-dim);
     text-align: center; overflow: visible; white-space: nowrap;
