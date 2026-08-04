@@ -70,8 +70,10 @@
    even breed en laat de laatste rij gewoon halfleeg. */
 .fin-app .fin-chars {
     display: grid; gap: .75rem;
-    /* 250 i.p.v. 200: een volledig saldo is ~13 tekens en past anders niet. */
-    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    /* Nagemeten: randen + portret kosten 75px, het breedste bedrag 101px en de
+       breedste naam 117px. 200px geeft dus ruimte over — genoeg marge voor een
+       saldo in de biljoenen, zonder dat de tegels half leeg staan. */
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
 }
 .fin-app .fin-char {
     padding: .6rem .75rem; border-radius: 8px;
