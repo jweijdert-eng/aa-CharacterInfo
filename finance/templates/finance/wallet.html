@@ -145,7 +145,11 @@
                                         <td class="fin-nowrap">
                                             <span class="fin-erts">
                                                 {% if t.plaatje %}
-                                                    <img loading="lazy" alt="" src="{{ t.plaatje }}">
+                                                    <img loading="lazy" alt=""
+                                                         class="{% if t.skin %}fin-skin{% endif %}"
+                                                         {# blocktranslate kan geen t.schip met een punt erin — vandaar `with`. #}
+                                                         {% if t.schip %}title="{% blocktranslate with schip=t.schip %}CCP heeft geen plaatje van SKINs — dit is de {{ schip }}{% endblocktranslate %}"{% endif %}
+                                                         src="{{ t.plaatje }}">
                                                 {% else %}
                                                     <span class="fin-geen-icoon"
                                                           title="{% if t.skin %}{% translate 'CCP publiceert geen plaatjes van SKINs' %}{% endif %}">

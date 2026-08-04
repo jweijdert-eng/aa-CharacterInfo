@@ -166,8 +166,42 @@ def wallet(user):
 
 
 PLAATJE = "https://images.evetech.net/types/%s/%s?size=32"
+CAT_SCHIP = 6
 CAT_BLUEPRINT = 9
 CAT_SKIN = 91
+
+
+def _skin_schepen(skinnamen):
+    """Bij elke SKIN het schip zoeken waar hij op hoort.
+
+    CCP heeft van SKINs geen plaatje, maar de naam begint met het schip
+    ("Cormorant Navy Issue State Police SKIN"), en dát schip heeft wel een
+    icoon. Langste voorvoegsel eerst, anders pakt "Cormorant Navy Issue" de
+    gewone Cormorant.
+
+    Op 400 willekeurige SKINs raakt dit er 399. De enige misser is het soort
+    "Minmatar Victory SKIN": een factie-SKIN zonder eigen schip.
+    """
+    if not skinnamen:
+        return {}
+    try:
+        from eveuniverse.models import EveType
+    except ImportError:
+        return {}
+
+    schepen = {t.name: t.id for t in EveType.objects
+               .select_related("eve_group")
+               .filter(eve_group__eve_category_id=CAT_SCHIP)}
+    uit = {}
+    for naam in skinnamen:
+        kern = naam[:-4].strip() if naam.endswith("SKIN") else naam
+        woorden = kern.split()
+        for n in range(len(woorden), 0, -1):
+            schip = " ".join(woorden[:n])
+            if schip in schepen:
+                uit[naam] = (schip, schepen[schip])
+                break
+    return uit
 
 
 def _type_info(type_ids):
@@ -178,24 +212,36 @@ def _type_info(type_ids):
     - van SKINs bestaat bij CCP geen enkel plaatje: /icon, /bp en /render geven
       alle drie 404, en de plaatjes-server kent zo'n type niet eens (bij een
       gewoon item geeft /types/{id}/ netjes ["render","icon"] terug). Dat geldt
-      voor alle ~11.800 SKINs, dus we doen er geen verzoek voor en zetten er een
-      penseeltje neer
+      voor alle ~11.800 SKINs. We tonen daarom het schip waar de SKIN op hoort;
+      lukt dat niet, dan een penseeltje.
     """
     try:
         from eveuniverse.models import EveType
     except ImportError:
         return {}
 
-    uit = {}
-    for t in EveType.objects.select_related("eve_group").filter(id__in=list(type_ids)):
+    typen = list(EveType.objects.select_related("eve_group")
+                 .filter(id__in=list(type_ids)))
+
+    def _categorie(t):
         try:
-            categorie = t.eve_group.eve_category_id
+            return t.eve_group.eve_category_id
         except Exception:  # noqa: BLE001 — groep niet geladen
-            categorie = 0
+            return 0
+
+    schepen = _skin_schepen([t.name for t in typen if _categorie(t) == CAT_SKIN])
+
+    uit = {}
+    for t in typen:
+        categorie = _categorie(t)
         skin = categorie == CAT_SKIN
-        plaatje = "" if skin else PLAATJE % (
-            t.id, "bp" if categorie == CAT_BLUEPRINT else "icon")
-        uit[t.id] = {"naam": t.name, "plaatje": plaatje, "skin": skin}
+        schip, schip_id = schepen.get(t.name, (None, None))
+        if skin:
+            plaatje = PLAATJE % (schip_id, "icon") if schip_id else ""
+        else:
+            plaatje = PLAATJE % (t.id, "bp" if categorie == CAT_BLUEPRINT else "icon")
+        uit[t.id] = {"naam": t.name, "plaatje": plaatje, "skin": skin,
+                     "schip": schip or ""}
     return uit
 
 
@@ -244,6 +290,7 @@ def transacties(user, limiet=200):
             "item": (info.get(t["type_id"]) or {}).get("naam") or f"#{t['type_id']}",
             "plaatje": (info.get(t["type_id"]) or {}).get("plaatje", ""),
             "skin": (info.get(t["type_id"]) or {}).get("skin", False),
+            "schip": (info.get(t["type_id"]) or {}).get("schip", ""),
             "aantal": aantal,
             "aantal_fmt": _nl(f"{aantal:,d}"),
             "prijs_fmt": fmt_isk_vol(prijs),
