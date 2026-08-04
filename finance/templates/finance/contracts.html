@@ -1,6 +1,12 @@
 {% extends 'finance/base.html' %}
 {% load i18n %}
 
+{% block fin_icoon %}
+    {# Large Standard Container — een koeriersvracht #}
+    <img class="fin-hero-icon" alt=""
+         src="https://images.evetech.net/types/3296/icon?size=64">
+{% endblock %}
+
 {% block fin_title %}{% translate "Contracts" %}{% endblock %}
 {% block fin_sub %}{% if heeft_contracts %}{{ aantal }} {% translate "contracten" %} — {% translate "saldo" %} {{ saldo_fmt }} ISK{% endif %}{% endblock %}
 

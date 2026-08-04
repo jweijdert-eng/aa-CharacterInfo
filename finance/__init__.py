@@ -4,5 +4,5 @@ De interne naam blijft `finance`: app-label, URL en migraties hangen daaraan.
 Alleen wat de gebruiker ziet heet Character Info.
 """
 
-__version__ = "2.3.1"
+__version__ = "2.4.0"
 __title__ = "Character Info"

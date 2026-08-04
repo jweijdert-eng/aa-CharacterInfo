@@ -1,6 +1,12 @@
 {% extends 'finance/base.html' %}
 {% load i18n %}
 
+{% block fin_icoon %}
+    {# Veldspar #}
+    <img class="fin-hero-icon" alt=""
+         src="https://images.evetech.net/types/1230/icon?size=64">
+{% endblock %}
+
 {% block fin_title %}{% translate "Mining" %}{% endblock %}
 {% block fin_sub %}{% if heeft_mining and totaal %}{{ totaal_fmt }} {% translate "eenheden" %} · {{ totaal_m3_fmt }} m³{% if heeft_prijzen %} · ~{{ totaal_isk_fmt }} ISK{% endif %}{% endif %}{% endblock %}
 

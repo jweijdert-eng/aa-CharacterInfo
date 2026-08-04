@@ -1,6 +1,8 @@
 {% extends 'finance/base.html' %}
 {% load i18n %}
 
+{% block fin_icoon %}{% include "finance/isk_icoon.html" %}{% endblock %}
+
 {% block fin_title %}{% translate "Wallet" %}{% endblock %}
 {% block fin_sub %}{% if heeft_wallet %}{{ totaal_fmt }} ISK {% translate "over al je characters" %}{% endif %}{% endblock %}
 

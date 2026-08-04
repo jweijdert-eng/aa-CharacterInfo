@@ -1,6 +1,12 @@
 {% extends 'finance/base.html' %}
 {% load i18n %}
 
+{% block fin_icoon %}
+    {# Barren Command Center #}
+    <img class="fin-hero-icon" alt=""
+         src="https://images.evetech.net/types/2130/icon?size=64">
+{% endblock %}
+
 {% block fin_title %}{% translate "PI" %}{% endblock %}
 {% block fin_sub %}{% if heeft_pi and aantal %}{{ aantal }} {% translate "kolonies" %} — {% blocktranslate %}alle {{ aantal_characters }} characters{% endblocktranslate %}{% endif %}{% endblock %}
 
