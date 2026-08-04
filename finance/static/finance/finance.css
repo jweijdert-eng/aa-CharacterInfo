@@ -384,3 +384,13 @@
 .fin-app .fin-erts img.fin-skin {
     outline: 1px solid rgba(216, 80, 230, .65); outline-offset: -1px;
 }
+
+/* ISK-tegeltje op de wallet: CCP's Ƶ-icoon op het groene vlak uit het
+   wallet-venster in de game. Het icoon is doorzichtig, dus de kleur komt hier
+   vandaan en niet uit het plaatje. */
+.fin-app .fin-hero-isk {
+    display: inline-flex; align-items: center; justify-content: center;
+    background: linear-gradient(180deg, #3c6b4a, #1d3a28);
+    border: 1px solid #4e8a63;
+}
+.fin-app .fin-hero-isk img { width: 72%; height: 72%; }
