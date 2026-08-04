@@ -23,7 +23,8 @@
             </div>
 
             {% for c in characters %}
-                <div class="fin-char {% if not c.gekoppeld %}fin-char-los{% endif %}">
+                <div class="fin-char {% if not c.gekoppeld %}fin-char-los{% endif %}"
+                     style="--kleur: {{ c.kleur }};">
                     <img class="fin-char-portret" loading="lazy" alt=""
                          src="https://images.evetech.net/characters/{{ c.character_id }}/portrait?size=64">
                     <div class="fin-char-body">
@@ -85,7 +86,9 @@
                         {% for r in regels %}
                             <tr>
                                 <td class="fin-nowrap fin-dim">{{ r.datum|date:"d-m-Y H:i" }}</td>
-                                <td class="fin-nowrap">{{ r.character }}</td>
+                                <td class="fin-nowrap">
+                                    <span class="fin-stip" style="background: {{ r.kleur }};"></span>{{ r.character }}
+                                </td>
                                 <td class="fin-nowrap">{{ r.soort }}</td>
                                 <td class="fin-omschrijving fin-dim">{{ r.omschrijving }}</td>
                                 <td class="fin-getal {% if r.positief %}fin-pos{% else %}fin-neg{% endif %}">

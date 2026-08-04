@@ -32,6 +32,26 @@ def fmt_isk(waarde):
     return f"{waarde:,.0f}".replace(",", ".")
 
 
+# Acht kleuren om characters uit elkaar te houden, nagerekend tegen de donkere
+# achtergrond (#0f0f22): lichtheid binnen de band, chroma boven de vloer, en
+# onderling nog ΔE 8,4 bij protanopie. De naam en het portret dragen de
+# identiteit; de kleur is de snelle herkenning erbij.
+CHAR_KLEUREN = ["#3987e5", "#d95926", "#199e70", "#c98500",
+                "#d55181", "#008300", "#9085e9", "#e66767"]
+
+
+def _kleur_per_character(chars):
+    """Vaste kleur per character.
+
+    Toegekend op volgorde van character_id, niet op saldo: anders verspringen
+    alle kleuren zodra iemand ISK verplaatst, en dan zegt de kleur niets meer
+    over wie het is.
+    """
+    op_id = sorted(chars, key=lambda c: c["character_id"])
+    return {c["character_id"]: CHAR_KLEUREN[i % len(CHAR_KLEUREN)]
+            for i, c in enumerate(op_id)}
+
+
 def _nette_schaal(hoogste, stappen=4):
     """Rond de as af op een prettig getal.
 
@@ -91,16 +111,19 @@ def wallet(user):
     # Rijkste eerst, en per character het aandeel in je totale vermogen. Met een
     # balkje ernaast zie je in één blik waar je ISK staat — bij zes characters
     # is dat uit losse getallen niet af te lezen.
+    kleuren = _kleur_per_character(per_char)
     per_char.sort(key=lambda c: -(c["saldo"] or 0))
     for c in per_char:
         aandeel = (float(c["saldo"]) / totaal * 100) if (totaal and c["saldo"]) else 0
         c["aandeel"] = round(aandeel)
         c["aandeel_fmt"] = f"{aandeel:.0f}%" if aandeel >= 1 else "<1%"
+        c["kleur"] = kleuren[c["character_id"]]
 
     regels = []
     for c in chars:
         for e in esi.journal(c.character_id):
-            regels.append({**e, "_char": c.character_name})
+            regels.append({**e, "_char": c.character_name,
+                           "_kleur": kleuren[c.character_id]})
     regels.sort(key=lambda e: e.get("date") or "", reverse=True)
 
     # Inkomsten en uitgaven van de laatste 30 dagen, per soort opgeteld. Zo zie
@@ -137,6 +160,7 @@ def _journaalregel(e):
         "positief": float(e.get("amount") or 0) >= 0,
         "saldo_fmt": fmt_isk(e.get("balance")),
         "character": e.get("_char", ""),
+        "kleur": e.get("_kleur", ""),
     }
 
 

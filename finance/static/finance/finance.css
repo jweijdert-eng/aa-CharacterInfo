@@ -78,12 +78,20 @@
     display: flex; gap: .6rem; align-items: center; min-width: 0;
 }
 .fin-app .fin-char:hover { border-color: #2a2a4a; }
+/* De rand om het portret en de balk dragen de kleur van dit character, gezet
+   via --kleur op de tegel. Naam en portret blijven de eigenlijke identiteit;
+   de kleur maakt het scannen sneller en koppelt de tegel aan het journaal. */
 .fin-app .fin-char-portret {
     width: 44px; height: 44px; border-radius: 6px; flex: none;
-    border: 1px solid var(--fin-border);
+    border: 2px solid var(--kleur, var(--fin-border));
 }
+.fin-app .fin-char { border-left: 3px solid var(--kleur, var(--fin-border)); }
 .fin-app .fin-char-body { min-width: 0; flex: 1 1 auto; }
 /* Namen kunnen lang zijn; afkappen is netter dan de tegel laten uitrekken. */
+.fin-app .fin-stip {
+    display: inline-block; width: 8px; height: 8px; border-radius: 2px;
+    margin-right: .45rem; vertical-align: 0;
+}
 .fin-app .fin-char-naam {
     font-size: .68rem; letter-spacing: .05em; text-transform: uppercase;
     color: var(--fin-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -96,7 +104,7 @@
 }
 /* Minimumbreedte: een character met een half procent van je vermogen zou
    anders een balkje van nul pixels krijgen en lijken te ontbreken. */
-.fin-app .fin-char-vulling { height: 100%; min-width: 3px; background: var(--fin-gold); border-radius: 2px; }
+.fin-app .fin-char-vulling { height: 100%; min-width: 3px; background: var(--kleur, var(--fin-gold)); border-radius: 2px; }
 .fin-app .fin-char-pct { font-size: .66rem; color: var(--fin-dim); flex: none; }
 .fin-app .fin-char-los { opacity: .55; }
 
