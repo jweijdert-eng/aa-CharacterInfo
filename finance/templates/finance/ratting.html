@@ -2,7 +2,7 @@
 {% load i18n %}
 
 {% block fin_title %}{% translate "Ratting" %}{% endblock %}
-{% block fin_sub %}{% if heeft_wallet %}{{ totaal_fmt }} ISK {% translate "aan bounty's en ESS" %}{% endif %}{% endblock %}
+{% block fin_sub %}{% if heeft_wallet %}{{ totaal_fmt }} ISK {% translate "aan bounty's en ESS" %} — {% blocktranslate %}alle {{ aantal_characters }} characters{% endblocktranslate %}{% endif %}{% endblock %}
 
 {% block details %}
     {% if not heeft_wallet %}
@@ -97,6 +97,30 @@
             </div>
         {% endif %}
 
+        {% if verdeling %}
+            <h2 class="fin-kop">{% translate "Per character" %}</h2>
+            <div class="fin-tablewrap">
+                <table class="fin-table">
+                    <tbody>
+                        {% for v in verdeling %}
+                            <tr>
+                                <td style="width: 25%;">
+                                    <span class="fin-stip" style="background: {{ v.kleur }};"></span>{{ v.naam }}
+                                </td>
+                                <td>
+                                    <div class="fin-bron-balk" style="width: {{ v.pct }}%; background: {{ v.kleur }};"></div>
+                                </td>
+                                <td class="fin-dim" style="width: 1%; white-space: nowrap;">
+                                    {{ v.aantal }} {% translate "uitbetalingen" %}
+                                </td>
+                                <td class="fin-getal fin-pos" style="width: 1%;">{{ v.bedrag_fmt }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% endif %}
+
         <h2 class="fin-kop">{% translate "Uitbetalingen" %}</h2>
         {% if regels %}
             <div class="fin-tablewrap">
@@ -114,7 +138,7 @@
                         {% for r in regels %}
                             <tr>
                                 <td class="fin-nowrap fin-dim">{{ r.datum|date:"d-m-Y H:i" }}</td>
-                                <td class="fin-nowrap">{{ r.character }}</td>
+                                <td class="fin-nowrap"><span class="fin-stip" style="background: {{ r.kleur }};"></span>{{ r.character }}</td>
                                 <td class="fin-nowrap">
                                     <span class="fin-badge"
                                           style="color: {% if r.is_ess %}var(--fin-ess){% else %}var(--fin-bounty){% endif %};

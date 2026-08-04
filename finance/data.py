@@ -169,14 +169,31 @@ def _journaalregel(e):
 # --------------------------------------------------------------------------
 
 def ratting(user, dagen=30):
-    """Bounty- en ESS-inkomsten van het hele account."""
+    """Bounty- en ESS-inkomsten over ALLE characters van dit account."""
     chars = esi.characters(user)
+    kleuren = _kleur_per_character([{"character_id": c.character_id} for c in chars])
     regels = []
     for c in chars:
         for e in esi.journal(c.character_id):
             if e.get("ref_type") in (REF_BOUNTY, REF_ESS):
-                regels.append({**e, "_char": c.character_name})
+                regels.append({**e, "_char": c.character_name,
+                               "_char_id": c.character_id,
+                               "_kleur": kleuren[c.character_id]})
     regels.sort(key=lambda e: e.get("date") or "", reverse=True)
+
+    # Verdeling per character. Ratten meerdere characters, dan wil je weten wie
+    # wat bijdroeg; ratte er maar één, dan is die uitsplitsing alleen ruis.
+    per_char = {}
+    for e in regels:
+        vak = per_char.setdefault(e["_char_id"], {
+            "naam": e["_char"], "kleur": e["_kleur"], "bedrag": 0.0, "aantal": 0})
+        vak["bedrag"] += float(e["amount"])
+        vak["aantal"] += 1
+    verdeling = sorted(per_char.values(), key=lambda v: -v["bedrag"])
+    hoogste_char = max((v["bedrag"] for v in verdeling), default=0) or 1
+    for v in verdeling:
+        v["bedrag_fmt"] = fmt_isk(v["bedrag"])
+        v["pct"] = round(v["bedrag"] / hoogste_char * 100)
 
     bounty = sum(float(e["amount"]) for e in regels if e["ref_type"] == REF_BOUNTY)
     ess = sum(float(e["amount"]) for e in regels if e["ref_type"] == REF_ESS)
@@ -239,8 +256,11 @@ def ratting(user, dagen=30):
         "actieve_dagen": actieve_dagen,
         "gem_per_dag_fmt": fmt_isk(totaal / actieve_dagen) if actieve_dagen else "—",
         "grafiek": getoond,
+        "verdeling": verdeling if len(verdeling) > 1 else [],
+        "aantal_characters": len(chars),
         "regels": [{
             "datum": _parse(e.get("date")),
+            "kleur": e.get("_kleur", ""),
             "is_ess": e["ref_type"] == REF_ESS,
             "soort": "ESS" if e["ref_type"] == REF_ESS else "Bounty",
             "bedrag_fmt": fmt_isk(e["amount"]),
