@@ -77,13 +77,16 @@ def wallet(user):
             per_soort[e.get("ref_type") or "onbekend"] += float(e.get("amount") or 0)
 
     soorten = sorted(per_soort.items(), key=lambda kv: -abs(kv[1]))[:12]
+    # Balkje op de grootste post schalen, zodat je in één blik ziet wat zwaar weegt.
+    grootste = max((abs(v) for _, v in soorten), default=0) or 1
     return {
         "characters": per_char,
         "totaal": totaal,
         "totaal_fmt": fmt_isk(totaal),
         "regels": [_journaalregel(e) for e in regels[:200]],
         "soorten": [{"ref_type": k, "naam": k.replace("_", " ").capitalize(),
-                     "bedrag": v, "bedrag_fmt": fmt_isk(v), "positief": v >= 0}
+                     "bedrag": v, "bedrag_fmt": fmt_isk(v), "positief": v >= 0,
+                     "pct": round(abs(v) / grootste * 100)}
                     for k, v in soorten],
     }
 

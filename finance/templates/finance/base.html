@@ -1,64 +1,37 @@
 {% extends 'allianceauth/base-bs5.html' %}
 {% load i18n %}
+{% load static %}
 
 {% block page_title %}{% translate "Finance" %}{% endblock %}
 {% block header_nav_brand %}{% translate "Finance" %}{% endblock header_nav_brand %}
 
+{% block extra_css %}
+    <link rel="stylesheet" href="{% static 'finance/finance.css' %}">
+{% endblock extra_css %}
+
 {% block content %}
     <div class="fin-app">
 
-        <div class="fin-hero mb-3">
-            <div class="fin-hero-tekst">
+        <div class="fin-hero">
+            {# ISK-icoon uit EVE's eigen image-server, zelfde truc als Corp Hauling. #}
+            <img class="fin-hero-icon" alt=""
+                 src="https://images.evetech.net/types/29668/icon?size=64">
+            <div>
                 <h1 class="fin-hero-title">{% block fin_title %}{% translate "Finance" %}{% endblock %}</h1>
                 <div class="fin-hero-sub">{% block fin_sub %}{% endblock %}</div>
             </div>
         </div>
 
-        {# Tabbladen: zo wissel je tussen de drie pagina's zonder terug naar het menu. #}
-        <ul class="nav nav-tabs mb-3">
-            <li class="nav-item">
-                <a class="nav-link {% if actief == 'wallet' %}active{% endif %}"
-                   href="{% url 'finance:wallet' %}">{% translate "Wallet" %}</a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link {% if actief == 'contracts' %}active{% endif %}"
-                   href="{% url 'finance:contracts' %}">{% translate "Contracts" %}</a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link {% if actief == 'ratting' %}active{% endif %}"
-                   href="{% url 'finance:ratting' %}">{% translate "Ratting" %}</a>
-            </li>
-        </ul>
+        {# Tabbladen: wisselen tussen de drie pagina's zonder terug naar het menu. #}
+        <div class="fin-tabs">
+            <a class="fin-tab {% if actief == 'wallet' %}is-actief{% endif %}"
+               href="{% url 'finance:wallet' %}">{% translate "Wallet" %}</a>
+            <a class="fin-tab {% if actief == 'contracts' %}is-actief{% endif %}"
+               href="{% url 'finance:contracts' %}">{% translate "Contracts" %}</a>
+            <a class="fin-tab {% if actief == 'ratting' %}is-actief{% endif %}"
+               href="{% url 'finance:ratting' %}">{% translate "Ratting" %}</a>
+        </div>
 
         {% block details %}{% endblock %}
     </div>
-
-    <style>
-        .fin-hero-title { font-size: 1.5rem; margin: 0; }
-        /* De journaal-omschrijvingen zijn lang; zonder deze grens duwt de tabel
-           de hele pagina breder en schuiven de kaarten het scherm af. */
-        .fin-app { max-width: 100%; overflow-x: hidden; }
-        .fin-app .table-responsive { max-width: 100%; }
-        .fin-hero-sub { opacity: .7; font-size: .9rem; }
-        /* Geen --bs-tertiary-bg gebruiken: bij het donkere AA-thema is die
-           lichtgrijs, waardoor witte tekst op een witte kaart onleesbaar wordt.
-           Een doorschijnende laag werkt op elk thema, licht of donker. */
-        .fin-kaarten { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-                       gap: .75rem; }
-        .fin-kaart { background: rgba(128, 128, 128, .14); border: 1px solid rgba(128, 128, 128, .32);
-                     border-radius: .5rem; padding: .7rem .9rem; color: inherit; }
-        .fin-kaart-label { font-size: .68rem; letter-spacing: .04em; text-transform: uppercase;
-                           opacity: .7; }
-        .fin-kaart-waarde { font-size: 1.25rem; font-weight: 700; font-variant-numeric: tabular-nums; }
-        .fin-kaart-sub { font-size: .72rem; opacity: .7; }
-        .fin-pos { color: #4caf50; }
-        .fin-neg { color: #ef5350; }
-        .fin-tabel td, .fin-tabel th { font-size: .82rem; vertical-align: middle; }
-        .fin-getal { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
-        .fin-balk { display: flex; align-items: flex-end; gap: 2px; height: 110px; }
-        .fin-balk-kolom { flex: 1 1 0; display: flex; flex-direction: column; justify-content: flex-end;
-                          min-width: 3px; }
-        .fin-balk-bounty { background: #d4a017; }
-        .fin-balk-ess { background: #4a90d9; }
-    </style>
 {% endblock %}

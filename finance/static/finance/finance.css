@@ -1,0 +1,145 @@
+/* Finance — EVE-dark thema, zelfde palet als Corp KillBoard en Character Scan */
+.fin-app {
+    --fin-surface: #0f0f22;
+    --fin-surface-2: #13132b;
+    --fin-border: #1c1c35;
+    --fin-text: #e1e4f0;
+    --fin-dim: #8a90b0;
+    --fin-blue: #00b4d8;
+    --fin-gold: #f0c040;
+    --fin-green: #3ecf6e;
+    --fin-red: #e05555;
+
+    /* Seriekleuren voor de grafiek. Deze twee zijn niet op gevoel gekozen maar
+       nagerekend tegen de donkere achtergrond: lichtheid binnen de band voor
+       donkere modus, en onderling ΔE 19 bij protanopie / 24 bij normaal zicht —
+       ruim boven de drempel, dus ook bij kleurenblindheid te onderscheiden. */
+    --fin-bounty: #b8860b;
+    --fin-ess: #0e86a8;
+
+    color: var(--fin-text);
+}
+.fin-app a { color: var(--fin-blue); text-decoration: none; }
+.fin-app a:hover { text-decoration: underline; }
+
+/* ── Kop ──────────────────────────────────────────────────────────────── */
+.fin-app .fin-hero {
+    display: flex; align-items: center; gap: .9rem;
+    padding: .8rem 1rem; border-radius: 10px; margin-bottom: 1rem;
+    background: linear-gradient(90deg, rgba(240, 192, 64, .10), var(--fin-surface) 45%);
+    border: 1px solid var(--fin-border);
+}
+.fin-app .fin-hero-icon { width: 54px; height: 54px; border-radius: 8px; flex: none; }
+.fin-app .fin-hero-title { font-size: 1.35rem; font-weight: 700; margin: 0; line-height: 1.2; }
+.fin-app .fin-hero-sub { font-size: .85rem; color: var(--fin-dim); }
+
+/* ── Tabbladen ────────────────────────────────────────────────────────── */
+.fin-app .fin-tabs { display: flex; gap: .3rem; margin-bottom: 1rem; border-bottom: 1px solid var(--fin-border); }
+.fin-app .fin-tab {
+    padding: .45rem .95rem; border-radius: 8px 8px 0 0; font-size: .88rem; font-weight: 600;
+    color: var(--fin-dim); border: 1px solid transparent; border-bottom: 0;
+}
+.fin-app .fin-tab:hover { color: var(--fin-text); background: var(--fin-surface); text-decoration: none; }
+.fin-app .fin-tab.is-actief {
+    color: var(--fin-gold); background: var(--fin-surface);
+    border-color: var(--fin-border); margin-bottom: -1px;
+}
+
+/* ── Stat-tegels ──────────────────────────────────────────────────────── */
+.fin-app .fin-stats { display: flex; gap: .75rem; flex-wrap: wrap; }
+.fin-app .fin-stat {
+    flex: 1 1 170px; padding: .6rem .9rem; border-radius: 8px;
+    background: var(--fin-surface); border: 1px solid var(--fin-border);
+    display: flex; flex-direction: column; line-height: 1.2;
+}
+.fin-app .fin-stat .l { font-size: .72rem; letter-spacing: .06em; text-transform: uppercase; color: var(--fin-dim); }
+.fin-app .fin-stat .v { font-size: 1.5rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.fin-app .fin-stat .s { font-size: .8rem; color: var(--fin-dim); }
+.fin-app .fin-stat-bounty { border-left: 3px solid var(--fin-bounty); }
+.fin-app .fin-stat-ess { border-left: 3px solid var(--fin-ess); }
+.fin-app .fin-stat-totaal { border-left: 3px solid var(--fin-gold); }
+.fin-app .fin-stat-totaal .v { color: var(--fin-gold); }
+.fin-app .fin-stat-leeg .v { color: var(--fin-dim); font-size: 1.1rem; }
+
+/* ── Tabellen ─────────────────────────────────────────────────────────── */
+.fin-app .fin-tablewrap { overflow-x: auto; border-radius: 8px; border: 1px solid var(--fin-border); }
+.fin-app .fin-table { width: 100%; border-collapse: collapse; background: var(--fin-surface); }
+.fin-app .fin-table thead th {
+    font-size: .72rem; letter-spacing: .06em; text-transform: uppercase; color: var(--fin-dim);
+    font-weight: 600; text-align: left; padding: .5rem .8rem; white-space: nowrap;
+    border-bottom: 1px solid var(--fin-border); background: var(--fin-surface-2);
+}
+.fin-app .fin-table tbody tr { border-bottom: 1px solid var(--fin-border); transition: background .12s; }
+.fin-app .fin-table tbody tr:last-child { border-bottom: 0; }
+.fin-app .fin-table tbody tr:hover { background: var(--fin-surface-2); }
+.fin-app .fin-table td { padding: .45rem .8rem; vertical-align: middle; font-size: .84rem; }
+.fin-app .fin-getal { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; font-weight: 600; }
+.fin-app .fin-pos { color: var(--fin-green); }
+.fin-app .fin-neg { color: var(--fin-red); }
+.fin-app .fin-dim { color: var(--fin-dim); }
+.fin-app .fin-nowrap { white-space: nowrap; }
+/* De omschrijvingskolom mag lang zijn, maar niet de tabel oneindig oprekken. */
+.fin-app .fin-omschrijving { max-width: 460px; }
+
+/* Statusbadges */
+.fin-app .fin-badge {
+    display: inline-block; padding: .12rem .5rem; border-radius: 999px;
+    font-size: .7rem; font-weight: 700; letter-spacing: .03em; white-space: nowrap;
+}
+.fin-app .fin-badge-klaar { color: var(--fin-green); background: rgba(62, 207, 110, .13); border: 1px solid rgba(62, 207, 110, .4); }
+.fin-app .fin-badge-bezig { color: var(--fin-blue); background: rgba(0, 180, 216, .13); border: 1px solid rgba(0, 180, 216, .4); }
+.fin-app .fin-badge-open { color: var(--fin-gold); background: rgba(240, 192, 64, .13); border: 1px solid rgba(240, 192, 64, .4); }
+.fin-app .fin-badge-rest { color: var(--fin-dim); background: rgba(138, 144, 176, .13); border: 1px solid rgba(138, 144, 176, .35); }
+
+/* ── Herkomst-balkjes ─────────────────────────────────────────────────── */
+.fin-app .fin-bron-balk {
+    height: 6px; border-radius: 3px; min-width: 2px;
+    background: var(--fin-green);
+}
+.fin-app .fin-bron-balk.neg { background: var(--fin-red); }
+
+/* ── Grafiek ──────────────────────────────────────────────────────────── */
+.fin-app .fin-grafiek {
+    display: flex; align-items: flex-end; gap: 3px; height: 130px;
+    padding: .8rem; border-radius: 8px;
+    background: var(--fin-surface); border: 1px solid var(--fin-border);
+}
+.fin-app .fin-kolom {
+    flex: 1 1 0; min-width: 4px; display: flex; flex-direction: column;
+    justify-content: flex-end; height: 100%; cursor: default;
+}
+.fin-app .fin-kolom:hover { filter: brightness(1.35); }
+/* De twee stukken krijgen een gaatje in de achtergrondkleur ertussen, zodat je
+   ook zonder kleur ziet waar bounty ophoudt en ESS begint. */
+.fin-app .fin-seg-ess {
+    background: var(--fin-ess); border-radius: 4px 4px 0 0;
+    margin-bottom: 2px;
+}
+.fin-app .fin-seg-bounty { background: var(--fin-bounty); border-radius: 4px 4px 0 0; }
+.fin-app .fin-kolom .fin-seg-ess:only-child,
+.fin-app .fin-kolom .fin-seg-bounty:only-child { border-radius: 4px 4px 0 0; }
+
+.fin-app .fin-legenda { display: flex; gap: 1rem; align-items: center; margin-top: .5rem; font-size: .78rem; color: var(--fin-dim); }
+.fin-app .fin-legenda-punt { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: .35rem; vertical-align: -1px; }
+
+.fin-app h2.fin-kop {
+    font-size: .95rem; font-weight: 700; letter-spacing: .03em;
+    margin: 1.4rem 0 .6rem; color: var(--fin-text);
+}
+.fin-app h2.fin-kop span { font-weight: 400; color: var(--fin-dim); font-size: .82rem; }
+
+.fin-app .fin-melding {
+    padding: .9rem 1.1rem; border-radius: 8px; max-width: 640px;
+    background: var(--fin-surface); border: 1px solid var(--fin-border);
+    border-left: 3px solid var(--fin-gold);
+}
+.fin-app .fin-knop {
+    display: inline-block; padding: .4rem .9rem; border-radius: 8px; font-weight: 700; font-size: .85rem;
+    color: #f0932b; border: 1px solid rgba(240, 147, 43, .55); background: rgba(240, 147, 43, .13);
+}
+.fin-app .fin-knop:hover { background: rgba(240, 147, 43, .24); border-color: #f0932b; color: #ffc078; text-decoration: none; }
+
+@media (max-width: 720px) {
+    .fin-app .fin-omschrijving { max-width: 200px; }
+    .fin-app .fin-hero-icon { display: none; }
+}

@@ -6,39 +6,45 @@
 
 {% block details %}
     {% if not heeft_wallet %}
-        <div class="alert alert-warning" style="max-width: 640px;">
+        <div class="fin-melding">
             <p class="mb-2">{% translate "Om je saldo en journaal te tonen hebben we toegang tot je wallet nodig." %}</p>
-            <p class="mb-3 small">{% translate "Koppel je character één keer; dat geldt meteen voor alle drie de tabbladen." %}</p>
-            <a href="{% url 'finance:koppelen' %}" class="btn btn-sm btn-warning">
-                {% translate "Character koppelen" %}
-            </a>
+            <p class="mb-3 fin-dim" style="font-size:.85rem;">
+                {% translate "Koppel je character één keer; dat geldt meteen voor alle drie de tabbladen." %}
+            </p>
+            <a href="{% url 'finance:koppelen' %}" class="fin-knop">{% translate "Character koppelen" %}</a>
         </div>
     {% else %}
 
-        <div class="fin-kaarten mb-3">
+        <div class="fin-stats">
+            <div class="fin-stat fin-stat-totaal">
+                <span class="l">{% translate "Totaal" %}</span>
+                <span class="v">{{ totaal_fmt }}</span>
+                <span class="s">{% translate "alle characters samen" %}</span>
+            </div>
             {% for c in characters %}
-                <div class="fin-kaart">
-                    <div class="fin-kaart-label">{{ c.naam }}</div>
-                    <div class="fin-kaart-waarde">{{ c.saldo_fmt }}</div>
-                    <div class="fin-kaart-sub">
-                        {% if c.gekoppeld %}ISK{% else %}{% translate "niet gekoppeld" %}{% endif %}
-                    </div>
+                <div class="fin-stat {% if not c.gekoppeld %}fin-stat-leeg{% endif %}">
+                    <span class="l">{{ c.naam }}</span>
+                    <span class="v">{{ c.saldo_fmt }}</span>
+                    <span class="s">{% if c.gekoppeld %}ISK{% else %}{% translate "niet gekoppeld" %}{% endif %}</span>
                 </div>
             {% endfor %}
         </div>
 
         {% if soorten %}
-            <h2 class="h6 mt-4">{% translate "Waar je geld vandaan komt" %}
-                <span class="fin-kaart-sub">— {% translate "laatste 30 dagen" %}</span></h2>
-            <div class="table-responsive">
-                <table class="table table-sm fin-tabel">
+            <h2 class="fin-kop">{% translate "Waar je geld vandaan komt" %}
+                <span>— {% translate "laatste 30 dagen" %}</span></h2>
+            <div class="fin-tablewrap">
+                <table class="fin-table">
                     <tbody>
                         {% for s in soorten %}
                             <tr>
-                                <td>{{ s.naam }}</td>
-                                <td class="fin-getal {% if s.positief %}fin-pos{% else %}fin-neg{% endif %}">
-                                    {{ s.bedrag_fmt }}
+                                <td style="width: 30%;">{{ s.naam }}</td>
+                                <td>
+                                    <div class="fin-bron-balk {% if not s.positief %}neg{% endif %}"
+                                         style="width: {{ s.pct }}%;"></div>
                                 </td>
+                                <td class="fin-getal {% if s.positief %}fin-pos{% else %}fin-neg{% endif %}"
+                                    style="width: 1%;">{{ s.bedrag_fmt }}</td>
                             </tr>
                         {% endfor %}
                     </tbody>
@@ -46,10 +52,11 @@
             </div>
         {% endif %}
 
-        <h2 class="h6 mt-4">{% translate "Journaal" %}</h2>
+        <h2 class="fin-kop">{% translate "Journaal" %}
+            <span>— {% translate "laatste 200 regels" %}</span></h2>
         {% if regels %}
-            <div class="table-responsive">
-                <table class="table table-sm table-hover fin-tabel">
+            <div class="fin-tablewrap">
+                <table class="fin-table">
                     <thead>
                         <tr>
                             <th>{% translate "Datum" %}</th>
@@ -63,22 +70,21 @@
                     <tbody>
                         {% for r in regels %}
                             <tr>
-                                <td class="text-nowrap">{{ r.datum|date:"d-m-Y H:i" }}</td>
-                                <td class="text-nowrap">{{ r.character }}</td>
-                                <td class="text-nowrap">{{ r.soort }}</td>
-                                <td>{{ r.omschrijving }}</td>
+                                <td class="fin-nowrap fin-dim">{{ r.datum|date:"d-m-Y H:i" }}</td>
+                                <td class="fin-nowrap">{{ r.character }}</td>
+                                <td class="fin-nowrap">{{ r.soort }}</td>
+                                <td class="fin-omschrijving fin-dim">{{ r.omschrijving }}</td>
                                 <td class="fin-getal {% if r.positief %}fin-pos{% else %}fin-neg{% endif %}">
                                     {{ r.bedrag_fmt }}
                                 </td>
-                                <td class="fin-getal">{{ r.saldo_fmt }}</td>
+                                <td class="fin-getal fin-dim">{{ r.saldo_fmt }}</td>
                             </tr>
                         {% endfor %}
                     </tbody>
                 </table>
             </div>
-            <p class="fin-kaart-sub">{% translate "Laatste 200 regels." %}</p>
         {% else %}
-            <div class="alert alert-secondary">{% translate "Geen journaalregels gevonden." %}</div>
+            <div class="fin-melding">{% translate "Geen journaalregels gevonden." %}</div>
         {% endif %}
     {% endif %}
 {% endblock %}
