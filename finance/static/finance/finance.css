@@ -128,6 +128,18 @@
 .fin-app .fin-inhoud-aantal { color: var(--fin-dim); font-variant-numeric: tabular-nums; margin-left: auto; }
 .fin-app .fin-inhoud-gevraagd { color: var(--fin-red); font-size: .68rem; text-transform: uppercase; }
 
+/* Bedragen in de contractentabel. De kleur ís de richting: groen kwam jouw kant
+   op, rood ging eruit. Een nul of een niet-afgerond contract blijft neutraal —
+   daar is niets verplaatst, dus daar valt niets te kleuren. Zo hoeft er geen
+   aparte netto-kolom te staan. */
+.fin-app .fin-bedrag-in { color: var(--fin-green); }
+.fin-app .fin-bedrag-uit { color: var(--fin-red); }
+.fin-app .fin-bedrag-geen { color: var(--fin-dim); font-weight: 400; }
+
+/* Namen: je eigen character licht op, de tegenpartij blijft gewone tekst.
+   Grijs maakte namen onnodig moeilijk leesbaar. */
+.fin-app .fin-ik { color: var(--fin-gold); font-weight: 600; }
+
 /* Rol: heb je het contract zelf uitgegeven of aangenomen? */
 .fin-app .fin-rol { font-size: .68rem; letter-spacing: .04em; text-transform: uppercase; color: var(--fin-dim); }
 

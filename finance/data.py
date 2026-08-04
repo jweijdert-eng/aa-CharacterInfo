@@ -237,8 +237,32 @@ def contracten(user):
         else:
             netto = 0.0
 
+        # Richting per bedrag, zodat de kleur van het bedrag zelf al vertelt of
+        # het jouw kant op kwam. Scheelt een aparte netto-kolom.
+        # `price` loopt van acceptor naar uitgever, `reward` andersom.
+        klaar = k.get("status") in FINISHED
+        if not klaar or not prijs:
+            prijs_richting = ""
+        elif ben_uitgever:
+            prijs_richting = "in"
+        elif ben_acceptor:
+            prijs_richting = "uit"
+        else:
+            prijs_richting = ""
+
+        if not klaar or not beloning:
+            beloning_richting = ""
+        elif ben_acceptor:
+            beloning_richting = "in"
+        elif ben_uitgever:
+            beloning_richting = "uit"
+        else:
+            beloning_richting = ""
+
         spullen = _inhoud(k["contract_id"])
         rijen.append({
+            "prijs_richting": prijs_richting,
+            "beloning_richting": beloning_richting,
             "id": k["contract_id"],
             "inhoud": spullen,
             "inhoud_aantal": sum(s["aantal"] for s in spullen),

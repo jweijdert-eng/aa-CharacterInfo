@@ -40,7 +40,7 @@
         </div>
 
         <h2 class="fin-kop">{% translate "Contracten" %}
-            <span>— {% translate "de gekleurde rand toont of het contract je geld opleverde of kostte" %}</span></h2>
+            <span>— {% translate "groen kwam binnen, rood ging eruit" %}</span></h2>
         {% if rijen %}
             <div class="fin-tablewrap">
                 <table class="fin-table">
@@ -54,7 +54,6 @@
                             <th>{% translate "Naar" %}</th>
                             <th class="fin-getal">{% translate "Prijs" %}</th>
                             <th class="fin-getal">{% translate "Beloning" %}</th>
-                            <th class="fin-getal">{% translate "Netto" %}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -102,28 +101,23 @@
                                         </details>
                                     {% endif %}
                                 </td>
-                                <td class="fin-nowrap {% if r.ben_uitgever %}fin-pos{% else %}fin-dim{% endif %}">
+                                <td class="fin-nowrap {% if r.ben_uitgever %}fin-ik{% endif %}">
                                     {{ r.uitgever }}
                                 </td>
-                                <td class="fin-nowrap {% if r.ben_acceptor %}fin-pos{% else %}fin-dim{% endif %}">
+                                <td class="fin-nowrap {% if r.ben_acceptor %}fin-ik{% elif not r.koper %}fin-dim{% endif %}">
                                     {{ r.koper|default:"—" }}
                                 </td>
-                                <td class="fin-getal fin-dim">{{ r.prijs_fmt }}</td>
-                                <td class="fin-getal fin-dim">{{ r.beloning_fmt }}</td>
                                 {% comment %}
-                                    Alleen bij een afgerond contract is er geld verplaatst. Bij een
-                                    verwijderd of mislukt contract zou een bedrag hier een geldstroom
-                                    suggereren die nooit heeft plaatsgevonden.
-
-                                    NB: {# … #} werkt in Django alleen op één regel; over meerdere
-                                    regels wordt het gewoon als tekst afgedrukt.
+                                    De kleur van het bedrag vertelt de richting: groen als het jouw
+                                    kant op kwam, rood als je het betaalde. Alleen bij een afgerond
+                                    contract, want bij een verwijderd of mislukt contract is er nooit
+                                    geld verplaatst — dan blijft het bedrag neutraal.
                                 {% endcomment %}
-                                <td class="fin-getal {% if r.netto_positief %}fin-pos{% elif r.netto %}fin-neg{% endif %}">
-                                    {% if r.is_klaar and r.netto %}
-                                        {% if r.netto_positief %}+{% endif %}{{ r.netto_fmt }}
-                                    {% else %}
-                                        <span class="fin-dim" title="{% translate 'Niet afgerond — er is geen geld verplaatst' %}">—</span>
-                                    {% endif %}
+                                <td class="fin-getal fin-bedrag-{{ r.prijs_richting|default:'geen' }}">
+                                    {{ r.prijs_fmt }}
+                                </td>
+                                <td class="fin-getal fin-bedrag-{{ r.beloning_richting|default:'geen' }}">
+                                    {{ r.beloning_fmt }}
                                 </td>
                             </tr>
                         {% endfor %}
@@ -131,7 +125,7 @@
                 </table>
             </div>
             <p class="fin-dim" style="font-size:.76rem; margin-top:.5rem;">
-                {% translate "Netto is wat het contract jou opleverde: bij een verkoop de prijs die je ontving, bij een koeriersrit de beloning. Alleen afgeronde contracten tellen mee in het saldo." %}
+                {% translate "Groene bedragen kwamen jouw kant op, rode heb je betaald. Bedragen van niet-afgeronde contracten blijven grijs — daar is nooit geld verplaatst." %}
             </p>
         {% else %}
             <div class="fin-melding">{% translate "Geen contracten gevonden." %}</div>
