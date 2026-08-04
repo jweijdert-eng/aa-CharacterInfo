@@ -1,4 +1,4 @@
-"""Hook into Alliance Auth — Finance.
+"""Hook into Alliance Auth — Character Info.
 
 Eén menu-item. De drie onderdelen (Wallet, Contracts, Ratting) zitten als
 tabbladen in de pagina zelf, dus drie losse menu-items zouden hetzelfde werk
@@ -14,7 +14,7 @@ from allianceauth.services.hooks import MenuItemHook, UrlHook
 from finance import urls
 
 
-class FinanceMenuItem(MenuItemHook):
+class CharacterInfoMenuItem(MenuItemHook):
     """Menu-item dat alleen zichtbaar is voor wie de plugin mag gebruiken.
 
     LET OP als je hier ooit meerdere items van maakt: AA bepaalt de identiteit
@@ -27,8 +27,8 @@ class FinanceMenuItem(MenuItemHook):
     def __init__(self):
         MenuItemHook.__init__(
             self,
-            _("Finance"),
-            "fas fa-coins fa-fw",
+            _("Character Info"),
+            "fas fa-id-card fa-fw",
             "finance:index",
             order=1010,
             navactive=["finance:"],
@@ -42,7 +42,7 @@ class FinanceMenuItem(MenuItemHook):
 
 @hooks.register("menu_item_hook")
 def register_menu():
-    return FinanceMenuItem()
+    return CharacterInfoMenuItem()
 
 
 @hooks.register("url_hook")

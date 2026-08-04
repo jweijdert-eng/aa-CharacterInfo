@@ -2,8 +2,8 @@
 {% load i18n %}
 {% load static %}
 
-{% block page_title %}{% translate "Finance" %}{% endblock %}
-{% block header_nav_brand %}{% translate "Finance" %}{% endblock header_nav_brand %}
+{% block page_title %}{% translate "Character Info" %}{% endblock %}
+{% block header_nav_brand %}{% translate "Character Info" %}{% endblock header_nav_brand %}
 
 {% block extra_css %}
     <link rel="stylesheet" href="{% static 'finance/finance.css' %}">
@@ -17,7 +17,7 @@
             <img class="fin-hero-icon" alt=""
                  src="https://images.evetech.net/types/29668/icon?size=64">
             <div>
-                <h1 class="fin-hero-title">{% block fin_title %}{% translate "Finance" %}{% endblock %}</h1>
+                <h1 class="fin-hero-title">{% block fin_title %}{% translate "Character Info" %}{% endblock %}</h1>
                 <div class="fin-hero-sub">{% block fin_sub %}{% endblock %}</div>
             </div>
         </div>

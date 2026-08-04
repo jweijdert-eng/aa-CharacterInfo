@@ -1,6 +1,9 @@
-# Finance
+# Character Info
 
-Alliance Auth-plugin die je **eigen** financiën op één plek toont: wallet, contracten en ratting-inkomsten.
+Alliance Auth-plugin die je **eigen** gegevens op één plek toont: wallet, contracten en ratting-inkomsten.
+
+> De interne naam is `finance` — app-label, URL (`/finance/`) en migraties hangen daaraan.
+> Alleen wat je in de interface ziet heet Character Info.
 
 Drie tabbladen:
 
@@ -18,7 +21,7 @@ Voeg `finance` toe aan `INSTALLED_APPS`, draai `migrate` en `collectstatic`, en 
 
 ## Menu
 
-Eén menu-item **Finance**. De drie onderdelen zitten als tabbladen in de pagina zelf, dus je hoeft
+Eén menu-item **Character Info**. De drie onderdelen zitten als tabbladen in de pagina zelf, dus je hoeft
 niets in de admin in te richten.
 
 ## Scopes

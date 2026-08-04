@@ -15,5 +15,5 @@ class General(models.Model):
         managed = False
         default_permissions = ()
         permissions = (
-            ("basic_access", _("Kan de eigen financiën bekijken")),
+            ("basic_access", _("Kan de eigen character-info bekijken")),
         )
