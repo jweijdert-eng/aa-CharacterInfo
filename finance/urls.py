@@ -11,5 +11,7 @@ urlpatterns = [
     path("wallet/", views.wallet, name="wallet"),
     path("contracts/", views.contracts, name="contracts"),
     path("ratting/", views.ratting, name="ratting"),
+    path("mining/", views.mining, name="mining"),
+    path("pi/", views.pi, name="pi"),
     path("koppelen/", views.koppelen, name="koppelen"),
 ]

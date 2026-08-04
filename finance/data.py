@@ -419,3 +419,237 @@ def contracten(user):
         "saldo_fmt": fmt_isk(verdiend - betaald),
         "beloning_fmt": fmt_isk(sum(r["beloning"] for r in klaar)),
     }
+
+
+# --------------------------------------------------------------------------
+# Mining
+# --------------------------------------------------------------------------
+
+def _type_gegevens(type_ids):
+    """Volume, portionSize en reprocessing-materialen uit django-eveuniverse.
+
+    Die database staat er lokaal al (volledige type-data geladen), dus hiervoor
+    is geen enkele ESI-call nodig.
+    """
+    volumes, portie, materialen = {}, {}, {}
+    try:
+        from eveuniverse.models import EveType, EveTypeMaterial
+    except ImportError:                 # eveuniverse niet geïnstalleerd
+        return volumes, portie, materialen
+
+    for t in EveType.objects.filter(id__in=list(type_ids)):
+        volumes[t.id] = float(t.volume or 0)
+        portie[t.id] = int(t.portion_size or 0)
+    for m in EveTypeMaterial.objects.filter(eve_type_id__in=list(type_ids)):
+        materialen.setdefault(m.eve_type_id, []).append(
+            (m.material_eve_type_id, int(m.quantity or 0)))
+    return volumes, portie, materialen
+
+
+def mining(user, dagen=30):
+    """Mining-ledger van alle characters, samengevat per erts, systeem en dag.
+
+    ESI geeft de ledger al samengevat per dag en per ertssoort — geen losse
+    cycli. Er zit geen ISK-waarde bij; die zou een marktprijs per erts vergen en
+    dat is een ander verhaal dan "wat heb ik gehaald".
+    """
+    chars = esi.characters(user)
+    kleuren = _kleur_per_character([{"character_id": c.character_id} for c in chars])
+
+    regels = []
+    for c in chars:
+        for e in esi.mining(c.character_id):
+            regels.append({**e, "_char": c.character_name,
+                           "_char_id": c.character_id,
+                           "_kleur": kleuren[c.character_id]})
+    if not regels:
+        return {"regels": [], "ertsen": [], "systemen": [], "grafiek": [],
+                "totaal": 0, "totaal_fmt": "0", "soorten": 0, "actieve_dagen": 0,
+                "verdeling": [], "aantal_characters": len(chars), "schaal": [],
+                "totaal_m3_fmt": "0", "totaal_isk_fmt": "0", "totaal_ref_fmt": "0",
+                "heeft_prijzen": False}
+
+
+
+    type_ids = {e["type_id"] for e in regels}
+    namen = esi.names(type_ids | {e["solar_system_id"] for e in regels})
+
+    # Volume en reprocessing-opbrengst komen uit django-eveuniverse, dat lokaal
+    # de volledige type-data heeft. Prijzen via Fuzzwork (Jita buy), dezelfde
+    # bron als de dashboardpagina zodat beide hetzelfde bedrag tonen.
+    volumes, portie, materialen = _type_gegevens(type_ids)
+    mineraal_ids = {mid for mats in materialen.values() for mid, _ in mats}
+    prijzen = esi.jita_buy(type_ids | mineraal_ids)
+
+    def _ruwe_isk(tid, aantal):
+        return aantal * prijzen.get(tid, 0.0)
+
+    def _gerefined_isk(tid, aantal):
+        """(aantal / portionSize) x som(mineraalAantal x Jita-buy)."""
+        mats = materialen.get(tid)
+        p = portie.get(tid) or 0
+        if not mats or not p:
+            return 0.0
+        return (aantal / p) * sum(n * prijzen.get(mid, 0.0) for mid, n in mats)
+
+    totaal = sum(int(e["quantity"]) for e in regels)
+    totaal_m3 = sum(int(e["quantity"]) * volumes.get(e["type_id"], 0.0) for e in regels)
+    totaal_isk = sum(_ruwe_isk(e["type_id"], int(e["quantity"])) for e in regels)
+    totaal_ref = sum(_gerefined_isk(e["type_id"], int(e["quantity"])) for e in regels)
+
+    def _groepeer(sleutel, label_van, met_waarde=False):
+        vakken = {}
+        for e in regels:
+            k = e[sleutel]
+            vak = vakken.setdefault(k, {"id": k, "naam": label_van(k), "aantal": 0,
+                                        "m3": 0.0, "isk": 0.0, "ref_isk": 0.0})
+            n = int(e["quantity"])
+            vak["aantal"] += n
+            vak["m3"] += n * volumes.get(e["type_id"], 0.0)
+            if met_waarde:
+                vak["isk"] += _ruwe_isk(e["type_id"], n)
+                vak["ref_isk"] += _gerefined_isk(e["type_id"], n)
+        rijen = sorted(vakken.values(), key=lambda v: -v["aantal"])
+        hoogste = rijen[0]["aantal"] if rijen else 1
+        for r in rijen:
+            r["aantal_fmt"] = f"{r['aantal']:,}".replace(",", ".")
+            r["m3_fmt"] = f"{r['m3']:,.0f}".replace(",", ".")
+            r["isk_fmt"] = fmt_isk(r["isk"])
+            r["ref_isk_fmt"] = fmt_isk(r["ref_isk"])
+            # Refinen loont als de mineralen meer opbrengen dan het ruwe erts.
+            r["ref_loont"] = r["ref_isk"] > r["isk"] > 0
+            r["pct"] = round(r["aantal"] / hoogste * 100)
+            r["deel"] = round(r["aantal"] / totaal * 100) if totaal else 0
+        return rijen
+
+    def naam_van(i):
+        return namen.get(i) or f"#{i}"
+
+    ertsen = _groepeer("type_id", naam_van, met_waarde=True)
+    systemen = _groepeer("solar_system_id", naam_van)
+
+    per_dag = defaultdict(int)
+    for e in regels:
+        per_dag[e["date"]] += int(e["quantity"])
+    # Venster op de laatste dagen wáárin gemijnd is, niet op de kalender. De
+    # ledger kan ouder zijn dan 30 dagen; met een venster vanaf vandaag stond de
+    # grafiek leeg terwijl de tegels wel cijfers toonden.
+    reeks = [{"dag": d, "aantal": per_dag[d]} for d in sorted(per_dag)][-dagen:]
+    piek = max((v["aantal"] for v in reeks), default=0)
+    top, schaal = _nette_schaal(piek)
+    stap = 1 if len(reeks) <= 20 else max(2, round(len(reeks) / 12))
+    for i, v in enumerate(reeks):
+        v["pct"] = round(v["aantal"] / top * 100) if top else 0
+        v["aantal_fmt"] = f"{v['aantal']:,}".replace(",", ".")
+        v["is_hoogste"] = piek > 0 and v["aantal"] >= piek
+        v["toon_label"] = (i % stap == 0) or (i == len(reeks) - 1)
+        d = datetime.fromisoformat(v["dag"]).date()
+        v["dag_kort"] = f"{d.day}/{d.month}"
+
+    per_char = {}
+    for e in regels:
+        vak = per_char.setdefault(e["_char_id"], {
+            "naam": e["_char"], "kleur": e["_kleur"], "aantal": 0})
+        vak["aantal"] += int(e["quantity"])
+    verdeling = sorted(per_char.values(), key=lambda v: -v["aantal"])
+    hoogste_char = verdeling[0]["aantal"] if verdeling else 1
+    for v in verdeling:
+        v["aantal_fmt"] = f"{v['aantal']:,}".replace(",", ".")
+        v["pct"] = round(v["aantal"] / hoogste_char * 100)
+
+    regels.sort(key=lambda e: (e["date"], e["quantity"]), reverse=True)
+    return {
+        "totaal": totaal,
+        "totaal_fmt": f"{totaal:,}".replace(",", "."),
+        "totaal_m3_fmt": f"{totaal_m3:,.0f}".replace(",", "."),
+        "totaal_isk_fmt": fmt_isk(totaal_isk),
+        "totaal_ref_fmt": fmt_isk(totaal_ref),
+        "heeft_prijzen": bool(prijzen),
+        "soorten": len(ertsen),
+        "actieve_dagen": len(per_dag),
+        "ertsen": ertsen[:15],
+        "systemen": systemen[:10],
+        "grafiek": reeks,
+        "schaal": schaal,
+        "beste_dag_fmt": f"{piek:,}".replace(",", "."),
+        "verdeling": verdeling if len(verdeling) > 1 else [],
+        "aantal_characters": len(chars),
+        "regels": [{
+            "dag": e["date"],
+            "erts": naam_van(e["type_id"]),
+            "type_id": e["type_id"],
+            "systeem": naam_van(e["solar_system_id"]),
+            "aantal": int(e["quantity"]),
+            "aantal_fmt": f"{int(e['quantity']):,}".replace(",", "."),
+            "m3_fmt": f"{int(e['quantity']) * volumes.get(e['type_id'], 0.0):,.0f}".replace(",", "."),
+            "isk_fmt": fmt_isk(_ruwe_isk(e["type_id"], int(e["quantity"]))),
+            "character": e["_char"],
+            "kleur": e["_kleur"],
+        } for e in regels[:150]],
+    }
+
+
+# --------------------------------------------------------------------------
+# Planetary Interaction
+# --------------------------------------------------------------------------
+
+# ESI geeft het planeettype als tekst; dit is puur voor de weergave.
+PLANEET_LABEL = {
+    "temperate": "Temperate", "barren": "Barren", "oceanic": "Oceanic",
+    "ice": "Ice", "gas": "Gas", "lava": "Lava", "storm": "Storm",
+    "plasma": "Plasma",
+}
+
+
+def pi(user):
+    """Planetaire kolonies van alle characters."""
+    chars = esi.characters(user)
+    kleuren = _kleur_per_character([{"character_id": c.character_id} for c in chars])
+
+    rijen = []
+    for c in chars:
+        for p in esi.planets(c.character_id):
+            rijen.append({**p, "_char": c.character_name,
+                          "_char_id": c.character_id,
+                          "_kleur": kleuren[c.character_id]})
+    if not rijen:
+        return {"planeten": [], "aantal": 0, "aantal_characters": len(chars),
+                "per_type": [], "verdeling": [], "pins": 0}
+
+    # Alleen de systemen via /universe/names; planeet-ids kent die endpoint niet
+    # (404), daar is /universe/planets/{id}/ voor.
+    namen = esi.names({p["solar_system_id"] for p in rijen})
+    planeetnamen = {p["planet_id"]: esi.planet_info(p["planet_id"]) for p in rijen}
+
+    per_type = defaultdict(int)
+    per_char = {}
+    planeten = []
+    for p in rijen:
+        soort = p.get("planet_type") or "onbekend"
+        per_type[soort] += 1
+        vak = per_char.setdefault(p["_char_id"], {
+            "naam": p["_char"], "kleur": p["_kleur"], "aantal": 0, "pins": 0})
+        vak["aantal"] += 1
+        vak["pins"] += int(p.get("num_pins") or 0)
+        planeten.append({
+            "planeet": planeetnamen.get(p["planet_id"]) or f"#{p['planet_id']}",
+            "systeem": namen.get(p["solar_system_id"]) or f"#{p['solar_system_id']}",
+            "type": PLANEET_LABEL.get(soort, soort.capitalize()),
+            "type_ruw": soort,
+            "niveau": p.get("upgrade_level"),
+            "pins": p.get("num_pins"),
+            "bijgewerkt": _parse(p.get("last_update")),
+            "character": p["_char"],
+            "kleur": p["_kleur"],
+        })
+
+    planeten.sort(key=lambda p: (p["character"], p["systeem"]))
+    return {
+        "planeten": planeten,
+        "aantal": len(planeten),
+        "pins": sum(int(p.get("num_pins") or 0) for p in rijen),
+        "aantal_characters": len(chars),
+        "per_type": sorted(({"naam": PLANEET_LABEL.get(k, k.capitalize()), "aantal": v}
+                            for k, v in per_type.items()), key=lambda x: -x["aantal"]),
+        "verdeling": sorted(per_char.values(), key=lambda v: -v["aantal"]),
+    }

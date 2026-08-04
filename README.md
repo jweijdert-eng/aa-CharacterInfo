@@ -5,11 +5,13 @@ Alliance Auth-plugin die je **eigen** gegevens op één plek toont: wallet, cont
 > De interne naam is `finance` — app-label, URL (`/finance/`) en migraties hangen daaraan.
 > Alleen wat je in de interface ziet heet Character Info.
 
-Drie tabbladen:
+Vijf tabbladen:
 
 - **Wallet** — saldo per character, waar je geld de afgelopen 30 dagen vandaan kwam, en het gecombineerde journaal
-- **Contracts** — je persoonlijke contracten met status en beloningen
+- **Contracts** — je persoonlijke contracten met status, beloningen en de inhoud
 - **Ratting** — bounty- en ESS-inkomsten, per dag uitgezet
+- **Mining** — je ledger per ertssoort, systeem en dag, met volume en geschatte waarde
+- **PI** — je planetaire kolonies per character
 
 ## Installeren
 
@@ -28,6 +30,8 @@ niets in de admin in te richten.
 
 - `esi-wallet.read_character_wallet.v1` — saldo, journaal, ratting
 - `esi-contracts.read_character_contracts.v1` — contracten
+- `esi-industry.read_character_mining.v1` — mining-ledger
+- `esi-planets.manage_planets.v1` — planetaire kolonies
 
 Beide worden in één keer gevraagd bij het koppelen.
 

@@ -198,6 +198,23 @@
    Grijs maakte namen onnodig moeilijk leesbaar. */
 .fin-app .fin-ik { color: var(--fin-gold); font-weight: 600; }
 
+/* Erts met icoontje in de mining-tabellen. */
+.fin-app .fin-erts { display: inline-flex; align-items: center; gap: .4rem; }
+.fin-app .fin-erts img { width: 22px; height: 22px; border-radius: 3px; flex: none; }
+
+/* Planeettypes. Acht soorten, dus de kleuren van de character-set hergebruikt:
+   die zijn al nagerekend tegen deze achtergrond. De naam staat in de badge, dus
+   de kleur staat nooit alleen. */
+.fin-app .fin-planeet { border: 1px solid currentColor; background: transparent; }
+.fin-app .fin-planeet-temperate { color: #199e70; }
+.fin-app .fin-planeet-barren    { color: #c98500; }
+.fin-app .fin-planeet-oceanic   { color: #3987e5; }
+.fin-app .fin-planeet-ice       { color: #9085e9; }
+.fin-app .fin-planeet-gas       { color: #d55181; }
+.fin-app .fin-planeet-lava      { color: #e66767; }
+.fin-app .fin-planeet-storm     { color: #d95926; }
+.fin-app .fin-planeet-plasma    { color: #008300; }
+
 /* Rol: heb je het contract zelf uitgegeven of aangenomen? */
 .fin-app .fin-rol { font-size: .68rem; letter-spacing: .04em; text-transform: uppercase; color: var(--fin-dim); }
 

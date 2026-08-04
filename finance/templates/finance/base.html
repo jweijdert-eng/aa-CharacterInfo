@@ -30,6 +30,10 @@
                href="{% url 'finance:contracts' %}">{% translate "Contracts" %}</a>
             <a class="fin-tab {% if actief == 'ratting' %}is-actief{% endif %}"
                href="{% url 'finance:ratting' %}">{% translate "Ratting" %}</a>
+            <a class="fin-tab {% if actief == 'mining' %}is-actief{% endif %}"
+               href="{% url 'finance:mining' %}">{% translate "Mining" %}</a>
+            <a class="fin-tab {% if actief == 'pi' %}is-actief{% endif %}"
+               href="{% url 'finance:pi' %}">{% translate "PI" %}</a>
         </div>
 
         {% block details %}{% endblock %}

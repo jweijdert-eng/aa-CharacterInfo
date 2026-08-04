@@ -1,0 +1,200 @@
+{% extends 'finance/base.html' %}
+{% load i18n %}
+
+{% block fin_title %}{% translate "Mining" %}{% endblock %}
+{% block fin_sub %}{% if heeft_mining and totaal %}{{ totaal_fmt }} {% translate "eenheden" %} · {{ totaal_m3_fmt }} m³{% if heeft_prijzen %} · ~{{ totaal_isk_fmt }} ISK{% endif %}{% endif %}{% endblock %}
+
+{% block details %}
+    {% if not heeft_mining %}
+        <div class="fin-melding">
+            <p class="mb-2">{% translate "Om je mining-ledger te tonen hebben we toegang tot je mining-gegevens nodig." %}</p>
+            <a href="{% url 'finance:koppelen' %}" class="fin-knop">{% translate "Character koppelen" %}</a>
+        </div>
+    {% elif not totaal %}
+        <div class="fin-melding">
+            {% translate "Geen mining gevonden. EVE bewaart de ledger ongeveer 30 dagen, dus dit vult zich zodra je gaat mijnen." %}
+        </div>
+    {% else %}
+
+        <div class="fin-stats">
+            <div class="fin-stat fin-stat-totaal">
+                <span class="l">{% translate "Gemijnd" %}</span>
+                <span class="v">{{ totaal_fmt }}</span>
+                <span class="s">{% translate "eenheden erts" %}</span>
+            </div>
+            <div class="fin-stat">
+                <span class="l">{% translate "Volume" %}</span>
+                <span class="v">{{ totaal_m3_fmt }}</span>
+                <span class="s">m³</span>
+            </div>
+            {% if heeft_prijzen %}
+                <div class="fin-stat" style="border-left: 3px solid var(--fin-bounty);">
+                    <span class="l">{% translate "Waarde als erts" %}</span>
+                    <span class="v">{{ totaal_isk_fmt }}</span>
+                    <span class="s">{% translate "Jita buy" %}</span>
+                </div>
+                <div class="fin-stat" style="border-left: 3px solid var(--fin-green);">
+                    <span class="l">{% translate "Na refinen" %}</span>
+                    <span class="v fin-pos">{{ totaal_ref_fmt }}</span>
+                    <span class="s">{% translate "geschat, perfecte refine" %}</span>
+                </div>
+            {% endif %}
+            <div class="fin-stat">
+                <span class="l">{% translate "Systemen" %}</span>
+                <span class="v">{{ systemen|length }}</span>
+                <span class="s">{{ soorten }} {% translate "ertssoorten" %}</span>
+            </div>
+            <div class="fin-stat">
+                <span class="l">{% translate "Actieve dagen" %}</span>
+                <span class="v">{{ actieve_dagen }}</span>
+                <span class="s">{% translate "beste dag" %} {{ beste_dag_fmt }}</span>
+            </div>
+        </div>
+
+        {% if grafiek %}
+            <h2 class="fin-kop">{% translate "Per dag" %}
+                <span>— {% translate "beste dag" %} {{ beste_dag_fmt }} {% translate "eenheden" %}</span></h2>
+            <div class="fin-grafiek-blok">
+                <div class="fin-grafiek-rij">
+                    <div class="fin-as">
+                        {% for s in schaal %}
+                            <span class="fin-as-punt" style="bottom: {{ s.pct }}%;">{{ s.label }}</span>
+                        {% endfor %}
+                        <span class="fin-as-punt" style="bottom: 0;">0</span>
+                    </div>
+                    <div class="fin-plot">
+                        {% for s in schaal %}
+                            <div class="fin-lijn" style="bottom: {{ s.pct }}%;"></div>
+                        {% endfor %}
+                        <div class="fin-balken">
+                            {% for d in grafiek %}
+                                <div class="fin-kolom">
+                                    <div class="fin-tip">
+                                        <div class="fin-tip-dag">{{ d.dag }}</div>
+                                        <div class="fin-tip-regel">
+                                            <span>{% translate "Gemijnd" %}</span><b>{{ d.aantal_fmt }}</b>
+                                        </div>
+                                    </div>
+                                    {% if d.is_hoogste %}<span class="fin-piek">{{ d.aantal_fmt }}</span>{% endif %}
+                                    <div class="fin-seg-bounty" style="height: {{ d.pct }}%;"></div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                <div class="fin-grafiek-rij">
+                    <div class="fin-as-leeg"></div>
+                    <div class="fin-dagen">
+                        {% for d in grafiek %}
+                            <span class="fin-dag-label">{% if d.toon_label %}{{ d.dag_kort }}{% endif %}</span>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+
+        {% if verdeling %}
+            <h2 class="fin-kop">{% translate "Per character" %}</h2>
+            <div class="fin-tablewrap">
+                <table class="fin-table">
+                    <tbody>
+                        {% for v in verdeling %}
+                            <tr>
+                                <td style="width: 25%;">
+                                    <span class="fin-stip" style="background: {{ v.kleur }};"></span>{{ v.naam }}
+                                </td>
+                                <td><div class="fin-bron-balk" style="width: {{ v.pct }}%; background: {{ v.kleur }};"></div></td>
+                                <td class="fin-getal" style="width: 1%;">{{ v.aantal_fmt }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% endif %}
+
+        <h2 class="fin-kop">{% translate "Per ertssoort" %}</h2>
+        <div class="fin-tablewrap">
+            <table class="fin-table">
+                <tbody>
+                    {% for o in ertsen %}
+                        <tr>
+                            <td style="width: 24%;">
+                                <span class="fin-erts">
+                                    <img loading="lazy" alt=""
+                                         src="https://images.evetech.net/types/{{ o.id }}/icon?size=32">
+                                    {{ o.naam }}
+                                </span>
+                            </td>
+                            <td><div class="fin-bron-balk" style="width: {{ o.pct }}%;"></div></td>
+                            <td class="fin-dim" style="width: 1%; white-space: nowrap;">{{ o.deel }}%</td>
+                            <td class="fin-getal" style="width: 1%;">{{ o.aantal_fmt }}</td>
+                            <td class="fin-getal fin-dim" style="width: 1%;">{{ o.m3_fmt }} m³</td>
+                            {% if heeft_prijzen %}
+                                <td class="fin-getal fin-dim" style="width: 1%;">{{ o.isk_fmt }}</td>
+                                <td class="fin-getal {% if o.ref_loont %}fin-pos{% else %}fin-dim{% endif %}"
+                                    style="width: 1%;"
+                                    title="{% translate 'Geschatte waarde na refinen (Jita buy op de mineralen)' %}">
+                                    ⚒ {{ o.ref_isk_fmt }}
+                                </td>
+                            {% endif %}
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <h2 class="fin-kop">{% translate "Per systeem" %}</h2>
+        <div class="fin-tablewrap">
+            <table class="fin-table">
+                <tbody>
+                    {% for s in systemen %}
+                        <tr>
+                            <td style="width: 28%;">{{ s.naam }}</td>
+                            <td><div class="fin-bron-balk" style="width: {{ s.pct }}%;"></div></td>
+                            <td class="fin-dim" style="width: 1%; white-space: nowrap;">{{ s.deel }}%</td>
+                            <td class="fin-getal" style="width: 1%;">{{ s.aantal_fmt }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <h2 class="fin-kop">{% translate "Ledger" %}</h2>
+        <div class="fin-tablewrap">
+            <table class="fin-table">
+                <thead>
+                    <tr>
+                        <th>{% translate "Datum" %}</th>
+                        <th>{% translate "Character" %}</th>
+                        <th>{% translate "Erts" %}</th>
+                        <th>{% translate "Systeem" %}</th>
+                        <th class="fin-getal">{% translate "Aantal" %}</th>
+                        <th class="fin-getal">{% translate "Volume" %}</th>
+                        {% if heeft_prijzen %}<th class="fin-getal">{% translate "Waarde" %}</th>{% endif %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in regels %}
+                        <tr>
+                            <td class="fin-nowrap fin-dim">{{ r.dag }}</td>
+                            <td class="fin-nowrap">
+                                <span class="fin-stip" style="background: {{ r.kleur }};"></span>{{ r.character }}
+                            </td>
+                            <td class="fin-nowrap">
+                                <span class="fin-erts">
+                                    <img loading="lazy" alt=""
+                                         src="https://images.evetech.net/types/{{ r.type_id }}/icon?size=32">
+                                    {{ r.erts }}
+                                </span>
+                            </td>
+                            <td class="fin-nowrap fin-dim">{{ r.systeem }}</td>
+                            <td class="fin-getal">{{ r.aantal_fmt }}</td>
+                            <td class="fin-getal fin-dim">{{ r.m3_fmt }} m³</td>
+                            {% if heeft_prijzen %}<td class="fin-getal fin-dim">{{ r.isk_fmt }}</td>{% endif %}
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% endif %}
+{% endblock %}

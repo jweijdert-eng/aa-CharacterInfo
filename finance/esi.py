@@ -19,10 +19,14 @@ UA = {"User-Agent": "aa-finance (Alliance Auth plugin; maintainer: Dutch Legions
 
 WALLET_SCOPE = "esi-wallet.read_character_wallet.v1"
 CONTRACTS_SCOPE = "esi-contracts.read_character_contracts.v1"
+MINING_SCOPE = "esi-industry.read_character_mining.v1"
+PLANETS_SCOPE = "esi-planets.manage_planets.v1"
 
 TTL_BALANCE = 300           # saldo verandert vaak, maar niet elke seconde
 TTL_JOURNAL = 900           # journaal-regels zijn onveranderlijk zodra ze er staan
 TTL_CONTRACTS = 600
+TTL_MINING = 1800           # de ledger vat per dag samen, dus dit hoeft niet vers
+TTL_PLANETS = 900           # extractors lopen af, dus niet te lang vasthouden
 JOURNAL_PAGES = 5           # ESI geeft 1000 regels per pagina, 5 is ruim een maand
 
 # Statussen waarbij opnieuw proberen zin heeft: foutlimiet, rate limit, storing.
@@ -197,6 +201,71 @@ def contracts(character_id):
     return rows
 
 
+def mining(character_id):
+    """Mining-ledger van dit character (gepagineerd, gecached).
+
+    ESI houdt hier ongeveer 30 dagen van bij, per dag en per ertssoort
+    samengevat — geen losse cycli.
+    """
+    key = f"fin_mining_{character_id}"
+    hit = cache.get(key)
+    if hit is not None:
+        return hit
+
+    token = token_for(character_id, MINING_SCOPE)
+    if not token:
+        cache.set(key, [], TTL_MINING)
+        return []
+
+    rows, page = [], 1
+    while page <= 20:
+        blok = _request(f"/characters/{character_id}/mining/", token, {"page": page})
+        if not blok:
+            break
+        rows.extend(blok)
+        if len(blok) < 1000:
+            break
+        page += 1
+    cache.set(key, rows, TTL_MINING)
+    return rows
+
+
+def planets(character_id):
+    """De planetaire kolonies van dit character (gecached)."""
+    key = f"fin_planets_{character_id}"
+    hit = cache.get(key)
+    if hit is not None:
+        return hit
+    token = token_for(character_id, PLANETS_SCOPE)
+    rows = _request(f"/characters/{character_id}/planets/", token) if token else None
+    rows = rows or []
+    cache.set(key, rows, TTL_PLANETS)
+    return rows
+
+
+def planet_info(planet_id):
+    """Naam van een planeet.
+
+    `/universe/names` kent planeet-ids niet (die geeft er 404 op), dus daarvoor
+    is een eigen endpoint nodig. Planeetnamen veranderen nooit, dus 30 dagen
+    cache. Publiek, geen token.
+    """
+    key = f"fin_planet_{planet_id}"
+    hit = cache.get(key)
+    if hit is not None:
+        return hit
+    naam = ""
+    try:
+        r = _session.get(f"{ESI}/universe/planets/{planet_id}/", headers=UA,
+                         params={"datasource": "tranquility"}, timeout=20)
+        if r.status_code == 200:
+            naam = r.json().get("name") or ""
+    except requests.RequestException:
+        return ""                       # niet cachen: volgende keer opnieuw proberen
+    cache.set(key, naam, 30 * 86400)
+    return naam
+
+
 def contract_items(character_id, contract_id):
     """De spullen in één contract.
 
@@ -263,4 +332,55 @@ def names(ids):
 
     for i in range(0, len(missend), 1000):
         los_op(missend[i:i + 1000])
+    return uit
+
+
+# --------------------------------------------------------------------------
+# Marktprijzen (Fuzzwork, publiek — geen token)
+# --------------------------------------------------------------------------
+
+FUZZWORK = "https://market.fuzzwork.co.uk/aggregates/"
+JITA_REGIO = 10000002
+TTL_PRIJZEN = 3600
+
+
+def jita_buy(type_ids):
+    """{type_id: hoogste Jita-buy} via Fuzzwork.
+
+    Zelfde bron als de dashboard-pagina, zodat beide plekken dezelfde waarde
+    laten zien. Publiek, dus geen token. Ontbrekende prijzen blijven weg in
+    plaats van 0 te worden — dan kan de aanroeper 'onbekend' tonen.
+    """
+    ids = sorted({int(i) for i in type_ids if i})
+    uit, missend = {}, []
+    for i in ids:
+        hit = cache.get(f"fin_prijs_{i}")
+        if hit is not None:
+            uit[i] = hit
+        else:
+            missend.append(i)
+
+    # Fuzzwork slikt lange lijsten, maar niet oneindig; in blokken opvragen.
+    for i in range(0, len(missend), 200):
+        blok = missend[i:i + 200]
+        try:
+            r = _session.get(FUZZWORK, headers=UA, timeout=25,
+                             params={"region": JITA_REGIO, "types": ",".join(map(str, blok))})
+        except requests.RequestException as exc:
+            logger.info("Finance: Fuzzwork onbereikbaar: %s", exc)
+            continue
+        if r.status_code != 200:
+            logger.info("Finance: Fuzzwork gaf %s", r.status_code)
+            continue
+        try:
+            data = r.json()
+        except ValueError:
+            continue
+        for sleutel, waarde in data.items():
+            try:
+                prijs = float(waarde["buy"]["max"])
+            except (KeyError, TypeError, ValueError):
+                continue
+            uit[int(sleutel)] = prijs
+            cache.set(f"fin_prijs_{int(sleutel)}", prijs, TTL_PRIJZEN)
     return uit

@@ -14,7 +14,8 @@ from . import data, esi
 
 # Beide scopes tegelijk vragen: dan hoeft de gebruiker maar één keer te
 # koppelen voor alle drie de tabbladen.
-SCOPES = [esi.WALLET_SCOPE, esi.CONTRACTS_SCOPE]
+SCOPES = [esi.WALLET_SCOPE, esi.CONTRACTS_SCOPE,
+          esi.MINING_SCOPE, esi.PLANETS_SCOPE]
 
 
 def _character_ids(user):
@@ -28,6 +29,8 @@ def _basis(request, actief):
         "actief": actief,
         "heeft_wallet": esi.has_token(ids, esi.WALLET_SCOPE),
         "heeft_contracts": esi.has_token(ids, esi.CONTRACTS_SCOPE),
+        "heeft_mining": esi.has_token(ids, esi.MINING_SCOPE),
+        "heeft_pi": esi.has_token(ids, esi.PLANETS_SCOPE),
     }
 
 
@@ -63,12 +66,32 @@ def ratting(request: WSGIRequest) -> HttpResponse:
 
 @login_required
 @permission_required("finance.basic_access")
+def mining(request: WSGIRequest) -> HttpResponse:
+    """Wat je bij elkaar gemijnd hebt."""
+    ctx = _basis(request, "mining")
+    if ctx["heeft_mining"]:
+        ctx.update(data.mining(request.user))
+    return render(request, "finance/mining.html", ctx)
+
+
+@login_required
+@permission_required("finance.basic_access")
+def pi(request: WSGIRequest) -> HttpResponse:
+    """Je planetaire kolonies."""
+    ctx = _basis(request, "pi")
+    if ctx["heeft_pi"]:
+        ctx.update(data.pi(request.user))
+    return render(request, "finance/pi.html", ctx)
+
+
+@login_required
+@permission_required("finance.basic_access")
 @token_required(scopes=SCOPES)
 def koppelen(request: WSGIRequest, token) -> HttpResponse:
     """Character koppelen zodat we z'n wallet en contracten mogen lezen."""
     # De cache van dit character legen, anders blijft een eerder leeg antwoord
     # nog kwartieren hangen en lijkt het koppelen niet gewerkt te hebben.
-    for sleutel in ("fin_bal", "fin_tx", "fin_contracts"):
+    for sleutel in ("fin_bal", "fin_tx", "fin_contracts", "fin_mining", "fin_planets"):
         cache.delete(f"{sleutel}_{token.character_id}")
     cache.delete(f"fin_journal_{token.character_id}_{esi.JOURNAL_PAGES}")
 
