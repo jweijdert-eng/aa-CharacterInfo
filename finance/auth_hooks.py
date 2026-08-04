@@ -16,11 +16,23 @@ from finance import urls
 
 
 class _FinanceMenuItem(MenuItemHook):
-    """Menu-item dat alleen zichtbaar is voor wie de plugin mag gebruiken."""
+    """Basis voor onze menu-items: alleen tonen aan wie de plugin mag gebruiken.
 
-    def __init__(self, tekst, icoon, url_name, order):
-        MenuItemHook.__init__(self, tekst, icoon, url_name,
-                              order=order, navactive=[url_name])
+    LET OP — elk menu-item moet een **eigen klasse** zijn. AA bepaalt de identiteit
+    van een item met `sha256(f"{klasse.__module__}.{klasse.__name__}")`
+    (`allianceauth/menu/core/menu_item_hooks.py`), dus niet met de tekst of de URL.
+    Drie hooks die dezelfde klasse teruggeven krijgen dezelfde hash en worden dan
+    tot één menu-item samengevouwen.
+    """
+
+    tekst = ""
+    icoon = ""
+    doel = ""
+    volgorde = 1010
+
+    def __init__(self):
+        MenuItemHook.__init__(self, self.tekst, self.icoon, self.doel,
+                              order=self.volgorde, navactive=[self.doel])
 
     def render(self, request):
         if request.user.has_perm("finance.basic_access"):
@@ -28,21 +40,40 @@ class _FinanceMenuItem(MenuItemHook):
         return ""
 
 
+class WalletMenuItem(_FinanceMenuItem):
+    tekst = _("Wallet")
+    icoon = "fas fa-wallet fa-fw"
+    doel = "finance:wallet"
+    volgorde = 1010
+
+
+class ContractsMenuItem(_FinanceMenuItem):
+    tekst = _("Contracts")
+    icoon = "fas fa-file-signature fa-fw"
+    doel = "finance:contracts"
+    volgorde = 1011
+
+
+class RattingMenuItem(_FinanceMenuItem):
+    tekst = _("Ratting")
+    icoon = "fas fa-crosshairs fa-fw"
+    doel = "finance:ratting"
+    volgorde = 1012
+
+
 @hooks.register("menu_item_hook")
 def register_wallet():
-    return _FinanceMenuItem(_("Wallet"), "fas fa-wallet fa-fw", "finance:wallet", 1010)
+    return WalletMenuItem()
 
 
 @hooks.register("menu_item_hook")
 def register_contracts():
-    return _FinanceMenuItem(_("Contracts"), "fas fa-file-signature fa-fw",
-                            "finance:contracts", 1011)
+    return ContractsMenuItem()
 
 
 @hooks.register("menu_item_hook")
 def register_ratting():
-    return _FinanceMenuItem(_("Ratting"), "fas fa-crosshairs fa-fw",
-                            "finance:ratting", 1012)
+    return RattingMenuItem()
 
 
 @hooks.register("url_hook")
