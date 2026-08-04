@@ -156,27 +156,71 @@
 .fin-app .fin-bron-balk.neg { background: var(--fin-red); }
 
 /* ── Grafiek ──────────────────────────────────────────────────────────── */
-.fin-app .fin-grafiek {
-    display: flex; align-items: flex-end; gap: 3px; height: 130px;
-    padding: .8rem; border-radius: 8px;
+.fin-app .fin-grafiek-blok {
+    padding: .9rem 1rem .6rem; border-radius: 8px;
     background: var(--fin-surface); border: 1px solid var(--fin-border);
 }
+/* De as-labels staan links, de balken vullen de rest. */
+.fin-app .fin-grafiek-rij { display: flex; gap: .6rem; }
+.fin-app .fin-as {
+    width: 62px; flex: none; position: relative; height: 150px;
+    font-size: .68rem; color: var(--fin-dim); text-align: right;
+}
+.fin-app .fin-as-punt { position: absolute; right: 0; transform: translateY(-50%); }
+/* Opvuller onder de as, even breed maar zonder hoogte — anders staat er een
+   lege kolom van 150px onder de grafiek. */
+.fin-app .fin-as-leeg { width: 62px; flex: none; }
+.fin-app .fin-plot { flex: 1 1 auto; position: relative; height: 150px; }
+/* Hulplijnen: net zichtbaar genoeg om een hoogte te kunnen schatten, niet zo
+   sterk dat ze met de balken concurreren. */
+.fin-app .fin-lijn {
+    position: absolute; left: 0; right: 0; height: 1px;
+    background: var(--fin-border); pointer-events: none;
+}
+.fin-app .fin-balken { display: flex; align-items: flex-end; gap: 2px; height: 100%; }
 .fin-app .fin-kolom {
-    flex: 1 1 0; min-width: 4px; display: flex; flex-direction: column;
-    justify-content: flex-end; height: 100%; cursor: default;
+    flex: 1 1 0; min-width: 3px; height: 100%; position: relative;
+    display: flex; flex-direction: column; justify-content: flex-end;
 }
-.fin-app .fin-kolom:hover { filter: brightness(1.35); }
-/* De twee stukken krijgen een gaatje in de achtergrondkleur ertussen, zodat je
-   ook zonder kleur ziet waar bounty ophoudt en ESS begint. */
-.fin-app .fin-seg-ess {
-    background: var(--fin-ess); border-radius: 4px 4px 0 0;
-    margin-bottom: 2px;
+.fin-app .fin-kolom.is-leeg::after {
+    /* Een dag zonder inkomsten krijgt een streepje op de nullijn, zodat je ziet
+       dat die dag gemeten is en niet ontbreekt. */
+    content: ""; position: absolute; bottom: 0; left: 0; right: 0; height: 2px;
+    background: var(--fin-border);
 }
+.fin-app .fin-seg-ess { background: var(--fin-ess); border-radius: 4px 4px 0 0; margin-bottom: 2px; }
 .fin-app .fin-seg-bounty { background: var(--fin-bounty); border-radius: 4px 4px 0 0; }
-.fin-app .fin-kolom .fin-seg-ess:only-child,
-.fin-app .fin-kolom .fin-seg-bounty:only-child { border-radius: 4px 4px 0 0; }
+.fin-app .fin-kolom:hover .fin-seg-ess,
+.fin-app .fin-kolom:hover .fin-seg-bounty { filter: brightness(1.4); }
 
-.fin-app .fin-legenda { display: flex; gap: 1rem; align-items: center; margin-top: .5rem; font-size: .78rem; color: var(--fin-dim); }
+/* Tooltip: staat in de kolom maar mag eruit steken, dus de plot knipt niet. */
+.fin-app .fin-tip {
+    position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%);
+    background: #05050e; border: 1px solid var(--fin-border); border-radius: 6px;
+    padding: .4rem .55rem; font-size: .72rem; line-height: 1.4; white-space: nowrap;
+    opacity: 0; pointer-events: none; transition: opacity .12s; z-index: 5;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, .5);
+}
+.fin-app .fin-kolom:hover .fin-tip { opacity: 1; }
+.fin-app .fin-tip-dag { color: var(--fin-text); font-weight: 700; margin-bottom: .15rem; }
+.fin-app .fin-tip-regel { display: flex; gap: .6rem; justify-content: space-between; color: var(--fin-dim); }
+.fin-app .fin-tip-regel b { color: var(--fin-text); font-variant-numeric: tabular-nums; }
+.fin-app .fin-tip-punt { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: .3rem; }
+
+/* Label bij de beste dag — één directe aanduiding is genoeg; een getal boven
+   elke balk maakt het onleesbaar. */
+.fin-app .fin-piek {
+    position: absolute; bottom: calc(100% + 3px); left: 50%; transform: translateX(-50%);
+    font-size: .66rem; font-weight: 700; color: var(--fin-gold); white-space: nowrap;
+}
+
+.fin-app .fin-dagen { display: flex; gap: 2px; margin-top: .35rem; }
+.fin-app .fin-dag-label {
+    flex: 1 1 0; min-width: 3px; font-size: .62rem; color: var(--fin-dim);
+    text-align: center; overflow: visible; white-space: nowrap;
+}
+
+.fin-app .fin-legenda { display: flex; gap: 1rem; align-items: center; margin-top: .6rem; font-size: .78rem; color: var(--fin-dim); }
 .fin-app .fin-legenda-punt { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: .35rem; vertical-align: -1px; }
 
 .fin-app h2.fin-kop {

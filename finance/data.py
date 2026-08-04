@@ -133,23 +133,47 @@ def ratting(user, dagen=30):
         vak = per_dag.setdefault(sleutel, {"dag": sleutel, "bounty": 0.0, "ess": 0.0})
         vak["bounty" if e["ref_type"] == REF_BOUNTY else "ess"] += float(e["amount"])
 
-    reeks = [per_dag[k] for k in sorted(per_dag)]
+    # Álle dagen in het venster tonen, ook die zonder inkomsten. Sla je lege
+    # dagen over, dan staan twee balken naast elkaar die weken uit elkaar liggen
+    # en liegt de tijdas over hoe vaak je gerat hebt.
+    vandaag = datetime.now(timezone.utc).date()
+    eerste = min((datetime.fromisoformat(k).date() for k in per_dag), default=vandaag)
+    start = max(eerste, vandaag - timedelta(days=dagen - 1))
+    reeks = []
+    dag = start
+    while dag <= vandaag:
+        sleutel = dag.isoformat()
+        vak = per_dag.get(sleutel) or {"dag": sleutel, "bounty": 0.0, "ess": 0.0}
+        reeks.append(dict(vak))
+        dag += timedelta(days=1)
+
     hoogste = max((v["bounty"] + v["ess"] for v in reeks), default=0) or 1
     for v in reeks:
         v["totaal"] = v["bounty"] + v["ess"]
         v["totaal_fmt"] = fmt_isk(v["totaal"])
+        v["bounty_fmt"] = fmt_isk(v["bounty"])
+        v["ess_fmt"] = fmt_isk(v["ess"])
+        v["leeg"] = v["totaal"] <= 0
         # De balk is gestapeld: bounty onderaan, ESS erbovenop. De twee stukken
         # moeten dus optellen tot de totale hoogte, niet er allebei apart op staan.
         v["pct_bounty"] = round(v["bounty"] / hoogste * 100)
         v["pct_ess"] = round(v["totaal"] / hoogste * 100) - v["pct_bounty"]
-        v["dag_kort"] = v["dag"][5:]
+        v["is_hoogste"] = v["totaal"] >= hoogste and hoogste > 0
+        d = datetime.fromisoformat(v["dag"]).date()
+        v["dag_kort"] = f"{d.day}/{d.month}"
 
     actieve_dagen = len(per_dag)
     totaal = bounty + ess
     getoond = reeks[-dagen:]
+    # IJkpunten voor de verticale as: halverwege en bovenaan is genoeg om een
+    # balk te kunnen schatten zonder de grafiek vol te zetten met lijnen.
+    schaal = [{"pct": 100, "label": fmt_isk(hoogste)},
+              {"pct": 50, "label": fmt_isk(hoogste / 2)}]
     return {
         "totaal": totaal, "totaal_fmt": fmt_isk(totaal),
         "laatste_dag": getoond[-1]["dag"] if getoond else "",
+        "schaal": schaal,
+        "beste_dag_fmt": fmt_isk(hoogste),
         "bounty_fmt": fmt_isk(bounty), "ess_fmt": fmt_isk(ess),
         "sessies": sessies,
         "actieve_dagen": actieve_dagen,

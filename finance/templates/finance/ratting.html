@@ -37,19 +37,66 @@
 
         {% if grafiek %}
             <h2 class="fin-kop">{% translate "Per dag" %}
-                <span>— {{ grafiek.0.dag }} {% translate "tot" %} {{ laatste_dag }}</span></h2>
-            <div class="fin-grafiek">
-                {% for d in grafiek %}
-                    <div class="fin-kolom" title="{{ d.dag }} — {{ d.totaal_fmt }} ISK">
-                        {% if d.pct_ess %}<div class="fin-seg-ess" style="height: {{ d.pct_ess }}%;"></div>{% endif %}
-                        {% if d.pct_bounty %}<div class="fin-seg-bounty" style="height: {{ d.pct_bounty }}%;"></div>{% endif %}
+                <span>— {% translate "beste dag" %} {{ beste_dag_fmt }} ISK</span></h2>
+
+            <div class="fin-grafiek-blok">
+                <div class="fin-grafiek-rij">
+                    <div class="fin-as">
+                        {% for s in schaal %}
+                            <span class="fin-as-punt" style="bottom: {{ s.pct }}%;">{{ s.label }}</span>
+                        {% endfor %}
+                        <span class="fin-as-punt" style="bottom: 0;">0</span>
                     </div>
-                {% endfor %}
-            </div>
-            <div class="fin-legenda">
-                <span><i class="fin-legenda-punt" style="background: var(--fin-bounty);"></i>{% translate "Bounty" %}</span>
-                <span><i class="fin-legenda-punt" style="background: var(--fin-ess);"></i>{% translate "ESS" %}</span>
-                <span class="ms-auto">{% translate "Beweeg over een balk voor het bedrag" %}</span>
+
+                    <div class="fin-plot">
+                        {% for s in schaal %}
+                            <div class="fin-lijn" style="bottom: {{ s.pct }}%;"></div>
+                        {% endfor %}
+                        <div class="fin-balken">
+                            {% for d in grafiek %}
+                                <div class="fin-kolom {% if d.leeg %}is-leeg{% endif %}">
+                                    {% if not d.leeg %}
+                                        <div class="fin-tip">
+                                            <div class="fin-tip-dag">{{ d.dag }}</div>
+                                            <div class="fin-tip-regel">
+                                                <span><i class="fin-tip-punt" style="background: var(--fin-bounty);"></i>{% translate "Bounty" %}</span>
+                                                <b>{{ d.bounty_fmt }}</b>
+                                            </div>
+                                            <div class="fin-tip-regel">
+                                                <span><i class="fin-tip-punt" style="background: var(--fin-ess);"></i>{% translate "ESS" %}</span>
+                                                <b>{{ d.ess_fmt }}</b>
+                                            </div>
+                                            <div class="fin-tip-regel">
+                                                <span>{% translate "Totaal" %}</span><b>{{ d.totaal_fmt }}</b>
+                                            </div>
+                                        </div>
+                                        {% if d.is_hoogste %}<span class="fin-piek">{{ d.totaal_fmt }}</span>{% endif %}
+                                        {% if d.pct_ess %}<div class="fin-seg-ess" style="height: {{ d.pct_ess }}%;"></div>{% endif %}
+                                        {% if d.pct_bounty %}<div class="fin-seg-bounty" style="height: {{ d.pct_bounty }}%;"></div>{% endif %}
+                                    {% endif %}
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+
+                {# Alleen de eerste, laatste en elke vijfde dag benoemen; alle dagen labelen is onleesbaar. #}
+                <div class="fin-grafiek-rij">
+                    <div class="fin-as-leeg"></div>
+                    <div class="fin-dagen">
+                        {% for d in grafiek %}
+                            <span class="fin-dag-label">
+                                {% if forloop.first or forloop.last or forloop.counter0|divisibleby:5 %}{{ d.dag_kort }}{% endif %}
+                            </span>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="fin-legenda">
+                    <span><i class="fin-legenda-punt" style="background: var(--fin-bounty);"></i>{% translate "Bounty" %}</span>
+                    <span><i class="fin-legenda-punt" style="background: var(--fin-ess);"></i>{% translate "ESS" %}</span>
+                    <span style="margin-left:auto;">{{ actieve_dagen }} {% translate "van" %} {{ grafiek|length }} {% translate "dagen gerat" %}</span>
+                </div>
             </div>
         {% endif %}
 
