@@ -28,8 +28,27 @@ def fmt_isk(waarde):
         return "0"
     for grens, achtervoegsel in ((1e12, "bln"), (1e9, "mld"), (1e6, "mln"), (1e3, "k")):
         if abs(waarde) >= grens:
-            return f"{waarde / grens:,.2f} {achtervoegsel}".replace(",", ".")
-    return f"{waarde:,.0f}".replace(",", ".")
+            heel = f"{waarde / grens:,.2f}"          # 1,234.56 → 1.234,56
+            return f"{_nl(heel)} {achtervoegsel}"
+    return _nl(f"{waarde:,.0f}")
+
+
+def fmt_isk_vol(waarde):
+    """1234567890 → '1.234.567.890'.
+
+    Voor de wallet: daar wil je zien wat er écht staat, niet een afronding.
+    Afgerond op hele ISK — de centen zijn nooit waar het om gaat.
+    """
+    try:
+        waarde = float(waarde or 0)
+    except (TypeError, ValueError):
+        return "0"
+    return _nl(f"{waarde:,.0f}")
+
+
+def _nl(tekst):
+    """Amerikaanse opmaak naar Nederlandse: 1,234.56 → 1.234,56."""
+    return tekst.replace(",", "\x00").replace(".", ",").replace("\x00", ".")
 
 
 # Acht kleuren om characters uit elkaar te houden, nagerekend tegen de donkere
@@ -104,7 +123,7 @@ def wallet(user):
             "character_id": c.character_id,
             "naam": c.character_name,
             "saldo": saldo,
-            "saldo_fmt": fmt_isk(saldo) if saldo is not None else "—",
+            "saldo_fmt": fmt_isk_vol(saldo) if saldo is not None else "—",
             "gekoppeld": saldo is not None,
         })
 
@@ -141,10 +160,10 @@ def wallet(user):
     return {
         "characters": per_char,
         "totaal": totaal,
-        "totaal_fmt": fmt_isk(totaal),
+        "totaal_fmt": fmt_isk_vol(totaal),
         "regels": [_journaalregel(e) for e in regels[:200]],
         "soorten": [{"ref_type": k, "naam": k.replace("_", " ").capitalize(),
-                     "bedrag": v, "bedrag_fmt": fmt_isk(v), "positief": v >= 0,
+                     "bedrag": v, "bedrag_fmt": fmt_isk_vol(v), "positief": v >= 0,
                      "pct": round(abs(v) / grootste * 100)}
                     for k, v in soorten],
     }
@@ -156,9 +175,9 @@ def _journaalregel(e):
         "soort": (e.get("ref_type") or "").replace("_", " ").capitalize(),
         "omschrijving": e.get("description") or "",
         "bedrag": float(e.get("amount") or 0),
-        "bedrag_fmt": fmt_isk(e.get("amount")),
+        "bedrag_fmt": fmt_isk_vol(e.get("amount")),
         "positief": float(e.get("amount") or 0) >= 0,
-        "saldo_fmt": fmt_isk(e.get("balance")),
+        "saldo_fmt": fmt_isk_vol(e.get("balance")),
         "character": e.get("_char", ""),
         "kleur": e.get("_kleur", ""),
     }

@@ -18,7 +18,7 @@
         <div class="fin-chars">
             <div class="fin-char-totaal">
                 <span class="l">{% translate "Totaal" %}</span>
-                <span class="v">{{ totaal_fmt }}</span>
+                <span class="v">{{ totaal_fmt }}<span class="fin-eenheid">ISK</span></span>
                 <span class="s">{{ characters|length }} {% translate "characters" %}</span>
             </div>
 
@@ -29,7 +29,7 @@
                          src="https://images.evetech.net/characters/{{ c.character_id }}/portrait?size=64">
                     <div class="fin-char-body">
                         <div class="fin-char-naam" title="{{ c.naam }}">{{ c.naam }}</div>
-                        <div class="fin-char-saldo">{{ c.saldo_fmt }}</div>
+                        <div class="fin-char-saldo">{{ c.saldo_fmt }}{% if c.gekoppeld %}<span class="fin-eenheid">ISK</span>{% endif %}</div>
                         {% if c.gekoppeld %}
                             <div class="fin-char-onder">
                                 <span class="fin-char-spoor">
