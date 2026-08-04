@@ -644,12 +644,21 @@ def pi(user):
         })
 
     planeten.sort(key=lambda p: (p["character"], p["systeem"]))
+    hoogste = max(per_type.values())
     return {
         "planeten": planeten,
         "aantal": len(planeten),
         "pins": sum(int(p.get("num_pins") or 0) for p in rijen),
         "aantal_characters": len(chars),
-        "per_type": sorted(({"naam": PLANEET_LABEL.get(k, k.capitalize()), "aantal": v}
+        "systemen": len({p["solar_system_id"] for p in rijen}),
+        "op_max": sum(1 for p in rijen if (p.get("upgrade_level") or 0) >= 5),
+        # De typeverdeling is geen kerncijfer maar een verhouding, dus met een
+        # balk in plaats van als tegel: anders verdringen zes types de cijfers
+        # waar je echt naar kijkt.
+        "per_type": sorted(({"naam": PLANEET_LABEL.get(k, k.capitalize()),
+                             "ruw": k, "aantal": v,
+                             "pct": round(v / hoogste * 100),
+                             "deel": round(v / len(rijen) * 100)}
                             for k, v in per_type.items()), key=lambda x: -x["aantal"]),
         "verdeling": sorted(per_char.values(), key=lambda v: -v["aantal"]),
     }

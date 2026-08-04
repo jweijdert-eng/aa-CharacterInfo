@@ -27,13 +27,37 @@
                 <span class="v">{{ pins }}</span>
                 <span class="s">{% translate "pins bij elkaar" %}</span>
             </div>
-            {% for t in per_type %}
-                <div class="fin-stat">
-                    <span class="l">{{ t.naam }}</span>
-                    <span class="v">{{ t.aantal }}</span>
-                    <span class="s">{% translate "planeten" %}</span>
-                </div>
-            {% endfor %}
+            <div class="fin-stat">
+                <span class="l">{% translate "Systemen" %}</span>
+                <span class="v">{{ systemen }}</span>
+                <span class="s">{{ per_type|length }} {% translate "planeettypes" %}</span>
+            </div>
+            <div class="fin-stat">
+                <span class="l">{% translate "Volledig opgewaardeerd" %}</span>
+                <span class="v">{{ op_max }}</span>
+                <span class="s">{% translate "op commandcenter-niveau 5" %}</span>
+            </div>
+        </div>
+
+        <h2 class="fin-kop">{% translate "Per planeettype" %}</h2>
+        <div class="fin-tablewrap">
+            <table class="fin-table">
+                <tbody>
+                    {% for t in per_type %}
+                        <tr>
+                            <td style="width: 20%;">
+                                <span class="fin-badge fin-planeet fin-planeet-{{ t.ruw }}">{{ t.naam }}</span>
+                            </td>
+                            <td>
+                                <div class="fin-bron-balk fin-balk-{{ t.ruw }}"
+                                     style="width: {{ t.pct }}%;"></div>
+                            </td>
+                            <td class="fin-dim" style="width: 1%; white-space: nowrap;">{{ t.deel }}%</td>
+                            <td class="fin-getal" style="width: 1%;">{{ t.aantal }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
 
         {% if verdeling %}

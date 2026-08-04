@@ -213,7 +213,9 @@
 .fin-app .fin-planeet-gas       { color: #d55181; }
 .fin-app .fin-planeet-lava      { color: #e66767; }
 .fin-app .fin-planeet-storm     { color: #d95926; }
-.fin-app .fin-planeet-plasma    { color: #008300; }
+/* Magenta, niet groen: als groen zat plasma bijna op temperate (afstand 11.9)
+   en haalde het met 3.8:1 de leesbaarheidseis voor tekst niet. */
+.fin-app .fin-planeet-plasma    { color: #d850e6; }
 
 /* Rol: heb je het contract zelf uitgegeven of aangenomen? */
 .fin-app .fin-rol { font-size: .68rem; letter-spacing: .04em; text-transform: uppercase; color: var(--fin-dim); }
@@ -229,6 +231,18 @@
     background: var(--fin-green);
 }
 .fin-app .fin-bron-balk.neg { background: var(--fin-red); }
+
+/* Balkjes bij de typeverdeling: dezelfde kleur als de badge ernaast, zodat de
+   rij als één geheel leest. Deze regels moeten ná .fin-bron-balk staan — even
+   sterk, dus de laatste wint, anders blijft alles groen. */
+.fin-app .fin-bron-balk.fin-balk-temperate { background: #199e70; }
+.fin-app .fin-bron-balk.fin-balk-barren    { background: #c98500; }
+.fin-app .fin-bron-balk.fin-balk-oceanic   { background: #3987e5; }
+.fin-app .fin-bron-balk.fin-balk-ice       { background: #9085e9; }
+.fin-app .fin-bron-balk.fin-balk-gas       { background: #d55181; }
+.fin-app .fin-bron-balk.fin-balk-lava      { background: #e66767; }
+.fin-app .fin-bron-balk.fin-balk-storm     { background: #d95926; }
+.fin-app .fin-bron-balk.fin-balk-plasma    { background: #d850e6; }
 
 /* ── Grafiek ──────────────────────────────────────────────────────────── */
 .fin-app .fin-grafiek-blok {
