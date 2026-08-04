@@ -1,0 +1,93 @@
+{% extends 'finance/base.html' %}
+{% load i18n %}
+
+{% block fin_title %}{% translate "Ratting" %}{% endblock %}
+{% block fin_sub %}{% if heeft_wallet %}{{ totaal_fmt }} ISK {% translate "totaal" %}{% endif %}{% endblock %}
+
+{% block details %}
+    {% if not heeft_wallet %}
+        <div class="alert alert-warning" style="max-width: 640px;">
+            <p class="mb-2">{% translate "Je ratting-inkomsten komen uit je wallet-journaal, dus daar hebben we toegang toe nodig." %}</p>
+            <a href="{% url 'finance:koppelen' %}" class="btn btn-sm btn-warning">
+                {% translate "Character koppelen" %}
+            </a>
+        </div>
+    {% else %}
+
+        <div class="fin-kaarten mb-3">
+            <div class="fin-kaart">
+                <div class="fin-kaart-label">{% translate "Bounties" %}</div>
+                <div class="fin-kaart-waarde">{{ bounty_fmt }}</div>
+                <div class="fin-kaart-sub">{{ sessies }} {% translate "uitbetalingen" %}</div>
+            </div>
+            <div class="fin-kaart">
+                <div class="fin-kaart-label">{% translate "ESS" %}</div>
+                <div class="fin-kaart-waarde">{{ ess_fmt }}</div>
+                <div class="fin-kaart-sub">{% translate "uit de nullsec-bank" %}</div>
+            </div>
+            <div class="fin-kaart">
+                <div class="fin-kaart-label">{% translate "Totaal" %}</div>
+                <div class="fin-kaart-waarde">{{ totaal_fmt }}</div>
+                <div class="fin-kaart-sub">{% translate "bounty + ESS" %}</div>
+            </div>
+            <div class="fin-kaart">
+                <div class="fin-kaart-label">{% translate "Gemiddeld per dag" %}</div>
+                <div class="fin-kaart-waarde">{{ gem_per_dag_fmt }}</div>
+                <div class="fin-kaart-sub">{{ actieve_dagen }} {% translate "actieve dagen" %}</div>
+            </div>
+        </div>
+
+        {% if grafiek %}
+            <h2 class="h6 mt-4">{% translate "Per dag" %}</h2>
+            <div class="fin-balk mb-1">
+                {% for d in grafiek %}
+                    <div class="fin-balk-kolom" title="{{ d.dag }} — {{ d.totaal_fmt }} ISK">
+                        <div class="fin-balk-ess" style="height: {{ d.pct_ess }}%;"></div>
+                        <div class="fin-balk-bounty" style="height: {{ d.pct_bounty }}%;"></div>
+                    </div>
+                {% endfor %}
+            </div>
+            <p class="fin-kaart-sub">
+                <span style="color:#d4a017;">■</span> {% translate "bounty" %}
+                <span style="color:#4a90d9;" class="ms-2">■</span> {% translate "ESS" %}
+                <span class="ms-2">{{ grafiek.0.dag }} → {{ laatste_dag }}</span>
+            </p>
+        {% endif %}
+
+        <h2 class="h6 mt-4">{% translate "Uitbetalingen" %}</h2>
+        {% if regels %}
+            <div class="table-responsive">
+                <table class="table table-sm table-hover fin-tabel">
+                    <thead>
+                        <tr>
+                            <th>{% translate "Datum" %}</th>
+                            <th>{% translate "Character" %}</th>
+                            <th>{% translate "Soort" %}</th>
+                            <th>{% translate "Waar" %}</th>
+                            <th class="fin-getal">{% translate "Bedrag" %}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for r in regels %}
+                            <tr>
+                                <td class="text-nowrap">{{ r.datum|date:"d-m-Y H:i" }}</td>
+                                <td class="text-nowrap">{{ r.character }}</td>
+                                <td class="text-nowrap">
+                                    <span style="color: {% if r.is_ess %}#4a90d9{% else %}#d4a017{% endif %};">
+                                        {{ r.soort }}
+                                    </span>
+                                </td>
+                                <td>{{ r.omschrijving }}</td>
+                                <td class="fin-getal fin-pos">{{ r.bedrag_fmt }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="alert alert-secondary">
+                {% translate "Geen bounty- of ESS-uitbetalingen gevonden in je journaal." %}
+            </div>
+        {% endif %}
+    {% endif %}
+{% endblock %}

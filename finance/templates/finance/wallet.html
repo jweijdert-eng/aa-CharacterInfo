@@ -1,0 +1,84 @@
+{% extends 'finance/base.html' %}
+{% load i18n %}
+
+{% block fin_title %}{% translate "Wallet" %}{% endblock %}
+{% block fin_sub %}{% if heeft_wallet %}{{ totaal_fmt }} ISK {% translate "over al je characters" %}{% endif %}{% endblock %}
+
+{% block details %}
+    {% if not heeft_wallet %}
+        <div class="alert alert-warning" style="max-width: 640px;">
+            <p class="mb-2">{% translate "Om je saldo en journaal te tonen hebben we toegang tot je wallet nodig." %}</p>
+            <p class="mb-3 small">{% translate "Koppel je character één keer; dat geldt meteen voor alle drie de tabbladen." %}</p>
+            <a href="{% url 'finance:koppelen' %}" class="btn btn-sm btn-warning">
+                {% translate "Character koppelen" %}
+            </a>
+        </div>
+    {% else %}
+
+        <div class="fin-kaarten mb-3">
+            {% for c in characters %}
+                <div class="fin-kaart">
+                    <div class="fin-kaart-label">{{ c.naam }}</div>
+                    <div class="fin-kaart-waarde">{{ c.saldo_fmt }}</div>
+                    <div class="fin-kaart-sub">
+                        {% if c.gekoppeld %}ISK{% else %}{% translate "niet gekoppeld" %}{% endif %}
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+
+        {% if soorten %}
+            <h2 class="h6 mt-4">{% translate "Waar je geld vandaan komt" %}
+                <span class="fin-kaart-sub">— {% translate "laatste 30 dagen" %}</span></h2>
+            <div class="table-responsive">
+                <table class="table table-sm fin-tabel">
+                    <tbody>
+                        {% for s in soorten %}
+                            <tr>
+                                <td>{{ s.naam }}</td>
+                                <td class="fin-getal {% if s.positief %}fin-pos{% else %}fin-neg{% endif %}">
+                                    {{ s.bedrag_fmt }}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% endif %}
+
+        <h2 class="h6 mt-4">{% translate "Journaal" %}</h2>
+        {% if regels %}
+            <div class="table-responsive">
+                <table class="table table-sm table-hover fin-tabel">
+                    <thead>
+                        <tr>
+                            <th>{% translate "Datum" %}</th>
+                            <th>{% translate "Character" %}</th>
+                            <th>{% translate "Soort" %}</th>
+                            <th>{% translate "Omschrijving" %}</th>
+                            <th class="fin-getal">{% translate "Bedrag" %}</th>
+                            <th class="fin-getal">{% translate "Saldo" %}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for r in regels %}
+                            <tr>
+                                <td class="text-nowrap">{{ r.datum|date:"d-m-Y H:i" }}</td>
+                                <td class="text-nowrap">{{ r.character }}</td>
+                                <td class="text-nowrap">{{ r.soort }}</td>
+                                <td>{{ r.omschrijving }}</td>
+                                <td class="fin-getal {% if r.positief %}fin-pos{% else %}fin-neg{% endif %}">
+                                    {{ r.bedrag_fmt }}
+                                </td>
+                                <td class="fin-getal">{{ r.saldo_fmt }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <p class="fin-kaart-sub">{% translate "Laatste 200 regels." %}</p>
+        {% else %}
+            <div class="alert alert-secondary">{% translate "Geen journaalregels gevonden." %}</div>
+        {% endif %}
+    {% endif %}
+{% endblock %}

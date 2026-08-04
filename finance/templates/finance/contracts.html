@@ -1,0 +1,82 @@
+{% extends 'finance/base.html' %}
+{% load i18n %}
+
+{% block fin_title %}{% translate "Contracts" %}{% endblock %}
+{% block fin_sub %}{% if heeft_contracts %}{{ aantal }} {% translate "contracten" %}{% endif %}{% endblock %}
+
+{% block details %}
+    {% if not heeft_contracts %}
+        <div class="alert alert-warning" style="max-width: 640px;">
+            <p class="mb-2">{% translate "Om je contracten te tonen hebben we toegang tot je persoonlijke contracten nodig." %}</p>
+            <a href="{% url 'finance:koppelen' %}" class="btn btn-sm btn-warning">
+                {% translate "Character koppelen" %}
+            </a>
+        </div>
+    {% else %}
+
+        <div class="fin-kaarten mb-3">
+            <div class="fin-kaart">
+                <div class="fin-kaart-label">{% translate "Openstaand" %}</div>
+                <div class="fin-kaart-waarde">{{ open }}</div>
+            </div>
+            <div class="fin-kaart">
+                <div class="fin-kaart-label">{% translate "Onderweg" %}</div>
+                <div class="fin-kaart-waarde">{{ bezig }}</div>
+            </div>
+            <div class="fin-kaart">
+                <div class="fin-kaart-label">{% translate "Afgerond" %}</div>
+                <div class="fin-kaart-waarde">{{ klaar }}</div>
+            </div>
+            <div class="fin-kaart">
+                <div class="fin-kaart-label">{% translate "Verdiend aan beloningen" %}</div>
+                <div class="fin-kaart-waarde">{{ beloning_fmt }}</div>
+                <div class="fin-kaart-sub">{% translate "uit afgeronde contracten" %}</div>
+            </div>
+        </div>
+
+        {% if rijen %}
+            <div class="table-responsive">
+                <table class="table table-sm table-hover fin-tabel">
+                    <thead>
+                        <tr>
+                            <th>{% translate "Uitgegeven" %}</th>
+                            <th>{% translate "Type" %}</th>
+                            <th>{% translate "Status" %}</th>
+                            <th>{% translate "Titel" %}</th>
+                            <th>{% translate "Uitgever" %}</th>
+                            <th class="fin-getal">{% translate "Prijs" %}</th>
+                            <th class="fin-getal">{% translate "Beloning" %}</th>
+                            <th class="fin-getal">{% translate "Onderpand" %}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for r in rijen %}
+                            <tr>
+                                <td class="text-nowrap">{{ r.uitgegeven|date:"d-m-Y" }}</td>
+                                <td class="text-nowrap">{{ r.type }}</td>
+                                <td class="text-nowrap">
+                                    {% if r.is_klaar %}
+                                        <span class="badge bg-success">{{ r.status }}</span>
+                                    {% elif r.is_bezig %}
+                                        <span class="badge bg-info">{{ r.status }}</span>
+                                    {% elif r.is_open %}
+                                        <span class="badge bg-warning text-dark">{{ r.status }}</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">{{ r.status }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ r.titel }}</td>
+                                <td class="text-nowrap">{{ r.uitgever }}</td>
+                                <td class="fin-getal">{{ r.prijs_fmt }}</td>
+                                <td class="fin-getal">{{ r.beloning_fmt }}</td>
+                                <td class="fin-getal">{{ r.onderpand_fmt }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="alert alert-secondary">{% translate "Geen contracten gevonden." %}</div>
+        {% endif %}
+    {% endif %}
+{% endblock %}
