@@ -18,9 +18,8 @@ Voeg `finance` toe aan `INSTALLED_APPS`, draai `migrate` en `collectstatic`, en 
 
 ## Menu
 
-De plugin registreert drie losse menu-items. Wil je ze onder één kopje **Finance**, maak dan in de
-admin een menu-map aan (Menu → toevoegen, zonder URL) en zet de drie items daarin. Dat blijft staan:
-de hook-synchronisatie werkt alleen tekst en volgorde bij.
+Eén menu-item **Finance**. De drie onderdelen zitten als tabbladen in de pagina zelf, dus je hoeft
+niets in de admin in te richten.
 
 ## Scopes
 
