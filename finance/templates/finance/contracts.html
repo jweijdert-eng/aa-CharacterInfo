@@ -2,7 +2,7 @@
 {% load i18n %}
 
 {% block fin_title %}{% translate "Contracts" %}{% endblock %}
-{% block fin_sub %}{% if heeft_contracts %}{{ aantal }} {% translate "contracten" %}{% endif %}{% endblock %}
+{% block fin_sub %}{% if heeft_contracts %}{{ aantal }} {% translate "contracten" %} — {% translate "saldo" %} {{ saldo_fmt }} ISK{% endif %}{% endblock %}
 
 {% block details %}
     {% if not heeft_contracts %}
@@ -13,26 +13,34 @@
     {% else %}
 
         <div class="fin-stats">
-            <div class="fin-stat fin-stat-totaal">
-                <span class="l">{% translate "Verdiend aan beloningen" %}</span>
-                <span class="v">{{ beloning_fmt }}</span>
+            <div class="fin-stat" style="border-left: 3px solid var(--fin-green);">
+                <span class="l">{% translate "Ontvangen" %}</span>
+                <span class="v fin-pos">{{ verdiend_fmt }}</span>
                 <span class="s">{% translate "uit afgeronde contracten" %}</span>
             </div>
-            <div class="fin-stat">
-                <span class="l">{% translate "Openstaand" %}</span>
-                <span class="v">{{ open }}</span>
+            <div class="fin-stat" style="border-left: 3px solid var(--fin-red);">
+                <span class="l">{% translate "Betaald" %}</span>
+                <span class="v fin-neg">{{ betaald_fmt }}</span>
+                <span class="s">{% translate "aan anderen" %}</span>
+            </div>
+            <div class="fin-stat fin-stat-totaal">
+                <span class="l">{% translate "Saldo" %}</span>
+                <span class="v">{{ saldo_fmt }}</span>
+                <span class="s">{% translate "netto over alle contracten" %}</span>
             </div>
             <div class="fin-stat">
-                <span class="l">{% translate "Onderweg" %}</span>
-                <span class="v">{{ bezig }}</span>
-            </div>
-            <div class="fin-stat">
-                <span class="l">{% translate "Afgerond" %}</span>
+                <span class="l">{% translate "Status" %}</span>
                 <span class="v">{{ klaar }}</span>
+                <span class="s">
+                    {% translate "afgerond" %} ·
+                    {{ open }} {% translate "open" %} ·
+                    {{ bezig }} {% translate "onderweg" %}
+                </span>
             </div>
         </div>
 
-        <h2 class="fin-kop">{% translate "Contracten" %}</h2>
+        <h2 class="fin-kop">{% translate "Contracten" %}
+            <span>— {% translate "de gekleurde rand toont of het contract je geld opleverde of kostte" %}</span></h2>
         {% if rijen %}
             <div class="fin-tablewrap">
                 <table class="fin-table">
@@ -42,17 +50,23 @@
                             <th>{% translate "Type" %}</th>
                             <th>{% translate "Status" %}</th>
                             <th>{% translate "Titel" %}</th>
-                            <th>{% translate "Uitgever" %}</th>
+                            <th>{% translate "Van" %}</th>
+                            <th>{% translate "Naar" %}</th>
                             <th class="fin-getal">{% translate "Prijs" %}</th>
                             <th class="fin-getal">{% translate "Beloning" %}</th>
-                            <th class="fin-getal">{% translate "Onderpand" %}</th>
+                            <th class="fin-getal">{% translate "Netto" %}</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for r in rijen %}
-                            <tr>
-                                <td class="fin-nowrap fin-dim">{{ r.uitgegeven|date:"d-m-Y" }}</td>
-                                <td class="fin-nowrap">{{ r.type }}</td>
+                            <tr class="{% if r.is_klaar %}{% if r.netto_positief %}fin-in{% elif r.netto %}fin-uit{% endif %}{% endif %}">
+                                <td class="fin-nowrap fin-dim">
+                                    {{ r.uitgegeven|date:"d-m-Y" }}
+                                    {% if r.rol %}<div class="fin-rol">{{ r.rol }}</div>{% endif %}
+                                </td>
+                                <td class="fin-nowrap">
+                                    <span class="fin-badge fin-type fin-type-{{ r.type_klasse }}">{{ r.type_kort }}</span>
+                                </td>
                                 <td class="fin-nowrap">
                                     {% if r.is_klaar %}
                                         <span class="fin-badge fin-badge-klaar">{{ r.status }}</span>
@@ -65,17 +79,32 @@
                                     {% endif %}
                                 </td>
                                 <td class="fin-omschrijving">{{ r.titel }}</td>
-                                <td class="fin-nowrap fin-dim">{{ r.uitgever }}</td>
-                                <td class="fin-getal fin-dim">{{ r.prijs_fmt }}</td>
-                                <td class="fin-getal {% if r.beloning %}fin-pos{% else %}fin-dim{% endif %}">
-                                    {{ r.beloning_fmt }}
+                                <td class="fin-nowrap {% if r.ben_uitgever %}fin-pos{% else %}fin-dim{% endif %}">
+                                    {{ r.uitgever }}
                                 </td>
-                                <td class="fin-getal fin-dim">{{ r.onderpand_fmt }}</td>
+                                <td class="fin-nowrap {% if r.ben_acceptor %}fin-pos{% else %}fin-dim{% endif %}">
+                                    {{ r.koper|default:"—" }}
+                                </td>
+                                <td class="fin-getal fin-dim">{{ r.prijs_fmt }}</td>
+                                <td class="fin-getal fin-dim">{{ r.beloning_fmt }}</td>
+                                {# Alleen bij een afgerond contract is er geld verplaatst. Bij een
+                                   verwijderd of mislukt contract zou een bedrag hier een
+                                   geldstroom suggereren die nooit heeft plaatsgevonden. #}
+                                <td class="fin-getal {% if r.netto_positief %}fin-pos{% elif r.netto %}fin-neg{% endif %}">
+                                    {% if r.is_klaar and r.netto %}
+                                        {% if r.netto_positief %}+{% endif %}{{ r.netto_fmt }}
+                                    {% else %}
+                                        <span class="fin-dim" title="{% translate 'Niet afgerond — er is geen geld verplaatst' %}">—</span>
+                                    {% endif %}
+                                </td>
                             </tr>
                         {% endfor %}
                     </tbody>
                 </table>
             </div>
+            <p class="fin-dim" style="font-size:.76rem; margin-top:.5rem;">
+                {% translate "Netto is wat het contract jou opleverde: bij een verkoop de prijs die je ontving, bij een koeriersrit de beloning. Alleen afgeronde contracten tellen mee in het saldo." %}
+            </p>
         {% else %}
             <div class="fin-melding">{% translate "Geen contracten gevonden." %}</div>
         {% endif %}

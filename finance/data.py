@@ -193,15 +193,39 @@ def contracten(user):
     for k in lijst:
         beloning = float(k.get("reward") or 0)
         prijs = float(k.get("price") or 0)
+        soort = k.get("type") or ""
+
+        # Wie betaalt wie: `price` gaat van de acceptor naar de uitgever
+        # (item exchange, veiling), `reward` gaat de andere kant op (koeriers).
+        # Daarmee is uit te rekenen wat dit contract jóu opleverde of kostte.
+        ben_uitgever = k.get("issuer_id") in mijn
+        ben_acceptor = k.get("acceptor_id") in mijn
+        if ben_uitgever:
+            netto = prijs - beloning
+        elif ben_acceptor:
+            netto = beloning - prijs
+        else:
+            netto = 0.0
+
         rijen.append({
             "id": k["contract_id"],
-            "type": (k.get("type") or "").replace("_", " "),
+            "type": soort.replace("_", " "),
+            "type_kort": {"item_exchange": "Exchange", "courier": "Koerier",
+                          "auction": "Veiling"}.get(soort, soort or "—"),
+            "type_klasse": soort.replace("_", "-"),
             "status": k.get("status") or "",
             "titel": k.get("title") or "",
             "uitgever": namen.get(k.get("issuer_id")) or mijn.get(k.get("issuer_id")) or "—",
+            # De acceptor is degene die het contract aannam: bij een verkoop is
+            # dat je koper, bij een koeriersrit je piloot.
+            "koper": namen.get(k.get("acceptor_id")) or mijn.get(k.get("acceptor_id")) or "",
             "toegewezen": namen.get(k.get("assignee_id")) or "",
+            "ben_uitgever": ben_uitgever,
+            "ben_acceptor": ben_acceptor,
+            "rol": "uitgegeven" if ben_uitgever else ("aangenomen" if ben_acceptor else ""),
             "prijs": prijs, "prijs_fmt": fmt_isk(prijs),
             "beloning": beloning, "beloning_fmt": fmt_isk(beloning),
+            "netto": netto, "netto_fmt": fmt_isk(netto), "netto_positief": netto > 0,
             "onderpand_fmt": fmt_isk(k.get("collateral")),
             "volume_fmt": f"{float(k.get('volume') or 0):,.0f}".replace(",", "."),
             "uitgegeven": _parse(k.get("date_issued")),
@@ -217,11 +241,19 @@ def contracten(user):
                reverse=True)
 
     klaar = [r for r in rijen if r["is_klaar"]]
+    # Alleen afgeronde contracten hebben echt geld verplaatst; openstaande
+    # zeggen nog niets over je saldo.
+    verdiend = sum(r["netto"] for r in klaar if r["netto"] > 0)
+    betaald = sum(-r["netto"] for r in klaar if r["netto"] < 0)
     return {
         "rijen": rijen,
         "aantal": len(rijen),
         "open": sum(1 for r in rijen if r["is_open"]),
         "bezig": sum(1 for r in rijen if r["is_bezig"]),
         "klaar": len(klaar),
+        "verdiend_fmt": fmt_isk(verdiend),
+        "betaald_fmt": fmt_isk(betaald),
+        "saldo": verdiend - betaald,
+        "saldo_fmt": fmt_isk(verdiend - betaald),
         "beloning_fmt": fmt_isk(sum(r["beloning"] for r in klaar)),
     }

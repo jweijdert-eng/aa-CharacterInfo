@@ -91,6 +91,21 @@
 .fin-app .fin-badge-open { color: var(--fin-gold); background: rgba(240, 192, 64, .13); border: 1px solid rgba(240, 192, 64, .4); }
 .fin-app .fin-badge-rest { color: var(--fin-dim); background: rgba(138, 144, 176, .13); border: 1px solid rgba(138, 144, 176, .35); }
 
+/* Contract-type. Drie soorten, dus drie eigen tinten — die zijn identiteit,
+   geen status, en mogen dus niet uit het groen/rood-palet komen. */
+.fin-app .fin-type { border: 1px solid currentColor; background: transparent; }
+.fin-app .fin-type-item-exchange { color: #9d8cd6; }
+.fin-app .fin-type-courier { color: #4bb3b8; }
+.fin-app .fin-type-auction { color: #d68c6a; }
+
+/* Rol: heb je het contract zelf uitgegeven of aangenomen? */
+.fin-app .fin-rol { font-size: .68rem; letter-spacing: .04em; text-transform: uppercase; color: var(--fin-dim); }
+
+/* Kleur op de rij vertelt of dit contract je geld opleverde of kostte. */
+.fin-app .fin-table tbody tr td:first-child { border-left: 3px solid transparent; }
+.fin-app .fin-table tbody tr.fin-in td:first-child { border-left-color: var(--fin-green); }
+.fin-app .fin-table tbody tr.fin-uit td:first-child { border-left-color: var(--fin-red); }
+
 /* ── Herkomst-balkjes ─────────────────────────────────────────────────── */
 .fin-app .fin-bron-balk {
     height: 6px; border-radius: 3px; min-width: 2px;
