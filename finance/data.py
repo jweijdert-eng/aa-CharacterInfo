@@ -1306,7 +1306,10 @@ def _kolonie(p, det, typen, prijzen, nu):
         return prijzen.get(int(tid), 0.0)
 
     # ── Extractors ────────────────────────────────────────────────────────
-    extractors, aanvoer = [], defaultdict(float)
+    # `extractie` staat los van `aanvoer`: alleen wat er uit de grond komt is
+    # nieuwe grondstof voor het account. Wat een fabriek uitspuugt is elders al
+    # als verbruik geteld en mag in de ketenberekening niet als bron dubbeltellen.
+    extractors, aanvoer, extractie = [], defaultdict(float), defaultdict(float)
     for pin in pins:
         ed = pin.get("extractor_details")
         if not ed:
@@ -1321,6 +1324,7 @@ def _kolonie(p, det, typen, prijzen, nu):
         loopt = rest is not None and rest > 0
         if loopt and product_id:
             aanvoer[int(product_id)] += per_uur
+            extractie[int(product_id)] += per_uur
         # Voortgang door het programma: hoeveel van de looptijd is verstreken.
         pct = 0
         if afloop and gestart:
@@ -1362,7 +1366,8 @@ def _kolonie(p, det, typen, prijzen, nu):
         per_schema[sid]["pins"].append(pin["pin_id"])
         per_schema[sid]["aantal"] += 1
 
-    fabrieken, export = [], defaultdict(float)
+    fabrieken, export, verbruik = [], defaultdict(float), defaultdict(float)
+    groepen = []
     for sid, vak in per_schema.items():
         schema = esi.schematic(sid) if sid else {}
         cyclus = int(schema.get("cycle_time") or 0)
@@ -1377,13 +1382,28 @@ def _kolonie(p, det, typen, prijzen, nu):
                 naar_opslag += float(r.get("quantity") or 0)
         per_uur = per_cyclus * 3600 / cyclus if cyclus else 0
         uit_per_uur = naar_opslag * 3600 / cyclus if cyclus else 0
+
+        # Wat deze fabrieken uit de opslag trekken. Per receptgroep bijhouden en
+        # niet alleen per planeet, want straks moet elke groep apart teruggezet
+        # kunnen worden op het tempo van z'n krapste grondstof.
+        inputs = defaultdict(float)
+        for r in routes:
+            if r.get("destination_pin_id") not in vak["pins"]:
+                continue
+            if groep_van_pin.get(r.get("source_pin_id")) not in GRP_BEWAART:
+                continue
+            if cyclus:
+                inputs[int(r["content_type_id"])] += float(r.get("quantity") or 0) * 3600 / cyclus
+        for tid, hoeveel in inputs.items():
+            verbruik[tid] += hoeveel
+
         if product_id:
             # Alles wat naar de opslag gaat is wat de planeet écht oplevert;
             # halffabrikaten die doorgaan naar de volgende fabriek zijn al in
             # dat eindproduct verwerkt en zouden dubbel tellen.
             export[int(product_id)] += uit_per_uur
             aanvoer[int(product_id)] += uit_per_uur
-        fabrieken.append({
+        fabriek = {
             "aantal": vak["aantal"],
             "schema": schema.get("schematic_name") or (f"Schema {sid}" if sid else "Niet ingesteld"),
             "product": info(product_id)["naam"] if product_id else "",
@@ -1395,19 +1415,17 @@ def _kolonie(p, det, typen, prijzen, nu):
             "isk_dag_fmt": fmt_isk(uit_per_uur * 24 * prijs(product_id)) if product_id else "",
             "cyclus_min": round(cyclus / 60) if cyclus else 0,
             "ingesteld": bool(sid),
+        }
+        fabrieken.append(fabriek)
+        groepen.append({
+            "product_id": int(product_id) if product_id else None,
+            "uit_per_uur": uit_per_uur,
+            "per_uur": per_uur,
+            "inputs": dict(inputs),
+            "isk_uur": uit_per_uur * prijs(product_id) if product_id else 0.0,
+            "fabriek": fabriek,
         })
     fabrieken.sort(key=lambda f: -f["aantal"])
-
-    # ── Verbruik van grondstoffen uit de opslag ───────────────────────────
-    verbruik = defaultdict(float)
-    for r in routes:
-        if groep_van_pin.get(r.get("source_pin_id")) not in GRP_BEWAART:
-            continue
-        if groep_van_pin.get(r.get("destination_pin_id")) != GRP_FABRIEK:
-            continue
-        cyclus = cyclus_van_pin.get(r.get("destination_pin_id")) or 0
-        if cyclus:
-            verbruik[int(r["content_type_id"])] += float(r.get("quantity") or 0) * 3600 / cyclus
 
     # ── Opslag en voorraad ────────────────────────────────────────────────
     voorraad, gebruikt, capaciteit = defaultdict(int), 0.0, 0.0
@@ -1525,11 +1543,90 @@ def _kolonie(p, det, typen, prijzen, nu):
         "ernst": ernst,
         "export": export,
         "verbruik": verbruik,
+        "extractie": extractie,
+        "groepen": groepen,
         "heeft_detail": bool(pins),
         # Zonder detail (geen token meer, of ESI hikte) tonen we de kaart wel,
         # maar zonder de lege blokken die dan zouden verschijnen.
         "aantal_pins": len(pins),
     }
+
+
+def _doorstroom(groepen, extractie):
+    """Hoe hard draait elke receptgroep werkelijk, als aandeel van z'n capaciteit?
+
+    Een fabriek kan niet meer verwerken dan er binnenkomt. Rekenen met
+    capaciteit geeft daardoor cijfers die nergens op slaan zodra één schakel
+    krap zit: acht Robotics-fabrieken die maar voor vier fabrieken grondstof
+    krijgen leveren de helft, niet het volle pond.
+
+    Het account is hier één voorraadpot per product — waar iets vandaan komt
+    doet er niet toe, want je vliegt het zelf rond. Beginnen op vol vermogen en
+    net zo lang terugschroeven tot het klopt: elke ronde kan een groep alleen
+    maar langzamer gaan, dus dit loopt naar één antwoord toe.
+
+    Producten die je nergens zelf maakt tellen als onbeperkt: die koop of haal
+    je van buiten, en dan is een tekort geen ketenprobleem maar een voorraad-
+    kwestie — daar gaat de opraak-melding op de kaart al over.
+    """
+    eigen_bron = set(extractie) | {g["product_id"] for g in groepen if g["product_id"]}
+    factor = [1.0] * len(groepen)
+
+    for _ in range(50):
+        aanbod = defaultdict(float, extractie)
+        vraag = defaultdict(float)
+        for i, g in enumerate(groepen):
+            if g["product_id"]:
+                aanbod[g["product_id"]] += g["uit_per_uur"] * factor[i]
+            for tid, per_uur in g["inputs"].items():
+                vraag[tid] += per_uur * factor[i]
+
+        dekking = {}
+        for tid, gevraagd in vraag.items():
+            if tid not in eigen_bron:
+                dekking[tid] = 1.0
+            elif gevraagd > 0:
+                dekking[tid] = min(1.0, aanbod.get(tid, 0.0) / gevraagd)
+            else:
+                dekking[tid] = 1.0
+
+        # Vermenigvuldigen, niet overschrijven. Zet je de factor gelijk aáń de
+        # dekking, dan slingert het: op halve kracht is de dekking weer 100%,
+        # dus gaat hij terug naar vol, en zakt de dekking weer naar de helft.
+        nieuw = [factor[i] * min([1.0] + [dekking.get(tid, 1.0) for tid in g["inputs"]])
+                 for i, g in enumerate(groepen)]
+        if all(abs(a - b) < 1e-6 for a, b in zip(nieuw, factor)):
+            factor = nieuw
+            break
+        factor = nieuw
+
+    # Welk product houdt de boel tegen? Bij het vaste punt is de dekking overal
+    # 100% — de vraag is immers teruggeschroefd tot wat er is — dus daar valt
+    # het niet meer aan af te lezen. Krap is wat er in z'n geheel opgaat: alles
+    # wat je ervan maakt wordt ook opgestookt, dus meer ervan is meer eindproduct.
+    aanbod, vraag = defaultdict(float, extractie), defaultdict(float)
+    for i, g in enumerate(groepen):
+        if g["product_id"]:
+            aanbod[g["product_id"]] += g["uit_per_uur"] * factor[i]
+        for tid, per_uur in g["inputs"].items():
+            vraag[tid] += per_uur * factor[i]
+    krap = {tid for tid, gevraagd in vraag.items()
+            if tid in eigen_bron and gevraagd > 0 and aanbod.get(tid, 0.0) <= gevraagd * 1.001}
+
+    return factor, krap
+
+
+def _netto_isk(groepen, factoren, prijzen):
+    """Wat de hele keten per dag oplevert bij deze doorstroom, na eigen gebruik."""
+    gemaakt, opgestookt = defaultdict(float), defaultdict(float)
+    for g, f in zip(groepen, factoren):
+        if g["product_id"]:
+            gemaakt[g["product_id"]] += g["uit_per_uur"] * f
+        for tid, per_uur in g["inputs"].items():
+            opgestookt[tid] += per_uur * f
+
+    return sum(max(0.0, per_uur - opgestookt.get(tid, 0.0)) * 24 * prijzen.get(tid, 0.0)
+               for tid, per_uur in gemaakt.items())
 
 
 def pi(user):
@@ -1636,16 +1733,59 @@ def pi(user):
          for tid, n in voorraad_totaal.items() if n),
         key=lambda v: -v["isk"])
 
+    # ── Wat er werkelijk doorheen komt ────────────────────────────────────
+    # Eerst de hele keten doorrekenen, want een fabriek die z'n grondstof niet
+    # krijgt haalt z'n capaciteit niet. Zonder deze stap staat er een dagbedrag
+    # op de pagina dat je alleen zou halen als álles altijd vol aangevoerd wordt.
+    alle_groepen = [g for k in kolonies for g in k["groepen"]]
+    extractie_totaal = defaultdict(float)
+    for k in kolonies:
+        for tid, per_uur in k["extractie"].items():
+            extractie_totaal[tid] += per_uur
+    factoren, krap = _doorstroom(alle_groepen, extractie_totaal)
+    for g, f in zip(alle_groepen, factoren):
+        g["factor"] = f
+        g["fabriek"]["benutting"] = round(f * 100)
+        g["fabriek"]["isk_dag_echt_fmt"] = fmt_isk(g["isk_uur"] * f * 24)
+        g["fabriek"]["per_dag_echt_fmt"] = _getal(g["per_uur"] * f * 24)
+
+    # Per kolonie: hoe hard draait die, en welke grondstof houdt 'm tegen?
+    for k in kolonies:
+        capaciteit_isk = sum(g["isk_uur"] for g in k["groepen"])
+        echt_isk = sum(g["isk_uur"] * g["factor"] for g in k["groepen"])
+        # Wegen op ISK: een groep die niets opbrengt hoort het percentage van de
+        # kolonie niet te bepalen. Zonder opbrengst valt het terug op de traagste.
+        k["benutting"] = (round(echt_isk / capaciteit_isk * 100) if capaciteit_isk
+                          else (round(min(g["factor"] for g in k["groepen"]) * 100)
+                                if k["groepen"] else 100))
+        k["isk_dag"] = echt_isk * 24
+        k["isk_dag_fmt"] = fmt_isk(k["isk_dag"])
+        k["isk_dag_capaciteit_fmt"] = fmt_isk(capaciteit_isk * 24)
+        # De groep die het hardst geremd wordt bepaalt waar je naar moet kijken.
+        traagste = min(k["groepen"], key=lambda g: g["factor"], default=None)
+        knelpunten = [tid for tid in (traagste["inputs"] if traagste else {}) if tid in krap]
+        k["knelpunt"] = typen.get(knelpunten[0], {}).get("naam", "") if knelpunten else ""
+
+    # De character-tegels zijn hierboven met de capaciteit gevuld; nu de kolonies
+    # bijgesteld zijn moeten die mee, anders tellen de tegels niet op tot het
+    # bedrag dat bovenaan de pagina staat.
+    for vak in per_char.values():
+        vak["isk_dag"] = 0.0
+    for k in kolonies:
+        per_char[k["character_id"]]["isk_dag"] += k["isk_dag"]
+
     # Wat het account netto oplevert. Bruto optellen zou dubbeltellen: de P1 die
     # een extractieplaneet uitspuugt gaat vaak rechtstreeks een fabrieksplaneet
     # in, en zit dan al in de waarde van het eindproduct verwerkt. Dus per
     # product de export van alle planeten minus wat elders weer opgaat.
     export_totaal, verbruik_totaal = defaultdict(float), defaultdict(float)
-    for k in kolonies:
-        for tid, per_uur in k["export"].items():
-            export_totaal[tid] += per_uur
-        for tid, per_uur in k["verbruik"].items():
-            verbruik_totaal[tid] += per_uur
+    capaciteit_totaal = defaultdict(float)
+    for g in alle_groepen:
+        if g["product_id"]:
+            export_totaal[g["product_id"]] += g["uit_per_uur"] * g["factor"]
+            capaciteit_totaal[g["product_id"]] += g["uit_per_uur"]
+        for tid, per_uur in g["inputs"].items():
+            verbruik_totaal[tid] += per_uur * g["factor"]
 
     productie = []
     for tid, per_uur in export_totaal.items():
@@ -1655,6 +1795,7 @@ def pi(user):
             "tier": typen.get(tid, {}).get("tier", ""),
             "type_id": tid,
             "bruto_fmt": _getal(per_uur * 24),
+            "capaciteit_fmt": _getal(capaciteit_totaal.get(tid, 0.0) * 24),
             "eigen_fmt": _getal(min(per_uur, verbruik_totaal.get(tid, 0.0)) * 24),
             "netto": netto * 24,
             "netto_fmt": _getal(netto * 24),
@@ -1669,6 +1810,15 @@ def pi(user):
     waarde_totaal = sum(k["waarde"] for k in kolonies)
     isk_dag = sum(p["isk"] for p in productie)
     isk_dag_bruto = sum(k["isk_dag"] for k in kolonies)
+
+    # Wat je zou halen als elke fabriek altijd vol aangevoerd werd. Op dezelfde
+    # manier gerekend als het echte bedrag — dus nétto, na aftrek van wat je
+    # zelf weer opstookt. De som van alle fabriekscapaciteit ernaast zetten zou
+    # een veel groter getal geven, maar dat telt halffabrikaten dubbel.
+    isk_dag_capaciteit = _netto_isk(alle_groepen, [1.0] * len(alle_groepen), prijzen)
+    # Alleen tonen als het echt scheelt; anders lijkt er een probleem te zijn
+    # waar de keten gewoon rondloopt.
+    toont_capaciteit = isk_dag_capaciteit > isk_dag * 1.05
     hoogste = max(per_type.values())
 
     verdeling = sorted(per_char.values(), key=lambda v: -v["aantal"])
@@ -1690,6 +1840,8 @@ def pi(user):
         "waarde_fmt": fmt_isk(waarde_totaal),
         "isk_dag_fmt": fmt_isk(isk_dag),
         "isk_dag_bruto_fmt": fmt_isk(isk_dag_bruto),
+        "isk_dag_capaciteit_fmt": fmt_isk(isk_dag_capaciteit),
+        "toont_capaciteit": toont_capaciteit,
         "isk_maand_fmt": fmt_isk(isk_dag * 30),
         "productie": productie,
         "eigen_gebruik": any(p["eigen_fmt"] != "0" for p in productie),

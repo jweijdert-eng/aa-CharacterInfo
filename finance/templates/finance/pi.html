@@ -50,7 +50,10 @@
                 <span class="l">{% translate "Opbrengst per dag" %}</span>
                 <span class="v">{{ isk_dag_fmt }}</span>
                 <span class="s">
-                    {% if eigen_gebruik %}
+                    {% if toont_capaciteit %}
+                        {# Het verschil benoemen, anders lijkt de capaciteit een belofte. #}
+                        {% blocktranslate with c=isk_dag_capaciteit_fmt %}netto — vol aangevoerd {{ c }}{% endblocktranslate %}
+                    {% elif eigen_gebruik %}
                         {% translate "netto, Jita buy" %}
                     {% else %}
                         {% translate "Jita buy, als alles blijft draaien" %}
@@ -174,7 +177,12 @@
                                         </div>
                                         <div class="fin-pi-regelsub">
                                             {% if f.ingesteld %}
-                                                {{ f.per_dag_fmt }}/{% translate "dag" %} ·
+                                                {% comment %}
+                                                    Wat er werkelijk uit komt, niet wat de fabrieken aankunnen.
+                                                    De capaciteit staat in de tooltip; anders spreekt dit getal
+                                                    het benuttingspercentage onderaan de kaart tegen.
+                                                {% endcomment %}
+                                                <span title="{% blocktranslate with c=f.per_dag_fmt %}bij volle aanvoer {{ c }} per dag{% endblocktranslate %}">{{ f.per_dag_echt_fmt }}/{% translate "dag" %}</span> ·
                                                 {% blocktranslate with m=f.cyclus_min %}cyclus {{ m }} min{% endblocktranslate %}
                                             {% else %}
                                                 {% translate "geen schema ingesteld" %}
@@ -182,7 +190,7 @@
                                         </div>
                                     </div>
                                     <div class="fin-pi-regelisk"
-                                         title="{% translate 'Wat er per dag naar de opslag gaat, tegen Jita buy' %}">{{ f.isk_dag_fmt }}</div>
+                                         title="{% blocktranslate with c=f.isk_dag_fmt %}Wat er per dag naar de opslag gaat, tegen Jita buy. Bij volle aanvoer {{ c }}.{% endblocktranslate %}">{{ f.isk_dag_echt_fmt }}</div>
                                 </div>
                             {% endfor %}
                         </div>
@@ -217,17 +225,21 @@
                         </div>
                     {% endif %}
 
-                    {% comment %}
-                        Geen alarm maar een vaststelling: er staan meer fabrieken dan de
-                        aanvoer aankan. De kolonie draait gewoon door, alleen op een lager
-                        pitje. Daarom grijs en niet in het aandacht-blok bovenaan.
+    {% comment %}
+                        Geen alarm maar een vaststelling: deze kolonie krijgt niet genoeg
+                        grondstof om z'n fabrieken te vullen. Hij draait gewoon door, op
+                        een lager pitje — daarom grijs en niet in het aandacht-blok.
                     {% endcomment %}
-                    {% for o in k.onderbezet %}
+                    {% if k.benutting < 95 %}
                         <div class="fin-pi-onderbezet"
-                             title="{% blocktranslate with n=o.naam a=o.aanvoer_fmt c=o.capaciteit_fmt %}De fabrieken kunnen {{ c }} {{ n }} per uur verwerken, er komt {{ a }} per uur binnen. Bij benadering: een extractor levert aan het eind van z'n programma minder dan aan het begin.{% endblocktranslate %}">
-                            {% blocktranslate with p=o.pct %}fabrieken draaien op ~{{ p }}% — meer capaciteit dan aanvoer{% endblocktranslate %}
+                             title="{% blocktranslate with c=k.isk_dag_capaciteit_fmt %}Bij volle aanvoer zou deze kolonie {{ c }} per dag opleveren. Bij benadering: een extractor levert aan het eind van z'n programma minder dan aan het begin.{% endblocktranslate %}">
+                            {% if k.knelpunt %}
+                                {% blocktranslate with p=k.benutting n=k.knelpunt %}fabrieken draaien op ~{{ p }}% — te weinig {{ n }}{% endblocktranslate %}
+                            {% else %}
+                                {% blocktranslate with p=k.benutting %}fabrieken draaien op ~{{ p }}% — meer capaciteit dan aanvoer{% endblocktranslate %}
+                            {% endif %}
                         </div>
-                    {% endfor %}
+                    {% endif %}
 
                     <footer class="fin-pi-voet">
                         <span title="{% translate 'Wat er nu op de planeet ligt, tegen Jita buy' %}">
