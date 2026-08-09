@@ -8,6 +8,10 @@ pagina doorloopt precies dezelfde weg als in het echt.
 Alleen de cache wordt aangeraakt, nooit de database. Na het aflopen van de
 bewaartijd (of met --wis) staat er vanzelf weer de echte ESI-data.
 
+Let op: dit vult alleen de lijst met kolonies. De inrichting per planeet
+(extractors, fabrieken, opslag) komt uit een tweede endpoint die deze verzonnen
+kolonies niet kent, dus de kaarten blijven dan leeg op de kop na.
+
     python manage.py finance_testpi
     python manage.py finance_testpi --wis
 """

@@ -8,7 +8,7 @@
 {% endblock %}
 
 {% block fin_title %}{% translate "PI" %}{% endblock %}
-{% block fin_sub %}{% if heeft_pi and aantal %}{{ aantal }} {% translate "kolonies" %} — {% blocktranslate %}alle {{ aantal_characters }} characters{% endblocktranslate %}{% endif %}{% endblock %}
+{% block fin_sub %}{% if heeft_pi and aantal %}{{ aantal }} {% translate "kolonies" %} · {{ pins }} {% translate "installaties" %} · {{ systemen }} {% translate "systemen" %}{% endif %}{% endblock %}
 
 {% block details %}
     {% if not heeft_pi %}
@@ -22,62 +22,239 @@
         </div>
     {% else %}
 
+        {% comment %}
+            Wat aandacht vraagt staat bovenaan, niet verstopt tussen de kaarten.
+            Een kolonie die stilstaat kost je geld, en dat is het enige op deze
+            pagina waar je meteen iets mee moet.
+        {% endcomment %}
+        {% if aandacht %}
+            <div class="fin-pi-aandacht {% if kritiek %}is-kritiek{% endif %}">
+                <div class="fin-pi-aandacht-kop">
+                    {% blocktranslate count n=aandacht|length %}{{ n }} kolonie vraagt aandacht{% plural %}{{ n }} kolonies vragen aandacht{% endblocktranslate %}
+                </div>
+                <ul class="fin-pi-aandacht-lijst">
+                    {% for a in aandacht %}
+                        <li class="is-{{ a.ernst }}">
+                            <span class="fin-stip" style="background: {{ a.kleur }};"></span>
+                            <b>{{ a.planeet }}</b>
+                            <span class="fin-dim">{{ a.character }}</span>
+                            <span class="fin-pi-aandacht-reden">{{ a.tekst }}</span>
+                        </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        {% endif %}
+
         <div class="fin-stats">
             <div class="fin-stat fin-stat-totaal">
+                <span class="l">{% translate "Opbrengst per dag" %}</span>
+                <span class="v">{{ isk_dag_fmt }}</span>
+                <span class="s">
+                    {% if eigen_gebruik %}
+                        {% translate "netto, Jita buy" %}
+                    {% else %}
+                        {% translate "Jita buy, als alles blijft draaien" %}
+                    {% endif %}
+                </span>
+            </div>
+            <div class="fin-stat">
+                <span class="l">{% translate "In opslag" %}</span>
+                <span class="v">{{ waarde_fmt }}</span>
+                <span class="s">{% translate "klaar om op te halen" %}</span>
+            </div>
+            <div class="fin-stat">
+                <span class="l">{% translate "Extractors" %}</span>
+                <span class="v">{{ extractors_lopend }}<span class="fin-eenheid">/ {{ extractors_totaal }}</span></span>
+                <span class="s">
+                    {% if eerst_af_fmt %}
+                        {% blocktranslate %}eerste loopt af over {{ eerst_af_fmt }}{% endblocktranslate %}
+                    {% else %}
+                        {% translate "geen enkele loopt" %}
+                    {% endif %}
+                </span>
+            </div>
+            <div class="fin-stat">
                 <span class="l">{% translate "Kolonies" %}</span>
                 <span class="v">{{ aantal }}</span>
-                <span class="s">{% translate "planeten in gebruik" %}</span>
+                <span class="s">{{ met_kolonies }} {% translate "characters" %} · {{ op_max }} {% translate "op niveau 5" %}</span>
             </div>
             <div class="fin-stat">
-                <span class="l">{% translate "Installaties" %}</span>
-                <span class="v">{{ pins }}</span>
-                <span class="s">{% translate "pins bij elkaar" %}</span>
-            </div>
-            <div class="fin-stat">
-                <span class="l">{% translate "Systemen" %}</span>
-                <span class="v">{{ systemen }}</span>
-                <span class="s">{{ per_type|length }} {% translate "planeettypes" %}</span>
-            </div>
-            <div class="fin-stat">
-                <span class="l">{% translate "Volledig opgewaardeerd" %}</span>
-                <span class="v">{{ op_max }}</span>
-                <span class="s">{% translate "op commandcenter-niveau 5" %}</span>
+                <span class="l">{% translate "Per maand" %}</span>
+                <span class="v">{{ isk_maand_fmt }}</span>
+                <span class="s">{% translate "bij dit tempo" %}</span>
             </div>
         </div>
 
-        <h2 class="fin-kop">{% translate "Per planeettype" %}</h2>
-        <div class="fin-tablewrap">
-            <table class="fin-table">
-                <tbody>
-                    {% for t in per_type %}
-                        <tr>
-                            <td style="width: 20%;">
-                                <span class="fin-badge fin-planeet fin-planeet-{{ t.ruw }}">{{ t.naam }}</span>
-                            </td>
-                            <td>
-                                <div class="fin-bron-balk fin-balk-{{ t.ruw }}"
-                                     style="width: {{ t.pct }}%;"></div>
-                            </td>
-                            <td class="fin-dim" style="width: 1%; white-space: nowrap;">{{ t.deel }}%</td>
-                            <td class="fin-getal" style="width: 1%;">{{ t.aantal }}</td>
-                        </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+        <h2 class="fin-kop">{% translate "Kolonies" %}
+            <span>— {% translate "wie aandacht nodig heeft staat vooraan" %}</span></h2>
+        <div class="fin-pi-kaarten">
+            {% for k in kolonies %}
+                <article class="fin-pi-kaart is-{{ k.ernst }}">
+                    <header class="fin-pi-kop">
+                        <img class="fin-pi-planeet" alt=""
+                             src="https://images.evetech.net/types/{{ k.icoon_id }}/icon?size=64">
+                        <div class="fin-pi-titel">
+                            <div class="fin-pi-naam">{{ k.planeet }}</div>
+                            <div class="fin-pi-plaats">
+                                {{ k.systeem }} ·
+                                <span class="fin-badge fin-planeet fin-planeet-{{ k.type_ruw }}">{{ k.type }}</span>
+                            </div>
+                        </div>
+                        {# Vijf bolletjes voor het commandcenter-niveau: sneller te lezen dan "lvl 4". #}
+                        <div class="fin-pi-lvl" title="{% blocktranslate with n=k.niveau %}Commandcenter niveau {{ n }}{% endblocktranslate %}">
+                            {% for n in k.niveaus %}<i class="{% if n.aan %}is-aan{% endif %}"></i>{% endfor %}
+                        </div>
+                    </header>
+
+                    <div class="fin-pi-eigenaar" style="--kleur: {{ k.kleur }};">
+                        <img class="fin-pi-portret" alt=""
+                             src="https://images.evetech.net/characters/{{ k.character_id }}/portrait?size=32">
+                        {{ k.character }}
+                    </div>
+
+                    {% if k.seinen %}
+                        <div class="fin-pi-seinen">
+                            {% for s in k.seinen %}
+                                <span class="fin-pi-sein is-{{ s.ernst }}">{{ s.tekst }}</span>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+
+                    {% if k.extractors %}
+                        <div class="fin-pi-blok">
+                            <div class="fin-pi-bloklabel">{% translate "Extractie" %}</div>
+                            {% for e in k.extractors %}
+                                <div class="fin-pi-regel">
+                                    {% if e.product_id %}
+                                        <img class="fin-pi-item" alt=""
+                                             src="https://images.evetech.net/types/{{ e.product_id }}/icon?size=32">
+                                    {% endif %}
+                                    <div class="fin-pi-regeltekst">
+                                        <div class="fin-pi-regelnaam">
+                                            {{ e.product }}
+                                            {% if e.tier %}<span class="fin-tier fin-tier-{{ e.tier|lower }}">{{ e.tier }}</span>{% endif %}
+                                        </div>
+                                        <div class="fin-pi-regelsub"
+                                             title="{% translate 'ESI geeft de opbrengst van de eerste cyclus; een programma zakt gaandeweg terug.' %}">
+                                            {{ e.per_uur_fmt }}/{% translate "uur" %} ·
+                                            {{ e.koppen }} {% translate "koppen" %} ·
+                                            {% blocktranslate with m=e.cyclus_min %}cyclus {{ m }} min{% endblocktranslate %}
+                                        </div>
+                                    </div>
+                                    <div class="fin-pi-rest is-{{ e.klasse }}">
+                                        {% if e.loopt %}
+                                            {{ e.rest_fmt }}
+                                        {% elif e.afloop %}
+                                            {% translate "afgelopen" %}
+                                        {% else %}
+                                            {% translate "staat stil" %}
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                {# Balk = hoever het programma is; vol betekent hier op. #}
+                                <div class="fin-pi-bar"><i class="is-{{ e.klasse }}" style="width: {% if e.loopt %}{{ e.pct }}{% else %}100{% endif %}%;"></i></div>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+
+                    {% if k.fabrieken %}
+                        <div class="fin-pi-blok">
+                            <div class="fin-pi-bloklabel">{% translate "Productie" %}</div>
+                            {% for f in k.fabrieken %}
+                                <div class="fin-pi-regel">
+                                    {% if f.product_id %}
+                                        <img class="fin-pi-item" alt=""
+                                             src="https://images.evetech.net/types/{{ f.product_id }}/icon?size=32">
+                                    {% endif %}
+                                    <div class="fin-pi-regeltekst">
+                                        <div class="fin-pi-regelnaam">
+                                            <span class="fin-pi-maal">{{ f.aantal }}×</span>
+                                            {{ f.schema }}
+                                            {% if f.tier %}<span class="fin-tier fin-tier-{{ f.tier|lower }}">{{ f.tier }}</span>{% endif %}
+                                        </div>
+                                        <div class="fin-pi-regelsub">
+                                            {% if f.ingesteld %}
+                                                {{ f.per_dag_fmt }}/{% translate "dag" %} ·
+                                                {% blocktranslate with m=f.cyclus_min %}cyclus {{ m }} min{% endblocktranslate %}
+                                            {% else %}
+                                                {% translate "geen schema ingesteld" %}
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    <div class="fin-pi-regelisk"
+                                         title="{% translate 'Wat er per dag naar de opslag gaat, tegen Jita buy' %}">{{ f.isk_dag_fmt }}</div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+
+                    {% if k.opslagpinnen %}
+                        <div class="fin-pi-blok">
+                            <div class="fin-pi-bloklabel">
+                                {% translate "Opslag" %}
+                                <span class="fin-pi-bloknoot">{{ k.opslag_m3_fmt }} / {{ k.opslag_cap_fmt }} m³</span>
+                            </div>
+                            <div class="fin-pi-bar"><i class="is-{{ k.opslag_klasse }}" style="width: {{ k.opslag_pct }}%;"></i></div>
+                            {% if k.voorraad_top %}
+                                <div class="fin-pi-voorraad">
+                                    {% for v in k.voorraad_top %}
+                                        <span class="fin-pi-chip" title="{{ v.naam }} — {{ v.isk_fmt }} ISK">
+                                            <img alt="" src="https://images.evetech.net/types/{{ v.type_id }}/icon?size=32">
+                                            {{ v.aantal_fmt }}
+                                        </span>
+                                    {% endfor %}
+                                    {% if k.voorraad_rest %}
+                                        <span class="fin-pi-chip fin-pi-chip-rest">+{{ k.voorraad_rest }}</span>
+                                    {% endif %}
+                                </div>
+                            {% endif %}
+                        </div>
+                    {% endif %}
+
+                    {% if k.uren_fmt %}
+                        <div class="fin-pi-buffer">
+                            {% blocktranslate with n=k.krappe t=k.uren_fmt %}{{ n }} raakt op over {{ t }}{% endblocktranslate %}
+                        </div>
+                    {% endif %}
+
+                    <footer class="fin-pi-voet">
+                        <span title="{% translate 'Wat er nu op de planeet ligt, tegen Jita buy' %}">
+                            {{ k.waarde_fmt }} {% translate "in opslag" %}
+                        </span>
+                        <span class="fin-dim">{{ k.bijgewerkt|date:"d-m H:i" }}</span>
+                    </footer>
+                </article>
+            {% endfor %}
         </div>
 
-        {% if verdeling %}
-            <h2 class="fin-kop">{% translate "Per character" %}</h2>
+        {% if productie %}
+            <h2 class="fin-kop">{% translate "Wat je per dag maakt" %}
+                <span>— {% translate "eigen verbruik telt niet mee, anders zou een halffabrikaat dubbel tellen" %}</span></h2>
             <div class="fin-tablewrap">
-                <table class="fin-table">
+                <table class="fin-table fin-table-pi">
+                    <thead>
+                        <tr>
+                            <th>{% translate "Product" %}</th>
+                            <th class="fin-getal">{% translate "Gemaakt" %}</th>
+                            <th class="fin-getal">{% translate "Zelf verbruikt" %}</th>
+                            <th class="fin-getal">{% translate "Over" %}</th>
+                            <th class="fin-getal">{% translate "Waarde/dag" %}</th>
+                        </tr>
+                    </thead>
                     <tbody>
-                        {% for v in verdeling %}
+                        {% for p in productie %}
                             <tr>
-                                <td style="width: 30%;">
-                                    <span class="fin-stip" style="background: {{ v.kleur }};"></span>{{ v.naam }}
+                                <td class="fin-nowrap">
+                                    <span class="fin-erts">
+                                        <img alt="" src="https://images.evetech.net/types/{{ p.type_id }}/icon?size=32">
+                                        {{ p.naam }}
+                                        {% if p.tier %}<span class="fin-tier fin-tier-{{ p.tier|lower }}">{{ p.tier }}</span>{% endif %}
+                                    </span>
                                 </td>
-                                <td class="fin-dim">{{ v.aantal }} {% translate "kolonies" %}</td>
-                                <td class="fin-getal">{{ v.pins }} {% translate "pins" %}</td>
+                                <td class="fin-getal fin-dim">{{ p.bruto_fmt }}</td>
+                                <td class="fin-getal fin-dim">{{ p.eigen_fmt }}</td>
+                                <td class="fin-getal">{{ p.netto_fmt }}</td>
+                                <td class="fin-getal">{{ p.isk_fmt }}</td>
                             </tr>
                         {% endfor %}
                     </tbody>
@@ -85,38 +262,89 @@
             </div>
         {% endif %}
 
-        <h2 class="fin-kop">{% translate "Planeten" %}</h2>
-        <div class="fin-tablewrap">
-            <table class="fin-table">
-                <thead>
-                    <tr>
-                        <th>{% translate "Character" %}</th>
-                        <th>{% translate "Planeet" %}</th>
-                        <th>{% translate "Systeem" %}</th>
-                        <th>{% translate "Type" %}</th>
-                        <th class="fin-getal">{% translate "Niveau" %}</th>
-                        <th class="fin-getal">{% translate "Pins" %}</th>
-                        <th>{% translate "Bijgewerkt" %}</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for p in planeten %}
+        {% if voorraad %}
+            <h2 class="fin-kop">{% translate "Wat er klaarligt" %}
+                <span>— {{ voorraad_isk_fmt }} {% translate "over alle kolonies, tegen Jita buy" %}</span></h2>
+            <div class="fin-tablewrap">
+                <table class="fin-table fin-table-pi">
+                    <thead>
                         <tr>
-                            <td class="fin-nowrap">
-                                <span class="fin-stip" style="background: {{ p.kleur }};"></span>{{ p.character }}
-                            </td>
-                            <td class="fin-nowrap">{{ p.planeet }}</td>
-                            <td class="fin-nowrap fin-dim">{{ p.systeem }}</td>
-                            <td class="fin-nowrap">
-                                <span class="fin-badge fin-planeet fin-planeet-{{ p.type_ruw }}">{{ p.type }}</span>
-                            </td>
-                            <td class="fin-getal">{{ p.niveau }}</td>
-                            <td class="fin-getal">{{ p.pins }}</td>
-                            <td class="fin-nowrap fin-dim">{{ p.bijgewerkt|date:"d-m-Y H:i" }}</td>
+                            <th>{% translate "Grondstof" %}</th>
+                            <th class="fin-getal">{% translate "Aantal" %}</th>
+                            <th class="fin-getal">m³</th>
+                            <th class="fin-getal">{% translate "Waarde" %}</th>
                         </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody>
+                        {% for v in voorraad %}
+                            <tr>
+                                <td class="fin-nowrap">
+                                    <span class="fin-erts">
+                                        <img alt="" src="https://images.evetech.net/types/{{ v.type_id }}/icon?size=32">
+                                        {{ v.naam }}
+                                        {% if v.tier %}<span class="fin-tier fin-tier-{{ v.tier|lower }}">{{ v.tier }}</span>{% endif %}
+                                    </span>
+                                </td>
+                                <td class="fin-getal">{{ v.aantal_fmt }}</td>
+                                <td class="fin-getal fin-dim">{{ v.m3_fmt }}</td>
+                                <td class="fin-getal">{{ v.isk_fmt }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% endif %}
+
+        <div class="fin-pi-onder">
+            <div>
+                <h2 class="fin-kop">{% translate "Per character" %}</h2>
+                <div class="fin-tablewrap">
+                    <table class="fin-table">
+                        <thead>
+                            <tr>
+                                <th>{% translate "Character" %}</th>
+                                <th class="fin-getal">{% translate "Kolonies" %}</th>
+                                <th class="fin-getal">{% translate "Pins" %}</th>
+                                <th class="fin-getal">{% translate "In opslag" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for v in verdeling %}
+                                <tr>
+                                    <td class="fin-nowrap">
+                                        <span class="fin-stip" style="background: {{ v.kleur }};"></span>{{ v.naam }}
+                                    </td>
+                                    <td class="fin-getal">{{ v.aantal }}</td>
+                                    <td class="fin-getal fin-dim">{{ v.pins }}</td>
+                                    <td class="fin-getal">{{ v.waarde_fmt }}</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div>
+                <h2 class="fin-kop">{% translate "Per planeettype" %}</h2>
+                <div class="fin-tablewrap">
+                    <table class="fin-table">
+                        <tbody>
+                            {% for t in per_type %}
+                                <tr>
+                                    <td style="width: 1%;" class="fin-nowrap">
+                                        <span class="fin-badge fin-planeet fin-planeet-{{ t.ruw }}">{{ t.naam }}</span>
+                                    </td>
+                                    <td>
+                                        <div class="fin-bron-balk fin-balk-{{ t.ruw }}"
+                                             style="width: {{ t.pct }}%;"></div>
+                                    </td>
+                                    <td class="fin-dim" style="width: 1%; white-space: nowrap;">{{ t.deel }}%</td>
+                                    <td class="fin-getal" style="width: 1%;">{{ t.aantal }}</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
     {% endif %}
 {% endblock %}

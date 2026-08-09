@@ -45,8 +45,8 @@ _session.mount("https://", requests.adapters.HTTPAdapter(
 ))
 
 
-def _request(path, token, params=None):
-    """Eén ESI-call met backoff. Geeft de data of None."""
+def _request_met_headers(path, token, params=None):
+    """Eén ESI-call met backoff. Geeft (data, headers) of (None, {})."""
     headers = {**UA, "Authorization": f"Bearer {token}"}
     for poging in range(1, MAX_TRIES + 1):
         try:
@@ -66,17 +66,49 @@ def _request(path, token, params=None):
                                resterend, wachten)
                 time.sleep(min(wachten, 10))
             try:
-                return r.json()
+                return r.json(), r.headers
             except ValueError:
-                return None
+                return None, r.headers
 
         if r.status_code in RETRY_STATUS and poging < MAX_TRIES:
             time.sleep(int(r.headers.get("Retry-After", 0)) or min(2 ** poging * 0.5, 8))
             continue
 
         logger.info("Finance: %s gaf %s", path, r.status_code)
-        return None
-    return None
+        return None, r.headers
+    return None, {}
+
+
+def _request(path, token, params=None):
+    """Eén ESI-call met backoff. Geeft de data of None."""
+    data, _ = _request_met_headers(path, token, params)
+    return data
+
+
+def _paged(path, token, params=None, max_pages=20):
+    """Alle pagina's van een gepagineerde endpoint.
+
+    **Niet** stoppen zodra een pagina korter is dan 1000 regels. Dat leek een
+    veilige aanname — een volle pagina is 1000, dus korter is de laatste — maar
+    ESI vult een pagina niet altijd helemaal: de assets van één character gaven
+    999 regels op pagina 1 van 3. Met de lengte als stopteken verlies je dan
+    stilzwijgend tweederde van de gegevens, zonder fout en zonder waarschuwing.
+    Het echte aantal pagina's staat in de **X-Pages**-header.
+    """
+    eerste, headers = _request_met_headers(path, token, {**(params or {}), "page": 1})
+    if not eerste:
+        return []
+    rijen = list(eerste)
+    try:
+        paginas = int(headers.get("X-Pages") or 1)
+    except (TypeError, ValueError):
+        paginas = 1
+    for p in range(2, min(paginas, max_pages) + 1):
+        blok = _request(path, token, {**(params or {}), "page": p})
+        if not blok:
+            break
+        rijen.extend(blok)
+    return rijen
 
 
 # --------------------------------------------------------------------------
@@ -200,14 +232,8 @@ def journal(character_id, pages=JOURNAL_PAGES):
         cache.set(key, [], TTL_JOURNAL)
         return []
 
-    regels = []
-    for p in range(1, pages + 1):
-        blok = _request(f"/characters/{character_id}/wallet/journal/", token, {"page": p})
-        if not blok:
-            break
-        regels.extend(blok)
-        if len(blok) < 1000:            # laatste pagina
-            break
+    regels = _paged(f"/characters/{character_id}/wallet/journal/", token,
+                    max_pages=pages)
     cache.set(key, regels, TTL_JOURNAL)
     return regels
 
@@ -241,15 +267,7 @@ def contracts(character_id):
         cache.set(key, [], TTL_CONTRACTS)
         return []
 
-    rows, page = [], 1
-    while page <= 20:
-        blok = _request(f"/characters/{character_id}/contracts/", token, {"page": page})
-        if not blok:
-            break
-        rows.extend(blok)
-        if len(blok) < 1000:
-            break
-        page += 1
+    rows = _paged(f"/characters/{character_id}/contracts/", token)
     cache.set(key, rows, TTL_CONTRACTS)
     return rows
 
@@ -270,15 +288,7 @@ def mining(character_id):
         cache.set(key, [], TTL_MINING)
         return []
 
-    rows, page = [], 1
-    while page <= 20:
-        blok = _request(f"/characters/{character_id}/mining/", token, {"page": page})
-        if not blok:
-            break
-        rows.extend(blok)
-        if len(blok) < 1000:
-            break
-        page += 1
+    rows = _paged(f"/characters/{character_id}/mining/", token)
     cache.set(key, rows, TTL_MINING)
     return rows
 
@@ -294,6 +304,48 @@ def planets(character_id):
     rows = rows or []
     cache.set(key, rows, TTL_PLANETS)
     return rows
+
+
+def planet_detail(character_id, planet_id):
+    """De inrichting van één kolonie: pins, links en routes.
+
+    Hier zit alles in wat de lijst-endpoint níet geeft: welke extractor wat
+    haalt en wanneer z'n programma afloopt, welke fabrieken draaien, en wat er
+    in de opslag en op de launchpad ligt. Eén call per planeet, dus even lang
+    gecached als de lijst zelf — anders kost elke paginaweergave vijftien calls.
+    """
+    key = f"fin_planetdet_{character_id}_{planet_id}"
+    hit = cache.get(key)
+    if hit is not None:
+        return hit
+    token = token_for(character_id, PLANETS_SCOPE)
+    data = _request(f"/characters/{character_id}/planets/{planet_id}/", token) if token else None
+    data = data or {}
+    cache.set(key, data, TTL_PLANETS)
+    return data
+
+
+def schematic(schematic_id):
+    """Naam en cyclustijd van een productieschema (publiek, geen token).
+
+    ESI zegt niet wát een fabriek maakt — alleen welk schema erin zit. De naam
+    van het schema ís de productnaam, en met de cyclustijd valt de productie per
+    uur uit te rekenen. Schema's veranderen alleen bij een patch, dus 30 dagen.
+    """
+    key = f"fin_schem_{schematic_id}"
+    hit = cache.get(key)
+    if hit is not None:
+        return hit
+    uit = {}
+    try:
+        r = _session.get(f"{ESI}/universe/schematics/{schematic_id}/", headers=UA,
+                         params={"datasource": "tranquility"}, timeout=20)
+        if r.status_code == 200:
+            uit = r.json() or {}
+    except (requests.RequestException, ValueError):
+        return {}                       # niet cachen: volgende keer opnieuw
+    cache.set(key, uit, 30 * 86400)
+    return uit
 
 
 def planet_info(planet_id):

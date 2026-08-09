@@ -18,13 +18,31 @@
         </div>
     {% else %}
 
+        {% if heeft_onderweg %}
+            {% comment %}
+                Onderpand dat nu bij een ander in het ruim ligt is het enige
+                bedrag op deze pagina waar risico aan hangt — dat hoort bovenaan.
+            {% endcomment %}
+            <div class="fin-advies is-let-op">
+                <span class="fin-advies-icoon">⚠</span>
+                <div>
+                    <div class="fin-advies-kop">
+                        {% blocktranslate with b=onderweg_fmt %}{{ b }} ISK onderpand ligt bij een koerier onderweg{% endblocktranslate %}
+                    </div>
+                    <div class="fin-advies-sub">
+                        {% translate "Dat krijg je terug zodra de rit afgeleverd is — of je houdt het als de piloot ermee vandoor gaat." %}
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+
         <div class="fin-stats">
-            <div class="fin-stat" style="border-left: 3px solid var(--fin-green);">
+            <div class="fin-stat fin-stat-in">
                 <span class="l">{% translate "Ontvangen" %}</span>
                 <span class="v fin-pos">{{ verdiend_fmt }}</span>
                 <span class="s">{% translate "uit afgeronde contracten" %}</span>
             </div>
-            <div class="fin-stat" style="border-left: 3px solid var(--fin-red);">
+            <div class="fin-stat fin-stat-uit">
                 <span class="l">{% translate "Betaald" %}</span>
                 <span class="v fin-neg">{{ betaald_fmt }}</span>
                 <span class="s">{% translate "aan anderen" %}</span>
@@ -43,7 +61,100 @@
                     {{ bezig }} {% translate "onderweg" %}
                 </span>
             </div>
+            <div class="fin-stat">
+                <span class="l">{% translate "Koeriersritten" %}</span>
+                <span class="v">{{ koeriers }}</span>
+                <span class="s">{{ vervoerd_fmt }} m³ · ⌀ {{ gem_per_m3_fmt }} ISK/m³</span>
+            </div>
+            <div class="fin-stat">
+                <span class="l">{% translate "Vrachtbeloningen" %}</span>
+                <span class="v">{{ beloond_fmt }}</span>
+                <span class="s">{% translate "over afgeronde ritten" %}</span>
+            </div>
         </div>
+
+        {% if routes %}
+            <h2 class="fin-kop">{% translate "Koeriersroutes" %}
+                <span>— {% translate "wat je per kubieke meter betaalde of verdiende" %}</span></h2>
+            <div class="fin-tablewrap">
+                <table class="fin-table">
+                    <thead>
+                        <tr>
+                            <th>{% translate "Route" %}</th>
+                            <th></th>
+                            <th class="fin-getal">{% translate "Ritten" %}</th>
+                            <th class="fin-getal">{% translate "Volume" %}</th>
+                            <th class="fin-getal">{% translate "Onderpand" %}</th>
+                            <th class="fin-getal">ISK/m³</th>
+                            <th class="fin-getal">{% translate "Beloning" %}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for r in routes %}
+                            <tr>
+                                <td class="fin-nowrap" style="width: 1%;"
+                                    title="{{ r.van_vol }} → {{ r.naar_vol }}">
+                                    {{ r.van }} <span class="fin-con-pijl">→</span> {{ r.naar }}
+                                </td>
+                                <td><div class="fin-bron-balk fin-balk-vracht" style="width: {{ r.pct }}%;"></div></td>
+                                <td class="fin-getal fin-dim" style="width: 1%;">{{ r.aantal }}</td>
+                                <td class="fin-getal fin-dim" style="width: 1%;">{{ r.volume_fmt }} m³</td>
+                                <td class="fin-getal fin-dim" style="width: 1%;">
+                                    {% if r.onderpand %}{{ r.onderpand_fmt }}{% else %}<span class="fin-leeg">—</span>{% endif %}
+                                </td>
+                                <td class="fin-getal" style="width: 1%;">
+                                    {% if r.beloning %}{{ r.per_m3_fmt }}{% else %}<span class="fin-leeg">—</span>{% endif %}
+                                </td>
+                                <td class="fin-getal fin-pos" style="width: 1%;">
+                                    {% if r.beloning %}{{ r.beloning_fmt }}{% else %}<span class="fin-leeg">—</span>{% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% endif %}
+
+        {% if partijen %}
+            <h2 class="fin-kop">{% translate "Met wie je handelt" %}
+                <span>— {% translate "alleen afgeronde contracten; groen kwam jouw kant op" %}</span></h2>
+            <div class="fin-tablewrap">
+                <table class="fin-table">
+                    <thead>
+                        <tr>
+                            <th>{% translate "Tegenpartij" %}</th>
+                            <th></th>
+                            <th class="fin-getal">{% translate "Contracten" %}</th>
+                            <th class="fin-getal">{% translate "Ontvangen" %}</th>
+                            <th class="fin-getal">{% translate "Betaald" %}</th>
+                            <th class="fin-getal">{% translate "Netto" %}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for p in partijen %}
+                            <tr>
+                                <td class="fin-nowrap" style="width: 1%;">{{ p.naam }}</td>
+                                <td>
+                                    <div class="fin-bron-balk {% if not p.positief %}neg{% endif %}"
+                                         style="width: {{ p.pct }}%;"></div>
+                                </td>
+                                <td class="fin-getal fin-dim" style="width: 1%;">{{ p.aantal }}</td>
+                                <td class="fin-getal fin-dim" style="width: 1%;">
+                                    {% if p.ontvangen %}{{ p.ontvangen_fmt }}{% else %}<span class="fin-leeg">—</span>{% endif %}
+                                </td>
+                                <td class="fin-getal fin-dim" style="width: 1%;">
+                                    {% if p.betaald %}{{ p.betaald_fmt }}{% else %}<span class="fin-leeg">—</span>{% endif %}
+                                </td>
+                                <td class="fin-getal {% if p.positief %}fin-pos{% else %}fin-neg{% endif %}"
+                                    style="width: 1%;">
+                                    {% if p.positief %}+{% else %}−{% endif %}{{ p.netto_fmt }}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% endif %}
 
         <h2 class="fin-kop">{% translate "Contracten" %}
             <span>— {% translate "groen kwam binnen, rood ging eruit" %}</span></h2>
@@ -55,7 +166,7 @@
                             <th>{% translate "Uitgegeven" %}</th>
                             <th>{% translate "Type" %}</th>
                             <th>{% translate "Status" %}</th>
-                            <th>{% translate "Titel" %}</th>
+                            <th>{% translate "Wat en waar" %}</th>
                             <th>{% translate "Van" %}</th>
                             <th>{% translate "Naar" %}</th>
                             <th class="fin-getal">{% translate "Prijs" %}</th>
@@ -82,9 +193,33 @@
                                     {% else %}
                                         <span class="fin-badge fin-badge-rest">{{ r.status }}</span>
                                     {% endif %}
+                                    {# Alleen bij een contract dat nog loopt zegt de vervaldatum iets. #}
+                                    {% if r.rest_fmt %}
+                                        <div class="fin-con-rest {% if r.spoed %}is-spoed{% endif %}">
+                                            {% blocktranslate with t=r.rest_fmt %}nog {{ t }}{% endblocktranslate %}
+                                        </div>
+                                    {% endif %}
                                 </td>
                                 <td class="fin-omschrijving">
                                     {{ r.titel }}
+                                    {% comment %}
+                                        Route, volume en onderpand: bij een koeriersrit is dát het
+                                        contract. Stond altijd al in de ESI-data, maar nergens in beeld.
+                                    {% endcomment %}
+                                    {% if r.is_koerier and r.van %}
+                                        <div class="fin-con-route" title="{{ r.van }} → {{ r.naar }}">
+                                            {{ r.van_kort }} <span class="fin-con-pijl">→</span> {{ r.naar_kort }}
+                                            · {{ r.volume_fmt }} m³
+                                            {% if r.per_m3_fmt %}· {{ r.per_m3_fmt }} ISK/m³{% endif %}
+                                            {% if r.onderpand %}
+                                                · <span class="fin-con-onderpand">{% translate "onderpand" %} {{ r.onderpand_fmt }}</span>
+                                            {% endif %}
+                                        </div>
+                                    {% elif r.van %}
+                                        <div class="fin-con-route" title="{{ r.van }}">
+                                            {{ r.van_kort }}{% if r.volume %} · {{ r.volume_fmt }} m³{% endif %}
+                                        </div>
+                                    {% endif %}
                                     {% if r.inhoud %}
                                         <details class="fin-inhoud">
                                             <summary>{{ r.inhoud_soorten }}
@@ -117,13 +252,14 @@
                                     De kleur van het bedrag vertelt de richting: groen als het jouw
                                     kant op kwam, rood als je het betaalde. Alleen bij een afgerond
                                     contract, want bij een verwijderd of mislukt contract is er nooit
-                                    geld verplaatst — dan blijft het bedrag neutraal.
+                                    geld verplaatst — dan blijft het bedrag neutraal. Een nul laten we
+                                    weg: een kolom vol nullen leest als data terwijl er niets staat.
                                 {% endcomment %}
                                 <td class="fin-getal fin-bedrag-{{ r.prijs_richting|default:'geen' }}">
-                                    {{ r.prijs_fmt }}
+                                    {% if r.prijs %}{{ r.prijs_fmt }}{% else %}<span class="fin-leeg">—</span>{% endif %}
                                 </td>
                                 <td class="fin-getal fin-bedrag-{{ r.beloning_richting|default:'geen' }}">
-                                    {{ r.beloning_fmt }}
+                                    {% if r.beloning %}{{ r.beloning_fmt }}{% else %}<span class="fin-leeg">—</span>{% endif %}
                                 </td>
                             </tr>
                         {% endfor %}

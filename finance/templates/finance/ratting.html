@@ -22,17 +22,31 @@
             <div class="fin-stat fin-stat-bounty">
                 <span class="l">{% translate "Bounties" %}</span>
                 <span class="v">{{ bounty_fmt }}</span>
-                <span class="s">{{ sessies }} {% translate "uitbetalingen" %}</span>
+                <span class="s">{{ sessies }} {% translate "uitbetalingen" %} · ⌀ {{ gem_per_betaling_fmt }}</span>
             </div>
             <div class="fin-stat fin-stat-ess">
                 <span class="l">{% translate "ESS" %}</span>
                 <span class="v">{{ ess_fmt }}</span>
-                <span class="s">{% translate "uit de nullsec-bank" %}</span>
+                <span class="s">{{ ess_deel }}% {% translate "van je ratting-inkomsten" %}</span>
             </div>
             <div class="fin-stat fin-stat-totaal">
                 <span class="l">{% translate "Totaal" %}</span>
                 <span class="v">{{ totaal_fmt }}</span>
                 <span class="s">{% translate "bounty + ESS" %}</span>
+            </div>
+            {% comment %}
+                Het journaal boekt bounty's netto weg; de corp-belasting staat er
+                los bij. Zonder deze tegel zie je nooit wat je afdraagt.
+            {% endcomment %}
+            <div class="fin-stat fin-stat-belasting">
+                <span class="l">{% translate "Belasting" %}</span>
+                <span class="v">{{ belasting_fmt }}</span>
+                <span class="s">{{ tarief_pct }}% {% translate "naar de corp" %} · {% translate "bruto" %} {{ bruto_fmt }}</span>
+            </div>
+            <div class="fin-stat">
+                <span class="l">{% translate "Rats gedood" %}</span>
+                <span class="v">{{ rats_totaal_fmt }}</span>
+                <span class="s">{{ rat_soorten }} {% translate "soorten" %}</span>
             </div>
             <div class="fin-stat">
                 <span class="l">{% translate "Gemiddeld per dag" %}</span>
@@ -103,22 +117,137 @@
             </div>
         {% endif %}
 
+        {% if systemen %}
+            <h2 class="fin-kop">{% translate "Waar je rat" %}
+                <span>— {% translate "het systeem staat in elke journaalregel; de balk laat de verhouding bounty/ESS zien" %}</span></h2>
+            <div class="fin-tablewrap">
+                <table class="fin-table">
+                    <thead>
+                        <tr>
+                            <th>{% translate "Systeem" %}</th>
+                            <th></th>
+                            <th class="fin-getal">{% translate "Uitbetalingen" %}</th>
+                            <th class="fin-getal">{% translate "Bounty" %}</th>
+                            <th class="fin-getal">{% translate "ESS" %}</th>
+                            <th class="fin-getal">{% translate "Totaal" %}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for s in systemen %}
+                            <tr>
+                                <td class="fin-nowrap" style="width: 1%;">{{ s.naam }}</td>
+                                <td>
+                                    {# Balklengte = totaal, de invulling = het aandeel bounty. #}
+                                    <div class="fin-bron-balk fin-split" style="width: {{ s.pct }}%;">
+                                        <i style="width: {{ s.pct_bounty }}%;"></i>
+                                    </div>
+                                </td>
+                                <td class="fin-getal fin-dim" style="width: 1%;">{{ s.aantal }}</td>
+                                <td class="fin-getal fin-dim" style="width: 1%;">{{ s.bounty_fmt }}</td>
+                                <td class="fin-getal fin-dim" style="width: 1%;">{{ s.ess_fmt }}</td>
+                                <td class="fin-getal fin-pos" style="width: 1%;">{{ s.totaal_fmt }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% endif %}
+
+        {% if rats %}
+            <h2 class="fin-kop">{% translate "Wat je gedood hebt" %}
+                <span>— {% translate "uit het reason-veld van elke bounty-regel" %}</span></h2>
+            <div class="fin-pi-onder">
+                <div class="fin-tablewrap">
+                    <table class="fin-table fin-table-pi">
+                        <thead>
+                            <tr>
+                                <th>{% translate "Rat" %}</th>
+                                <th class="fin-getal">{% translate "Gedood" %}</th>
+                                <th class="fin-getal">{% translate "Aandeel" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for r in rats %}
+                                <tr>
+                                    <td>
+                                        <span class="fin-erts">
+                                            <img class="fin-rat-icoon" loading="lazy" alt=""
+                                                 src="https://images.evetech.net/types/{{ r.type_id }}/render?size=64">
+                                            <span>
+                                                {{ r.naam }}
+                                                <span class="fin-rat-groep">{{ r.groep }}</span>
+                                            </span>
+                                        </span>
+                                        <div class="fin-bron-balk fin-balk-rat" style="width: {{ r.pct }}%;"></div>
+                                    </td>
+                                    <td class="fin-getal">{{ r.aantal_fmt }}</td>
+                                    <td class="fin-getal fin-dim">{{ r.deel }}%</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <div class="fin-tablewrap">
+                    <table class="fin-table fin-table-pi">
+                        <thead>
+                            <tr>
+                                <th>{% translate "Scheepsklasse" %}</th>
+                                <th class="fin-getal">{% translate "Gedood" %}</th>
+                                <th class="fin-getal">{% translate "Aandeel" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for k in klassen %}
+                                <tr>
+                                    <td>
+                                        {{ k.naam }}
+                                        <div class="fin-bron-balk fin-balk-rat" style="width: {{ k.pct }}%;"></div>
+                                    </td>
+                                    <td class="fin-getal">{{ k.aantal_fmt }}</td>
+                                    <td class="fin-getal fin-dim">{{ k.deel }}%</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        {% endif %}
+
         {% if verdeling %}
             <h2 class="fin-kop">{% translate "Per character" %}</h2>
             <div class="fin-tablewrap">
                 <table class="fin-table">
+                    <thead>
+                        <tr>
+                            <th>{% translate "Character" %}</th>
+                            <th></th>
+                            <th class="fin-getal">{% translate "Uitbetalingen" %}</th>
+                            <th class="fin-getal">{% translate "Bounty" %}</th>
+                            <th class="fin-getal">{% translate "ESS" %}</th>
+                            <th class="fin-getal">{% translate "Belasting" %}</th>
+                            <th class="fin-getal">{% translate "Totaal" %}</th>
+                        </tr>
+                    </thead>
                     <tbody>
                         {% for v in verdeling %}
                             <tr>
-                                <td style="width: 25%;">
-                                    <span class="fin-stip" style="background: {{ v.kleur }};"></span>{{ v.naam }}
+                                <td class="fin-nowrap" style="width: 1%;">
+                                    <span class="fin-erts">
+                                        <img class="fin-min-portret" loading="lazy" alt=""
+                                             style="--kleur: {{ v.kleur }};"
+                                             src="https://images.evetech.net/characters/{{ v.character_id }}/portrait?size=32">
+                                        {{ v.naam }}
+                                    </span>
                                 </td>
                                 <td>
-                                    <div class="fin-bron-balk" style="width: {{ v.pct }}%; background: {{ v.kleur }};"></div>
+                                    <div class="fin-bron-balk fin-split" style="width: {{ v.pct }}%;">
+                                        <i style="width: {{ v.pct_bounty }}%;"></i>
+                                    </div>
                                 </td>
-                                <td class="fin-dim" style="width: 1%; white-space: nowrap;">
-                                    {{ v.aantal }} {% translate "uitbetalingen" %}
-                                </td>
+                                <td class="fin-getal fin-dim" style="width: 1%;">{{ v.aantal }}</td>
+                                <td class="fin-getal fin-dim" style="width: 1%;">{{ v.bounty_fmt }}</td>
+                                <td class="fin-getal fin-dim" style="width: 1%;">{{ v.ess_fmt }}</td>
+                                <td class="fin-getal fin-neg" style="width: 1%;">−{{ v.belasting_fmt }}</td>
                                 <td class="fin-getal fin-pos" style="width: 1%;">{{ v.bedrag_fmt }}</td>
                             </tr>
                         {% endfor %}
@@ -136,7 +265,8 @@
                             <th>{% translate "Datum" %}</th>
                             <th>{% translate "Character" %}</th>
                             <th>{% translate "Soort" %}</th>
-                            <th>{% translate "Waar" %}</th>
+                            <th>{% translate "Systeem" %}</th>
+                            <th class="fin-getal">{% translate "Belasting" %}</th>
                             <th class="fin-getal">{% translate "Bedrag" %}</th>
                         </tr>
                     </thead>
@@ -146,13 +276,13 @@
                                 <td class="fin-nowrap fin-dim">{{ r.datum|date:"d-m-Y H:i" }}</td>
                                 <td class="fin-nowrap"><span class="fin-stip" style="background: {{ r.kleur }};"></span>{{ r.character }}</td>
                                 <td class="fin-nowrap">
-                                    <span class="fin-badge"
-                                          style="color: {% if r.is_ess %}var(--fin-ess){% else %}var(--fin-bounty){% endif %};
-                                                 border: 1px solid currentColor; background: transparent;">
+                                    <span class="fin-badge {% if r.is_ess %}fin-soort-ess{% else %}fin-soort-bounty{% endif %}">
                                         {{ r.soort }}
                                     </span>
                                 </td>
-                                <td class="fin-omschrijving fin-dim">{{ r.omschrijving }}</td>
+                                {# De volledige zin van CCP staat als tooltip; de kolom houdt het bij het systeem. #}
+                                <td class="fin-nowrap" title="{{ r.omschrijving }}">{{ r.systeem|default:"—" }}</td>
+                                <td class="fin-getal fin-dim">{% if r.belasting_fmt %}−{{ r.belasting_fmt }}{% endif %}</td>
                                 <td class="fin-getal fin-pos">{{ r.bedrag_fmt }}</td>
                             </tr>
                         {% endfor %}

@@ -6,7 +6,8 @@
 {% block header_nav_brand %}{% translate "Character Info" %}{% endblock header_nav_brand %}
 
 {% block extra_css %}
-    <link rel="stylesheet" href="{% static 'finance/finance.css' %}">
+    {# ?v=versie: anders serveert de browser na een update z'n oude gecachte CSS. #}
+    <link rel="stylesheet" href="{% static 'finance/finance.css' %}?v={{ versie }}">
 {% endblock extra_css %}
 
 {% block content %}

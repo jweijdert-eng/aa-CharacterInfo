@@ -40,27 +40,119 @@
             {% endfor %}
         </div>
 
-        {% if soorten %}
-            <h2 class="fin-kop">{% translate "Waar je geld vandaan komt" %}
-                <span>— {% translate "laatste 30 dagen" %}</span></h2>
-            <div class="fin-tablewrap">
-                <table class="fin-table">
-                    <tbody>
-                        {% for s in soorten %}
-                            <tr>
-                                <td style="width: 30%;">{{ s.naam }}</td>
-                                <td>
-                                    <div class="fin-bron-balk {% if not s.positief %}neg{% endif %}"
-                                         style="width: {{ s.pct }}%;"></div>
-                                </td>
-                                <td class="fin-getal {% if s.positief %}fin-pos{% else %}fin-neg{% endif %}"
-                                    style="width: 1%;">{{ s.bedrag_fmt }}</td>
-                            </tr>
+        <div class="fin-stats">
+            <div class="fin-stat fin-stat-in">
+                <span class="l">{% translate "Binnengekomen" %}</span>
+                <span class="v fin-pos">{{ binnen_fmt }}</span>
+                <span class="s">{% translate "laatste 30 dagen" %}</span>
+            </div>
+            <div class="fin-stat fin-stat-uit">
+                <span class="l">{% translate "Uitgegeven" %}</span>
+                <span class="v fin-neg">{{ eruit_fmt }}</span>
+                <span class="s">{% translate "laatste 30 dagen" %}</span>
+            </div>
+            <div class="fin-stat fin-stat-totaal">
+                <span class="l">{% translate "Resultaat" %}</span>
+                <span class="v">{% if netto_positief %}+{% else %}−{% endif %}{{ netto_fmt }}</span>
+                <span class="s">{% translate "over dezelfde 30 dagen" %}</span>
+            </div>
+            <div class="fin-stat">
+                <span class="l">{% translate "Beste dag" %}</span>
+                <span class="v fin-pos">{{ op_fmt }}</span>
+                <span class="s">{% translate "slechtste" %} −{{ af_fmt }}</span>
+            </div>
+        </div>
+
+        {% if verloop %}
+            <h2 class="fin-kop">{% translate "Resultaat per dag" %}
+                <span>— {% translate "wat er per dag bij kwam of af ging; het saldo zelf staat hierboven" %}</span></h2>
+            <div class="fin-grafiek-blok">
+                <div class="fin-grafiek-rij">
+                    <div class="fin-as fin-as-nul">
+                        <span class="fin-as-punt" style="bottom: 100%;">{{ op_fmt }}</span>
+                        <span class="fin-as-punt" style="bottom: {{ nul_pct }}%;">0</span>
+                        <span class="fin-as-punt" style="bottom: 0;">−{{ af_fmt }}</span>
+                    </div>
+                    <div class="fin-plot fin-plot-nul">
+                        <div class="fin-lijn" style="bottom: {{ nul_pct }}%;"></div>
+                        <div class="fin-balken">
+                            {% for d in verloop %}
+                                <div class="fin-kolom-nul">
+                                    {% if not d.leeg %}
+                                        <div class="fin-tip">
+                                            <div class="fin-tip-dag">{{ d.dag }}</div>
+                                            <div class="fin-tip-regel">
+                                                <span>{% translate "Resultaat" %}</span><b>{{ d.bedrag_fmt }}</b>
+                                            </div>
+                                        </div>
+                                        {% if d.positief %}
+                                            <span class="fin-seg-op"
+                                                  style="bottom: {{ nul_pct }}%; height: {{ d.pct }}%;"></span>
+                                        {% else %}
+                                            <span class="fin-seg-af"
+                                                  style="top: {{ nul_boven }}%; height: {{ d.pct }}%;"></span>
+                                        {% endif %}
+                                    {% endif %}
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                <div class="fin-grafiek-rij">
+                    <div class="fin-as-leeg"></div>
+                    <div class="fin-dagen">
+                        {% for d in verloop %}
+                            <span class="fin-dag-label">{% if d.toon_label %}{{ d.dag_kort }}{% endif %}</span>
                         {% endfor %}
-                    </tbody>
-                </table>
+                    </div>
+                </div>
             </div>
         {% endif %}
+
+        {% comment %}
+            Inkomsten en uitgaven apart. In één gemengde lijst verdringen de
+            grote uitgaven de inkomsten en zie je van geen van beide de opbouw.
+        {% endcomment %}
+        <div class="fin-pi-onder">
+            {% if inkomsten %}
+                <div>
+                    <h2 class="fin-kop">{% translate "Waar je geld vandaan komt" %}
+                        <span>— {% translate "30 dagen" %}</span></h2>
+                    <div class="fin-tablewrap">
+                        <table class="fin-table">
+                            <tbody>
+                                {% for s in inkomsten %}
+                                    <tr>
+                                        <td class="fin-nowrap" style="width: 1%;">{{ s.naam }}</td>
+                                        <td><div class="fin-bron-balk" style="width: {{ s.pct }}%;"></div></td>
+                                        <td class="fin-getal fin-pos" style="width: 1%;">{{ s.bedrag_fmt }}</td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            {% endif %}
+            {% if uitgaven %}
+                <div>
+                    <h2 class="fin-kop">{% translate "Waar het heen gaat" %}
+                        <span>— {% translate "30 dagen" %}</span></h2>
+                    <div class="fin-tablewrap">
+                        <table class="fin-table">
+                            <tbody>
+                                {% for s in uitgaven %}
+                                    <tr>
+                                        <td class="fin-nowrap" style="width: 1%;">{{ s.naam }}</td>
+                                        <td><div class="fin-bron-balk neg" style="width: {{ s.pct }}%;"></div></td>
+                                        <td class="fin-getal fin-neg" style="width: 1%;">{{ s.bedrag_fmt }}</td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
 
         {% comment %}
             Twee tabellen naast elkaar als tabbladen. De keuzerondjes staan

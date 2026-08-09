@@ -7,11 +7,22 @@ Alliance Auth-plugin die je **eigen** gegevens op één plek toont: wallet, cont
 
 Vijf tabbladen:
 
-- **Wallet** — saldo per character, waar je geld de afgelopen 30 dagen vandaan kwam, en twee tabellen: **Transactions** (het journaal) en **Market Transactions** (wat je gekocht en verkocht hebt, per item)
-- **Contracts** — je persoonlijke contracten met status, beloningen en de inhoud
-- **Ratting** — bounty- en ESS-inkomsten, per dag uitgezet
-- **Mining** — je ledger per ertssoort, systeem en dag, met volume en geschatte waarde
-- **PI** — je planetaire kolonies per character
+- **Wallet** — saldo per character, je resultaat per dag over 30 dagen, waar je geld vandaan kwam tegenover
+  waar het heen ging, en twee tabellen: **Transactions** (het journaal) en **Market Transactions** (wat je
+  gekocht en verkocht hebt, per item)
+- **Contracts** — je persoonlijke contracten met status, beloningen en de inhoud, plus de route van elke
+  koeriersrit (volume, onderpand en ISK/m³), een overzicht per route en per tegenpartij
+- **Ratting** — bounty- en ESS-inkomsten per dag, plus in welke systemen je ze verdiende, hoeveel corp-belasting
+  eraf ging (het journaal boekt netto weg) en welke rats je precies afgeschoten hebt — dat laatste staat in het
+  `reason`-veld van elke bounty-regel
+- **Mining** — per erts een kaart (varianten als Pyroxeres II/III-Grade staan bij elkaar) met volume, wat het
+  ruw opbrengt tegenover een perfecte refine, en welke mineralen eruit komen. Bovenaan het verschil tussen ruw
+  verkopen en refinen, daaronder wat je hele voorraad na refinen zou opleveren, plus per character, per systeem
+  en de ledger zelf
+- **PI** — je planetaire kolonies als kaarten: wat elke extractor haalt en hoe lang z'n programma nog loopt,
+  welke fabrieken draaien en wat ze per dag opleveren, hoe vol de opslag zit en wat erin ligt. Bovenaan staat
+  wat aandacht vraagt (stilstaande extractor, volle opslag, grondstof die opraakt), en onderaan wat je account
+  netto per dag maakt — eigen verbruik telt niet mee, zodat een halffabrikaat niet dubbel geteld wordt.
 
 ## Installeren
 

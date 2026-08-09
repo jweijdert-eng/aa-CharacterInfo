@@ -10,7 +10,7 @@ from django.utils.translation import gettext_lazy as _
 
 from esi.decorators import token_required
 
-from . import data, esi
+from . import __version__, data, esi
 
 # Beide scopes tegelijk vragen: dan hoeft de gebruiker maar één keer te
 # koppelen voor alle drie de tabbladen.
@@ -27,6 +27,10 @@ def _basis(request, actief):
     ids = _character_ids(request.user)
     return {
         "actief": actief,
+        # Hangt achter de stylesheet-URL. Zonder dat blijft een browser na een
+        # nieuwe versie de oude CSS gebruiken — dan staat de hele pagina
+        # ongestyled onder elkaar en lijkt er een bug te zijn.
+        "versie": __version__,
         "heeft_wallet": esi.has_token(ids, esi.WALLET_SCOPE),
         "heeft_contracts": esi.has_token(ids, esi.CONTRACTS_SCOPE),
         "heeft_mining": esi.has_token(ids, esi.MINING_SCOPE),

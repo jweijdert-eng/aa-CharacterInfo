@@ -214,6 +214,339 @@
    en haalde het met 3.8:1 de leesbaarheidseis voor tekst niet. */
 .fin-app .fin-planeet-plasma    { color: #d850e6; }
 
+/* ── Wallet: resultaat per dag ────────────────────────────────────────── */
+/* Balken die twee kanten op gaan. De nullijn ligt niet in het midden maar op
+   de plek die bij de verhouding winst/verlies hoort — anders klopt de schaal
+   van de ene helft niet met de andere. */
+.fin-app .fin-plot-nul .fin-balken { align-items: stretch; }
+.fin-app .fin-kolom-nul { flex: 1 1 0; min-width: 3px; position: relative; height: 100%; }
+.fin-app .fin-seg-op,
+.fin-app .fin-seg-af { position: absolute; left: 0; right: 0; min-height: 2px; }
+.fin-app .fin-seg-op { background: var(--fin-green); border-radius: 3px 3px 0 0; }
+.fin-app .fin-seg-af { background: var(--fin-red); border-radius: 0 0 3px 3px; }
+.fin-app .fin-kolom-nul:hover .fin-seg-op,
+.fin-app .fin-kolom-nul:hover .fin-seg-af { filter: brightness(1.35); }
+/* De tooltip hangt aan de bovenkant van de kolom, niet aan de balk zelf. */
+.fin-app .fin-kolom-nul .fin-tip {
+    position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%);
+}
+.fin-app .fin-kolom-nul:hover .fin-tip { opacity: 1; }
+.fin-app .fin-as-nul .fin-as-punt:first-child { transform: translateY(0); }
+
+/* ── Contracts ────────────────────────────────────────────────────────── */
+.fin-app .fin-stat-in { border-left: 3px solid var(--fin-green); }
+.fin-app .fin-stat-uit { border-left: 3px solid var(--fin-red); }
+.fin-app .fin-advies.is-let-op { border-left-color: var(--fin-gold); }
+.fin-app .fin-advies.is-let-op .fin-advies-icoon { color: var(--fin-gold); }
+
+/* Route, volume en onderpand onder de titel van een contract: bij een
+   koeriersrit is dát waar het contract over gaat. */
+.fin-app .fin-con-route { font-size: .72rem; color: var(--fin-dim); margin-top: .12rem; }
+.fin-app .fin-con-pijl { color: var(--fin-blue); }
+.fin-app .fin-con-onderpand { color: var(--fin-gold); }
+.fin-app .fin-bron-balk.fin-balk-vracht { background: var(--fin-blue); }
+
+/* Resterende looptijd van een contract dat nog open staat. */
+.fin-app .fin-con-rest { font-size: .66rem; color: var(--fin-dim); margin-top: .15rem; }
+.fin-app .fin-con-rest.is-spoed { color: var(--fin-gold); font-weight: 700; }
+
+/* Een nul is geen bedrag. Streepje in plaats van "0", en gedempt zodat de
+   kolom rustig blijft in plaats van vol te staan met betekenisloze cijfers. */
+.fin-app .fin-leeg { color: var(--fin-dim); opacity: .45; font-weight: 400; }
+
+/* ── Ratting ──────────────────────────────────────────────────────────── */
+.fin-app .fin-stat-belasting { border-left: 3px solid var(--fin-red); }
+.fin-app .fin-stat-belasting .v { color: var(--fin-red); }
+
+/* Balk met twee betekenissen: de lengte is het totaal, de vulling het aandeel
+   bounty. Zo hoeft er geen tweede balk naast voor de verhouding. */
+.fin-app .fin-bron-balk.fin-split { background: var(--fin-ess); padding: 0; }
+.fin-app .fin-bron-balk.fin-split > i {
+    display: block; height: 100%; background: var(--fin-bounty);
+    border-radius: 3px 0 0 3px;
+}
+
+/* Rats: het scheepsplaatje in plaats van het klasse-icoontje — je herkent een
+   Corpus Pope aan z'n silhouet, niet aan een generiek battleship-symbooltje. */
+.fin-app .fin-rat-icoon {
+    width: 30px !important; height: 30px !important; border-radius: 4px;
+    background: #05050e;
+}
+.fin-app .fin-rat-groep {
+    display: block; font-size: .68rem; color: var(--fin-dim);
+    line-height: 1.1; margin-top: .05rem;
+}
+.fin-app .fin-bron-balk.fin-balk-rat { background: var(--fin-bounty); margin-top: .25rem; }
+
+/* Soort uitbetaling. Dezelfde twee kleuren als de grafiek, zodat de tabel en de
+   balken hetzelfde verhaal vertellen. */
+.fin-app .fin-badge.fin-soort-ess {
+    color: var(--fin-ess); border: 1px solid currentColor; background: transparent;
+}
+.fin-app .fin-badge.fin-soort-bounty {
+    color: var(--fin-bounty); border: 1px solid currentColor; background: transparent;
+}
+
+/* ── Mining ───────────────────────────────────────────────────────────── */
+/* Adviesregel: het verschil tussen ruw verkopen en refinen is het enige op de
+   pagina waar een keuze aan vastzit, dus dat staat bovenaan en niet als twee
+   losse bedragen die de lezer zelf moet aftrekken. */
+.fin-app .fin-advies {
+    display: flex; align-items: center; gap: .8rem;
+    margin-bottom: 1rem; padding: .7rem .9rem; border-radius: 8px;
+    background: var(--fin-surface); border: 1px solid var(--fin-border);
+    border-left: 3px solid var(--fin-green);
+}
+.fin-app .fin-advies-icoon {
+    font-size: 1.5rem; color: var(--fin-green); flex: none; line-height: 1;
+}
+.fin-app .fin-advies-kop { font-size: .92rem; font-weight: 700; }
+.fin-app .fin-advies-sub { font-size: .78rem; color: var(--fin-dim); }
+
+.fin-app .fin-stat-ruw { border-left: 3px solid var(--fin-bounty); }
+.fin-app .fin-stat-refine { border-left: 3px solid var(--fin-green); }
+
+/* Ertskaarten. Zelfde opbouw als de kolonie-kaarten, dus de gedeelde stukken
+   (grid, kaart, chips, balk) staan hieronder in dezelfde regels. */
+.fin-app .fin-kaart-kop { display: flex; align-items: center; gap: .6rem; min-width: 0; }
+.fin-app .fin-kaart-icoon {
+    width: 44px; height: 44px; border-radius: 8px; flex: none;
+    background: #05050e; border: 1px solid var(--fin-border);
+}
+.fin-app .fin-kaart-titel { min-width: 0; flex: 1 1 auto; }
+.fin-app .fin-kaart-naam {
+    font-weight: 700; font-size: .95rem; line-height: 1.2;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.fin-app .fin-kaart-sub { font-size: .76rem; color: var(--fin-dim); margin-top: .15rem; }
+.fin-app .fin-kaart-deel {
+    font-size: 1.05rem; font-weight: 700; color: var(--fin-gold); flex: none;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Ruw naast gerefined. De winnaar krijgt de kleur; zonder die markering staan
+   er twee bedragen zonder dat duidelijk is welke telt. */
+.fin-app .fin-min-waarden { display: flex; gap: .4rem; margin-top: .55rem; }
+.fin-app .fin-min-waarde {
+    flex: 1 1 0; padding: .35rem .5rem; border-radius: 6px;
+    background: rgba(128, 128, 128, .10); border: 1px solid var(--fin-border);
+    display: flex; flex-direction: column; line-height: 1.25; min-width: 0;
+}
+.fin-app .fin-min-waarde .l {
+    font-size: .64rem; letter-spacing: .06em; text-transform: uppercase; color: var(--fin-dim);
+}
+.fin-app .fin-min-waarde .v { font-size: .92rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.fin-app .fin-min-waarde.is-beste {
+    background: rgba(62, 207, 110, .12); border-color: rgba(62, 207, 110, .4);
+}
+.fin-app .fin-min-waarde.is-beste .v { color: var(--fin-green); }
+
+.fin-app .fin-min-variant {
+    display: flex; align-items: center; gap: .45rem; margin-top: .28rem;
+    font-size: .78rem; min-width: 0;
+}
+.fin-app .fin-min-variant-icoon { width: 20px; height: 20px; border-radius: 3px; flex: none; }
+.fin-app .fin-min-variant-naam {
+    flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.fin-app .fin-min-variant-aantal { font-variant-numeric: tabular-nums; flex: none; }
+.fin-app .fin-min-variant-deel { color: var(--fin-dim); flex: none; width: 2.4rem; text-align: right; }
+
+.fin-app .fin-min-portret {
+    border-radius: 4px; border: 1px solid var(--kleur, var(--fin-border));
+}
+
+/* Balk op wáárde in plaats van op aantal: 2 miljoen Pyerite is minder waard dan
+   tienduizend Technetium, dus een balk op aantal zou het omdraaien. */
+.fin-app .fin-bron-balk.fin-balk-waarde { background: var(--fin-gold); margin-top: .25rem; }
+
+/* Handvol dagen: balken smal houden en centreren, anders wordt één dag een blok
+   van driehonderd pixels breed. Labels krijgen dezelfde regel, want anders
+   staan de datums niet meer onder hun eigen balk. */
+.fin-app .fin-balken.is-smal,
+.fin-app .fin-dagen.is-smal { justify-content: center; gap: .5rem; }
+.fin-app .fin-balken.is-smal .fin-kolom,
+.fin-app .fin-dagen.is-smal .fin-dag-label { max-width: 110px; }
+
+/* ── PI: kolonie-kaarten ──────────────────────────────────────────────── */
+/* Een kolonie is geen tabelrij: er hoort een extractor met een aflopende klok
+   bij, een rij fabrieken en een opslag die vol kan lopen. Dat past niet in
+   kolommen zonder dat je het belangrijkste (loopt dit nog?) kwijtraakt. */
+.fin-app .fin-pi-kaarten,
+.fin-app .fin-kaarten {
+    display: grid; gap: .75rem;
+    /* 340px is de smalste breedte waarop een regel "Consumer Electronics" plus
+       de resterende tijd nog náást elkaar past; smaller en alles klapt om. */
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    /* Alle kaarten even hoog. 1fr op de impliciete rijen maakt élke rij even
+       hoog als de zwaarste kaart van de hele verzameling, niet alleen als de
+       zwaarste van z'n eigen rij — anders verspringt de hoogte per rij en
+       oogt het alsnog rommelig. De voettekst staat met margin-top:auto
+       onderaan, dus de extra ruimte valt daar netjes tussen. */
+    grid-auto-rows: 1fr;
+}
+.fin-app .fin-pi-kaart,
+.fin-app .fin-kaart {
+    padding: .7rem .85rem; border-radius: 10px;
+    background: var(--fin-surface); border: 1px solid var(--fin-border);
+    border-left: 3px solid var(--fin-border);
+    display: flex; flex-direction: column; min-width: 0;
+}
+/* De linkerrand is het stoplicht. Groen zou "goed" schreeuwen bij iets wat
+   gewoon normaal is, dus alleen afwijkingen krijgen kleur. */
+.fin-app .fin-pi-kaart.is-waarschuwing { border-left-color: var(--fin-gold); }
+.fin-app .fin-pi-kaart.is-kritiek { border-left-color: var(--fin-red); }
+
+.fin-app .fin-pi-kop { display: flex; align-items: center; gap: .6rem; min-width: 0; }
+.fin-app .fin-pi-planeet {
+    width: 46px; height: 46px; border-radius: 50%; flex: none;
+    background: #05050e; border: 1px solid var(--fin-border);
+}
+.fin-app .fin-pi-titel { min-width: 0; flex: 1 1 auto; }
+.fin-app .fin-pi-naam {
+    font-weight: 700; font-size: .95rem; line-height: 1.2;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.fin-app .fin-pi-plaats { font-size: .76rem; color: var(--fin-dim); margin-top: .15rem; }
+
+/* Commandcenter-niveau als vijf bolletjes: één blik, geen getal lezen. */
+.fin-app .fin-pi-lvl { display: flex; gap: 3px; flex: none; }
+.fin-app .fin-pi-lvl i {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: rgba(128, 128, 128, .25);
+}
+.fin-app .fin-pi-lvl i.is-aan { background: var(--fin-gold); }
+
+.fin-app .fin-pi-eigenaar {
+    font-size: .76rem; color: var(--fin-dim); margin-top: .45rem;
+    display: flex; align-items: center; gap: .4rem;
+}
+/* Het portret zegt in één blik van wie deze kolonie is; de gekleurde rand
+   koppelt 'm aan dezelfde stip in de tabellen eronder. */
+.fin-app .fin-pi-portret {
+    width: 20px; height: 20px; border-radius: 4px; flex: none;
+    border: 1px solid var(--kleur, var(--fin-border));
+}
+
+.fin-app .fin-pi-seinen { display: flex; flex-wrap: wrap; gap: .3rem; margin-top: .45rem; }
+.fin-app .fin-pi-sein {
+    font-size: .68rem; font-weight: 700; padding: .1rem .45rem; border-radius: 999px;
+    border: 1px solid currentColor;
+}
+.fin-app .fin-pi-sein.is-waarschuwing { color: var(--fin-gold); background: rgba(240, 192, 64, .12); }
+.fin-app .fin-pi-sein.is-kritiek { color: var(--fin-red); background: rgba(224, 85, 85, .12); }
+
+.fin-app .fin-pi-blok { margin-top: .55rem; padding-top: .5rem; border-top: 1px solid var(--fin-border); }
+.fin-app .fin-pi-bloklabel {
+    font-size: .66rem; letter-spacing: .07em; text-transform: uppercase;
+    color: var(--fin-dim); margin-bottom: .3rem;
+    display: flex; justify-content: space-between; gap: .5rem;
+}
+.fin-app .fin-pi-bloknoot { text-transform: none; letter-spacing: 0; font-variant-numeric: tabular-nums; }
+
+.fin-app .fin-pi-regel { display: flex; align-items: center; gap: .5rem; margin-top: .3rem; min-width: 0; }
+.fin-app .fin-pi-item { width: 26px; height: 26px; border-radius: 4px; flex: none; }
+.fin-app .fin-pi-regeltekst { min-width: 0; flex: 1 1 auto; }
+.fin-app .fin-pi-regelnaam {
+    font-size: .82rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.fin-app .fin-pi-maal { color: var(--fin-dim); font-weight: 700; }
+.fin-app .fin-pi-regelsub { font-size: .7rem; color: var(--fin-dim); font-variant-numeric: tabular-nums; }
+.fin-app .fin-pi-regelisk {
+    font-size: .78rem; font-weight: 700; color: var(--fin-green);
+    font-variant-numeric: tabular-nums; white-space: nowrap; flex: none;
+}
+.fin-app .fin-pi-rest {
+    font-size: .76rem; font-weight: 700; white-space: nowrap; flex: none;
+    font-variant-numeric: tabular-nums;
+}
+.fin-app .fin-pi-rest.is-ok { color: var(--fin-dim); }
+.fin-app .fin-pi-rest.is-spoed { color: var(--fin-gold); }
+.fin-app .fin-pi-rest.is-afgelopen { color: var(--fin-red); text-transform: uppercase; font-size: .68rem; }
+
+/* Vulbalk, hergebruikt voor de extractor-looptijd en de opslag. Dun genoeg om
+   niet met de tekst te concurreren, dik genoeg om te zien. */
+.fin-app .fin-pi-bar {
+    height: 5px; border-radius: 3px; margin-top: .3rem; overflow: hidden;
+    background: rgba(128, 128, 128, .16);
+}
+.fin-app .fin-pi-bar > i { display: block; height: 100%; border-radius: 3px; background: var(--fin-blue); }
+.fin-app .fin-pi-bar > i.is-ok { background: var(--fin-blue); }
+.fin-app .fin-pi-bar > i.is-spoed,
+.fin-app .fin-pi-bar > i.is-waarschuwing { background: var(--fin-gold); }
+.fin-app .fin-pi-bar > i.is-afgelopen,
+.fin-app .fin-pi-bar > i.is-kritiek { background: var(--fin-red); }
+
+.fin-app .fin-pi-voorraad { display: flex; flex-wrap: wrap; gap: .3rem; margin-top: .45rem; }
+.fin-app .fin-pi-chip {
+    display: inline-flex; align-items: center; gap: .3rem;
+    padding: .1rem .4rem .1rem .15rem; border-radius: 999px;
+    background: rgba(128, 128, 128, .12); border: 1px solid var(--fin-border);
+    font-size: .72rem; font-variant-numeric: tabular-nums;
+}
+.fin-app .fin-pi-chip img { width: 20px; height: 20px; border-radius: 50%; }
+.fin-app .fin-pi-chip-rest { padding: .1rem .45rem; color: var(--fin-dim); }
+
+.fin-app .fin-pi-buffer {
+    margin-top: .5rem; padding: .3rem .5rem; border-radius: 6px;
+    font-size: .74rem; color: var(--fin-gold); background: rgba(240, 192, 64, .10);
+}
+/* Streep boven de voet: nu alle kaarten even hoog zijn houdt een lichte kolonie
+   ruimte over, en zonder die streep leest dat als een gat in plaats van als
+   ruimte binnen de kaart. */
+.fin-app .fin-pi-voet {
+    margin-top: auto; padding-top: .55rem; display: flex; justify-content: space-between;
+    gap: .5rem; font-size: .74rem; color: var(--fin-text); align-items: baseline;
+    border-top: 1px solid var(--fin-border);
+}
+
+/* ── PI: wat aandacht vraagt ──────────────────────────────────────────── */
+.fin-app .fin-pi-aandacht {
+    margin-bottom: 1rem; padding: .7rem .9rem; border-radius: 8px;
+    background: var(--fin-surface); border: 1px solid var(--fin-border);
+    border-left: 3px solid var(--fin-gold);
+}
+.fin-app .fin-pi-aandacht.is-kritiek { border-left-color: var(--fin-red); }
+.fin-app .fin-pi-aandacht-kop {
+    font-size: .72rem; letter-spacing: .06em; text-transform: uppercase;
+    color: var(--fin-dim); margin-bottom: .35rem;
+}
+.fin-app .fin-pi-aandacht-lijst { list-style: none; margin: 0; padding: 0; }
+.fin-app .fin-pi-aandacht-lijst li {
+    display: flex; align-items: baseline; gap: .45rem; flex-wrap: wrap;
+    font-size: .82rem; padding: .12rem 0;
+}
+.fin-app .fin-pi-aandacht-reden { color: var(--fin-gold); }
+.fin-app .fin-pi-aandacht-lijst li.is-kritiek .fin-pi-aandacht-reden { color: var(--fin-red); }
+
+/* Tier van een planetaire grondstof. P0 grijs (het is ruw spul), daarna
+   oplopend: de kleuren komen uit de al nagerekende character-set, en het label
+   staat er voluit in, dus kleur is hier hulp en geen codering. */
+.fin-app .fin-tier {
+    display: inline-block; padding: 0 .3rem; border-radius: 3px;
+    font-size: .62rem; font-weight: 700; letter-spacing: .04em;
+    border: 1px solid currentColor; vertical-align: 1px;
+}
+.fin-app .fin-tier-p0 { color: var(--fin-dim); }
+.fin-app .fin-tier-p1 { color: #3987e5; }
+.fin-app .fin-tier-p2 { color: #199e70; }
+.fin-app .fin-tier-p3 { color: #c98500; }
+.fin-app .fin-tier-p4 { color: #d850e6; }
+
+/* In de PI-tabellen draagt de eerste kolom de naam en mogen de cijferkolommen
+   zo smal zijn als hun inhoud. Zonder dit verdeelt de tabel de breedte gelijk
+   over alle kolommen en staat er tussen elk getal een halve meter wit. */
+.fin-app .fin-table-pi th:not(:first-child),
+.fin-app .fin-table-pi td:not(:first-child) { width: 1%; white-space: nowrap; }
+
+/* Twee smalle tabellen naast elkaar; onder 900px onder elkaar. align-items:
+   start, want anders rekt de kortste tabel mee met de langste en staat er een
+   leeg kader van een halve pagina naast. */
+.fin-app .fin-pi-onder {
+    display: grid; gap: 0 1rem; align-items: start;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+}
+
 /* Rol: heb je het contract zelf uitgegeven of aangenomen? */
 .fin-app .fin-rol { font-size: .68rem; letter-spacing: .04em; text-transform: uppercase; color: var(--fin-dim); }
 
