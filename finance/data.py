@@ -1650,7 +1650,11 @@ def pi(user):
     # (404), daar is /universe/planets/{id}/ voor.
     namen = esi.names({p["solar_system_id"] for p in rijen})
     planeetnamen = {p["planet_id"]: esi.planet_info(p["planet_id"]) for p in rijen}
-    details = {p["planet_id"]: esi.planet_detail(p["_char_id"], p["planet_id"])
+    # Sleutel op character én planeet. Meerdere characters mogen elk een eigen
+    # kolonie op dezelfde planeet hebben; op alleen planeet-id overschrijft de
+    # ene de andere, en dan telt de extractie van die planeet dubbel terwijl de
+    # productie van de overschreven kolonie uit de keten verdwijnt.
+    details = {(p["_char_id"], p["planet_id"]): esi.planet_detail(p["_char_id"], p["planet_id"])
                for p in rijen}
 
     # Alle types die op de pagina voorkomen in één keer opzoeken: de gebouwen
@@ -1681,7 +1685,7 @@ def pi(user):
     for p in rijen:
         soort = p.get("planet_type") or "onbekend"
         per_type[soort] += 1
-        k = _kolonie(p, details.get(p["planet_id"]) or {}, typen, prijzen, nu)
+        k = _kolonie(p, details.get((p["_char_id"], p["planet_id"])) or {}, typen, prijzen, nu)
         for v in k["voorraad"]:
             voorraad_totaal[v["type_id"]] += v["aantal"]
         vak = per_char.setdefault(p["_char_id"], {
