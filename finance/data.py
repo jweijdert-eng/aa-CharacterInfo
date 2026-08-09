@@ -1442,16 +1442,37 @@ def _kolonie(p, det, typen, prijzen, nu):
     waarde = sum(v["isk"] for v in voorraadlijst)
 
     # ── Hoe lang loopt dit nog door zonder ingrijpen? ─────────────────────
-    # Alleen wat er netto uit gaat kan opraken: draait er een extractor of een
-    # fabriek die hetzelfde spul aanvult, dan telt alleen het verschil.
+    # Alleen grondstof die van BUITEN komt kan de kolonie stilleggen. Wordt het
+    # spul hier zelf gemaakt (extractor of fabriek), dan raakt de voorraad
+    # hooguit leeg en zakken de fabrieken terug naar het tempo van de aanvoer —
+    # ze vallen niet stil. Dat als "op over 15m" melden is loos alarm: die
+    # planeet draait al maanden zo en de echte klok is het extractorprogramma.
     uren, krappe = None, ""
+    onderbezet = []
     for tid, per_uur in verbruik.items():
-        netto = per_uur - aanvoer.get(tid, 0.0)
-        if netto <= 0:
+        lokaal = aanvoer.get(tid, 0.0)
+
+        if lokaal > 0:
+            # Pas melden bij een gat van minstens 5%. Anders levert afronding
+            # "fabrieken draaien op 100% — meer capaciteit dan aanvoer" op, en
+            # dat spreekt zichzelf tegen.
+            if lokaal < per_uur * 0.95:
+                onderbezet.append({
+                    "naam": info(tid)["naam"],
+                    "aanvoer_fmt": _getal(lokaal),
+                    "capaciteit_fmt": _getal(per_uur),
+                    "pct": round(lokaal / per_uur * 100),
+                })
             continue
-        beschikbaar = voorraad.get(tid, 0) / netto
+
+        if per_uur <= 0:
+            continue
+        beschikbaar = voorraad.get(tid, 0) / per_uur
         if uren is None or beschikbaar < uren:
             uren, krappe = beschikbaar, info(tid)["naam"]
+
+    # De zwaarst onderbezette bovenaan: die zegt het meest over de planeet.
+    onderbezet.sort(key=lambda o: o["pct"])
 
     # ── Stoplicht ─────────────────────────────────────────────────────────
     seinen = []
@@ -1499,6 +1520,7 @@ def _kolonie(p, det, typen, prijzen, nu):
         "uren": uren,
         "uren_fmt": _duur(uren * 3600) if uren is not None else "",
         "krappe": krappe,
+        "onderbezet": onderbezet,
         "seinen": seinen,
         "ernst": ernst,
         "export": export,

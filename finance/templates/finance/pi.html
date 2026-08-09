@@ -217,6 +217,18 @@
                         </div>
                     {% endif %}
 
+                    {% comment %}
+                        Geen alarm maar een vaststelling: er staan meer fabrieken dan de
+                        aanvoer aankan. De kolonie draait gewoon door, alleen op een lager
+                        pitje. Daarom grijs en niet in het aandacht-blok bovenaan.
+                    {% endcomment %}
+                    {% for o in k.onderbezet %}
+                        <div class="fin-pi-onderbezet"
+                             title="{% blocktranslate with n=o.naam a=o.aanvoer_fmt c=o.capaciteit_fmt %}De fabrieken kunnen {{ c }} {{ n }} per uur verwerken, er komt {{ a }} per uur binnen. Bij benadering: een extractor levert aan het eind van z'n programma minder dan aan het begin.{% endblocktranslate %}">
+                            {% blocktranslate with p=o.pct %}fabrieken draaien op ~{{ p }}% — meer capaciteit dan aanvoer{% endblocktranslate %}
+                        </div>
+                    {% endfor %}
+
                     <footer class="fin-pi-voet">
                         <span title="{% translate 'Wat er nu op de planeet ligt, tegen Jita buy' %}">
                             {{ k.waarde_fmt }} {% translate "in opslag" %}

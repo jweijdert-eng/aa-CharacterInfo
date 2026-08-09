@@ -491,6 +491,12 @@
     margin-top: .5rem; padding: .3rem .5rem; border-radius: 6px;
     font-size: .74rem; color: var(--fin-gold); background: rgba(240, 192, 64, .10);
 }
+/* Geen alarm maar een vaststelling — daarom dim en zonder eigen vlak, zodat het
+   niet concurreert met de gouden buffer-melding erboven. */
+.fin-app .fin-pi-onderbezet {
+    margin-top: .4rem; padding: 0 .5rem;
+    font-size: .72rem; color: var(--fin-dim);
+}
 /* Streep boven de voet: nu alle kaarten even hoog zijn houdt een lichte kolonie
    ruimte over, en zonder die streep leest dat als een gat in plaats van als
    ruimte binnen de kaart. */
