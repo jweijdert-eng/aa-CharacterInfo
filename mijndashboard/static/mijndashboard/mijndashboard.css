@@ -1045,108 +1045,266 @@
 .fin-app .fin-table .fin-pi-voorraad { flex-wrap: wrap; margin-bottom: .3rem; }
 
 
-/* ── Dashboard ────────────────────────────────────────────────────────── */
-/* Waar de main is en waarin, plus het saldo. Zelfde indeling als de banner op
-   dutchlegionsdashboard.eu: plek links, geld rechts. */
-.fin-app .fin-dash-hero {
-    display: flex; gap: 1rem; align-items: center; justify-content: space-between;
-    flex-wrap: wrap; margin-bottom: .75rem; padding: .6rem .9rem; border-radius: 8px;
-    background: var(--fin-surface); border: 1px solid var(--fin-border);
-}
-.fin-app .fin-dash-plek { display: flex; align-items: center; gap: .45rem; flex-wrap: wrap; font-size: .84rem; }
-.fin-app .fin-dash-sys { color: var(--fin-green); font-weight: 600; }
-.fin-app .fin-dash-schip { color: var(--fin-gold); }
-.fin-app .fin-dash-schip i { color: var(--fin-dim); font-style: normal; font-size: .78rem; }
-.fin-app .fin-dash-schipicoon { width: 22px; height: 22px; border-radius: 3px; }
-.fin-app .fin-dash-ticker { color: var(--fin-gold); font-weight: 700; }
-.fin-app .fin-dash-alli { color: var(--fin-blue); }
-/* Online-lampje: kleur alleen is geen boodschap, dus de titel zegt het ook. */
-.fin-app .fin-dash-stip {
-    width: 8px; height: 8px; border-radius: 50%; flex: none;
-    background: var(--fin-border); border: 1px solid #2a2a4a;
-}
-.fin-app .fin-dash-stip.is-online { background: var(--fin-green); border-color: var(--fin-green); }
-.fin-app .fin-dash-wallet { text-align: right; line-height: 1.25; }
-.fin-app .fin-dash-wallet .l {
-    display: block; font-size: .62rem; letter-spacing: .12em; text-transform: uppercase;
-    color: var(--fin-dim);
-}
-.fin-app .fin-dash-wallet .v { font-size: 1.15rem; font-weight: 700; color: var(--fin-gold); }
-.fin-app .fin-dash-wallet .s { display: block; font-size: .72rem; color: var(--fin-dim); }
 
-/* Character-kaartjes: een rij die horizontaal mag scrollen in plaats van
-   afbreken, zodat de tegels eronder op hun plek blijven staan. */
-.fin-app .fin-dash-chars {
-    display: flex; gap: .6rem; overflow-x: auto; padding-bottom: .25rem; margin-bottom: .75rem;
+/* ── Dashboard: het palet en de maatvoering van dutchlegionsdashboard.eu ──
+   Deze pagina is een nabouw van de startpagina van de site. Die heeft een eigen
+   palet (donkerder oppervlak, lichtere tekst) en een eigen maatvoering (randen
+   van 3px, koppen van 0.58–0.6rem met veel letterspatiëring). Daarom een eigen
+   schil met de variabelen van dáár, in plaats van het plugin-palet: anders is
+   het een vertaling en geen overname. */
+.fin-app .fin-dl {
+    --dl-surface: #0b0b1a;
+    --dl-surface2: #0f0f22;
+    --dl-border: #1c1c35;
+    --dl-blue: #00b4d8;
+    --dl-gold: #f0c040;
+    --dl-red: #e05555;
+    --dl-green: #3ecf6e;
+    --dl-text: #c8cde8;
+    --dl-dim: #a0a0be;
+    color: var(--dl-text);
+    display: flex; flex-direction: column; gap: .75rem;
 }
-.fin-app .fin-dash-char {
-    flex: 0 0 auto; min-width: 190px; padding: .5rem .7rem; border-radius: 8px;
-    background: var(--fin-surface); border: 1px solid var(--fin-border);
-    border-left: 3px solid var(--kleur, var(--fin-border));
+.fin-app .fin-dl .dl-dim { color: var(--dl-dim); }
+.fin-app .fin-dl .dl-goud { color: var(--dl-gold); }
+.fin-app .fin-dl .dl-groen { color: var(--dl-green); }
+.fin-app .fin-dl .dl-rood { color: var(--dl-red); }
+.fin-app .fin-dl .dl-blauw { color: var(--dl-blue); }
+.fin-app .fin-dl .dl-oranje { color: #f97316; }
+.fin-app .fin-dl .dl-vet { font-weight: 600; }
+.fin-app .fin-dl .dl-klein { font-size: .7rem; }
+.fin-app .fin-dl .dl-mini { font-size: .65rem; }
+.fin-app .fin-dl .dl-kop {
+    font-size: .58rem; font-weight: 700; letter-spacing: .18em; color: var(--dl-dim);
 }
-.fin-app .fin-dash-charkop { display: flex; align-items: center; gap: .4rem; margin-bottom: .3rem; }
-.fin-app .fin-dash-charkop img { width: 26px; height: 26px; border-radius: 50%; }
-.fin-app .fin-dash-charnaam {
-    font-size: .76rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis;
-    white-space: nowrap; flex: 1 1 auto;
-}
-.fin-app .fin-dash-charisk { font-size: .84rem; font-weight: 700; color: var(--fin-gold); }
-.fin-app .fin-dash-charsub { font-size: .68rem; color: var(--fin-dim); }
-.fin-app .fin-dash-charplek {
-    font-size: .66rem; color: var(--fin-dim); margin-top: .2rem;
-    display: flex; align-items: center; gap: .2rem; white-space: nowrap;
-    overflow: hidden; text-overflow: ellipsis;
-}
-.fin-app .fin-dash-charplek img { width: 16px; height: 16px; border-radius: 2px; }
 
-/* De acht blokken. Vaste rijhoogte zoals op de site, zodat de rasterlijnen
-   doorlopen ook als het ene blok drie regels heeft en het andere vijf. */
-.fin-app .fin-dash-grid {
-    display: grid; gap: .75rem; margin: .75rem 0;
-    grid-template-columns: repeat(auto-fit, minmax(255px, 1fr));
+/* ── Banner ───────────────────────────────────────────────────────────── */
+.fin-app .fin-dl .dl-banner {
+    display: flex; gap: .875rem; align-items: center;
+    background: var(--dl-surface); border: 1px solid var(--dl-border);
+    border-radius: 3px; padding: .75rem .875rem;
 }
-.fin-app .fin-dash-blok {
-    background: var(--fin-surface); border: 1px solid var(--fin-border);
-    border-radius: 8px; padding: .55rem .75rem .65rem; min-height: 158px;
+.fin-app .fin-dl .dl-banner-portret { width: 56px; height: 56px; border-radius: 50%; flex: none; }
+.fin-app .fin-dl .dl-banner-mid { flex: 1 1 auto; min-width: 0; }
+.fin-app .fin-dl .dl-banner-naam { font-size: 1rem; font-weight: 700; }
+.fin-app .fin-dl .dl-banner-org {
+    display: flex; align-items: center; gap: .3rem; font-size: .68rem; margin-top: .1rem;
 }
-.fin-app .fin-dash-blok > header {
-    display: flex; justify-content: space-between; align-items: baseline; gap: .5rem;
-    font-size: .64rem; letter-spacing: .12em; text-transform: uppercase;
-    color: var(--fin-dim); font-weight: 700; margin-bottom: .45rem;
-    padding-bottom: .3rem; border-bottom: 1px solid var(--fin-border);
+.fin-app .fin-dl .dl-banner-org img { width: 16px; height: 16px; }
+.fin-app .fin-dl .dl-ticker { color: var(--dl-gold); font-weight: 700; }
+.fin-app .fin-dl .dl-corp { color: var(--dl-text); }
+.fin-app .fin-dl .dl-alli { color: var(--dl-blue); }
+.fin-app .fin-dl .dl-banner-plek {
+    display: flex; align-items: center; gap: .25rem; flex-wrap: wrap;
+    font-size: .62rem; margin-top: .2rem;
 }
-.fin-app .fin-dash-blok > header a { color: inherit; }
-.fin-app .fin-dash-blok > header a:hover { color: var(--fin-gold); text-decoration: none; }
-.fin-app .fin-dash-blok > header span { color: var(--fin-gold); letter-spacing: 0; }
-.fin-app .fin-dash-regel {
+.fin-app .fin-dl .dl-banner-plek img { width: 20px; height: 20px; border-radius: 2px; }
+.fin-app .fin-dl .dl-hex { color: var(--dl-green); }
+.fin-app .fin-dl .dl-sys { color: var(--dl-text); }
+.fin-app .fin-dl .dl-schip { color: var(--dl-gold); }
+.fin-app .fin-dl .dl-punt { color: var(--dl-dim); }
+/* Het lampje draagt de status niet alleen: de tooltip zegt het ook. */
+.fin-app .fin-dl .dl-stip {
+    width: 7px; height: 7px; border-radius: 50%; flex: none;
+    background: var(--dl-border); border: 1px solid #2a2a4a;
+}
+.fin-app .fin-dl .dl-stip.is-online { background: var(--dl-green); border-color: var(--dl-green); }
+.fin-app .fin-dl .dl-banner-wallet { text-align: right; flex: none; }
+.fin-app .fin-dl .dl-bedrag { font-size: 1rem; font-weight: 700; }
+.fin-app .fin-dl .dl-trend { font-size: .65rem; font-weight: 600; margin-top: .15rem; }
+
+/* ── Character-kaartjes ───────────────────────────────────────────────── */
+.fin-app .fin-dl .dl-chars { display: flex; gap: .75rem; overflow-x: auto; padding-bottom: .25rem; }
+.fin-app .fin-dl .dl-char {
+    background: var(--dl-surface); border: 1px solid var(--dl-border); border-radius: 3px;
+    padding: .625rem .875rem; min-width: 170px; flex: none;
+}
+.fin-app .fin-dl .dl-char-kop { display: flex; align-items: center; gap: .5rem; margin-bottom: .4rem; }
+.fin-app .fin-dl .dl-char-kop img { width: 28px; height: 28px; border-radius: 50%; }
+.fin-app .fin-dl .dl-char-naam {
+    font-size: .72rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.fin-app .fin-dl .dl-char-isk { font-size: .75rem; font-weight: 700; color: var(--dl-gold); }
+.fin-app .fin-dl .dl-char-sub { font-size: .62rem; color: var(--dl-dim); margin-top: .1rem; }
+.fin-app .fin-dl .dl-char-plek {
+    font-size: .58rem; margin-top: .15rem; display: flex; align-items: center; gap: .2rem;
+    overflow: hidden; white-space: nowrap;
+}
+.fin-app .fin-dl .dl-char-plek img { width: 16px; height: 16px; border-radius: 2px; }
+
+/* ── Stat-kaarten ─────────────────────────────────────────────────────── */
+.fin-app .fin-dl .dl-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: .75rem; }
+/* Het streepje bovenaan is de `.stat-card::before` van de site. */
+.fin-app .fin-dl .dl-stat {
+    position: relative; overflow: hidden;
+    background: var(--dl-surface); border: 1px solid var(--dl-border); border-radius: 4px;
+    padding: .875rem 1rem;
+}
+.fin-app .fin-dl .dl-stat::before {
+    content: ""; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: var(--accent, var(--dl-blue)); opacity: .5;
+}
+.fin-app .fin-dl .dl-stat-l {
+    font-size: .55rem; color: var(--dl-dim); font-weight: 700; letter-spacing: .18em;
+    margin-bottom: .35rem;
+}
+.fin-app .fin-dl .dl-stat-v { font-size: 1.05rem; font-weight: 700; }
+.fin-app .fin-dl .dl-stat-s { font-size: .6rem; color: var(--dl-dim); margin-top: .2rem; }
+
+/* ── Widgets ──────────────────────────────────────────────────────────── */
+/* Vaste rijhoogte van 155px zoals op de site: dan lopen de rasterlijnen door,
+   ook als het ene blok drie regels heeft en het andere zes. */
+.fin-app .fin-dl .dl-grid {
+    display: grid; grid-template-columns: repeat(4, 1fr); grid-auto-rows: 155px; gap: .75rem;
+}
+.fin-app .fin-dl .dl-sec {
+    display: flex; flex-direction: column; height: 100%; overflow: hidden;
+    background: var(--dl-surface); border: 1px solid var(--dl-border); border-radius: 3px;
+}
+.fin-app .fin-dl .dl-sec > header {
+    flex-shrink: 0; display: flex; justify-content: space-between; align-items: center;
+    padding: .55rem .875rem; border-bottom: 1px solid var(--dl-border);
+    background: var(--dl-surface2);
+}
+.fin-app .fin-dl .dl-sec > header > span {
+    font-size: .6rem; font-weight: 700; color: var(--dl-dim); letter-spacing: .15em;
+}
+.fin-app .fin-dl .dl-sec > header a { font-size: .6rem; color: var(--dl-dim); }
+.fin-app .fin-dl .dl-sec > header a:hover { color: var(--dl-text); text-decoration: none; }
+.fin-app .fin-dl .dl-sec-body { flex: 1; padding: .625rem .875rem; overflow-y: auto; }
+.fin-app .fin-dl .dl-breed { height: auto; }
+
+.fin-app .fin-dl .dl-rij {
     display: flex; justify-content: space-between; gap: .5rem; align-items: center;
-    font-size: .76rem; padding: .12rem 0; min-width: 0;
+    margin-bottom: .18rem; min-width: 0;
 }
-.fin-app .fin-dash-regel .n {
-    display: flex; align-items: center; gap: .3rem; min-width: 0;
+.fin-app .fin-dl .dl-baseline { align-items: baseline; }
+.fin-app .fin-dl .dl-voet { font-size: .62rem; color: var(--dl-dim); margin-top: .1rem; }
+.fin-app .fin-dl .dl-groot { font-size: 1.05rem; font-weight: 700; margin-bottom: .3rem; }
+.fin-app .fin-dl .dl-skillnaam { font-size: .75rem; font-weight: 600; }
+.fin-app .fin-dl .dl-lvl { font-size: .65rem; color: var(--dl-blue); margin-left: .35rem; }
+.fin-app .fin-dl .dl-jobnaam {
+    font-size: .7rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 65%;
+}
+.fin-app .fin-dl .dl-bar { background: var(--dl-border); border-radius: 2px; overflow: hidden; }
+.fin-app .fin-dl .dl-bar > i { display: block; height: 100%; border-radius: 2px; }
+.fin-app .fin-dl .dl-bar-2 { height: 2px; margin-bottom: .2rem; }
+.fin-app .fin-dl .dl-bar-3 { height: 3px; margin-bottom: .45rem; }
+.fin-app .fin-dl .dl-bar-4 { height: 4px; margin-bottom: .45rem; }
+
+.fin-app .fin-dl .dl-tx { display: flex; align-items: center; gap: .4rem; margin-bottom: .22rem; }
+.fin-app .fin-dl .dl-tx-icoon { font-size: .7rem; color: var(--dl-dim); width: 14px; text-align: center; flex: none; }
+.fin-app .fin-dl .dl-tx-tekst {
+    flex: 1; font-size: .65rem; color: var(--dl-dim);
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.fin-app .fin-dash-regel .n img { width: 18px; height: 18px; flex: none; }
-.fin-app .fin-dash-regel .n i { color: var(--fin-dim); font-style: normal; font-size: .7rem; }
-.fin-app .fin-dash-regel .w { flex: none; font-variant-numeric: tabular-nums; font-weight: 600; }
-.fin-app .fin-dash-regel .w i { color: var(--fin-dim); font-style: normal; font-weight: 400; font-size: .7rem; }
-.fin-app .fin-dash-groot { font-size: 1.05rem; font-weight: 700; color: var(--fin-gold); margin-bottom: .3rem; }
-.fin-app .fin-dash-groot i { font-size: .68rem; font-style: normal; color: var(--fin-dim); font-weight: 400; }
-.fin-app .fin-dash-noot { font-size: .64rem; color: var(--fin-dim); margin-top: .35rem; }
-.fin-app .fin-dash-balk {
-    height: 2px; border-radius: 1px; background: var(--fin-border); margin-bottom: .3rem;
-}
-.fin-app .fin-dash-balk > i { display: block; height: 100%; background: var(--fin-bounty); }
-.fin-app .fin-dash-soort {
-    font-size: .58rem; text-transform: uppercase; letter-spacing: .06em;
-    padding: .05rem .3rem; border-radius: 3px; flex: none;
-    background: rgba(128, 128, 128, .16); color: var(--fin-dim);
-}
-.fin-app .fin-dash-soort.is-skill { background: rgba(0, 180, 216, .16); color: var(--fin-blue); }
-.fin-app .fin-dash-soort.is-job { background: rgba(240, 192, 64, .16); color: var(--fin-gold); }
+.fin-app .fin-dl .dl-tx-bedrag { font-size: .7rem; font-weight: 600; flex: none; }
+.fin-app .fin-dl .dl-tx-tijd { font-size: .6rem; color: var(--dl-dim); flex: none; min-width: 22px; text-align: right; }
 
-/* Agenda-antwoorden. De waarden komen van ESI (accepted / declined /
-   tentative / not_responded); onbekende waarden houden gewoon de grijze stijl. */
-.fin-app .fin-antwoord-accepted { background: rgba(62, 207, 110, .16); color: var(--fin-green); }
-.fin-app .fin-antwoord-declined { background: rgba(224, 85, 85, .16); color: var(--fin-red); }
-.fin-app .fin-antwoord-tentative { background: rgba(240, 192, 64, .16); color: var(--fin-gold); }
+.fin-app .fin-dl .dl-op { display: flex; align-items: center; gap: .5rem; margin-bottom: .28rem; }
+.fin-app .fin-dl .dl-op-stip { width: 6px; height: 6px; border-radius: 50%; flex: none; }
+.fin-app .fin-dl .dl-op-label {
+    flex: 1; font-size: .68rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* ── Agenda ───────────────────────────────────────────────────────────── */
+.fin-app .fin-dl .dl-event {
+    display: flex; align-items: flex-start; gap: .55rem; padding: .4rem .5rem;
+    background: rgba(255, 255, 255, .02); border: 1px solid var(--dl-border);
+    border-left: 3px solid var(--dl-border); border-radius: 2px; margin-bottom: .45rem;
+}
+.fin-app .fin-dl .dl-event.is-belangrijk {
+    background: rgba(240, 192, 64, .06); border-color: rgba(240, 192, 64, .25);
+}
+.fin-app .fin-dl .dl-rsvp {
+    flex: none; width: 20px; height: 20px; border-radius: 3px; border: 1px solid;
+    display: flex; align-items: center; justify-content: center;
+    font-size: .58rem; font-weight: 700;
+}
+.fin-app .fin-dl .dl-event-mid { flex: 1; min-width: 0; }
+.fin-app .fin-dl .dl-event-titel {
+    font-size: .7rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.fin-app .fin-dl .dl-ster { color: var(--dl-gold); font-size: .6rem; margin-right: .3rem; }
+.fin-app .fin-dl .dl-event-sub { display: flex; gap: .4rem; font-size: .58rem; margin-top: .1rem; }
+.fin-app .fin-dl .dl-event-tijd { flex: none; text-align: right; font-size: .65rem; font-weight: 700; }
+
+/* ── Grafiekrij ───────────────────────────────────────────────────────── */
+.fin-app .fin-dl .dl-charts { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: .75rem; }
+.fin-app .fin-dl .dl-kaart {
+    background: var(--dl-surface); border: 1px solid var(--dl-border);
+    border-radius: 3px; padding: .875rem; display: flex; flex-direction: column;
+}
+.fin-app .fin-dl .dl-kaart-kop {
+    display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: .75rem;
+}
+/* Saldo per dag. Geen echte vlakgrafiek maar kolommen die elkaar raken: dat
+   leest op deze breedte hetzelfde en heeft geen JavaScript nodig. */
+.fin-app .fin-dl .dl-plot {
+    display: flex; align-items: flex-end; gap: 1px; height: 160px;
+    border-bottom: 1px solid var(--dl-border);
+}
+.fin-app .fin-dl .dl-plot-kolom { flex: 1 1 0; display: flex; align-items: flex-end; height: 100%; }
+.fin-app .fin-dl .dl-plot-kolom > i {
+    display: block; width: 100%; min-height: 1px;
+    background: linear-gradient(180deg, rgba(0, 180, 216, .55), rgba(0, 180, 216, .05));
+    border-top: 1px solid var(--dl-blue);
+}
+.fin-app .fin-dl .dl-plot-as {
+    display: flex; justify-content: space-between; font-size: .58rem; color: var(--dl-dim);
+    margin-top: .25rem;
+}
+.fin-app .fin-dl .dl-week { display: flex; gap: .35rem; align-items: flex-end; height: 100px; }
+.fin-app .fin-dl .dl-week-kolom {
+    flex: 1 1 0; display: flex; flex-direction: column; align-items: center; height: 100%;
+    justify-content: flex-end; min-width: 0;
+}
+.fin-app .fin-dl .dl-week-balk {
+    width: 8px; height: 100%; display: flex; flex-direction: column; justify-content: flex-end;
+}
+.fin-app .fin-dl .dl-week-balk > i { display: block; width: 100%; }
+.fin-app .fin-dl .dl-week-balk > i.dl-ess { background: #f0c040; border-radius: 2px 2px 0 0; }
+.fin-app .fin-dl .dl-week-balk > i.dl-bounty { background: #3ecf6e; }
+.fin-app .fin-dl .dl-week-balk > i.dl-mijn { background: #00b4d8; border-radius: 2px 2px 0 0; }
+.fin-app .fin-dl .dl-week-label { font-size: .55rem; color: var(--dl-dim); margin-top: .25rem; }
+.fin-app .fin-dl .dl-duo { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; margin-top: .5rem; }
+.fin-app .fin-dl .dl-duo:has(> :only-child) { grid-template-columns: 1fr; }
+.fin-app .fin-dl .dl-duo-vak { border-radius: 2px; padding: .5rem .75rem; }
+.fin-app .fin-dl .dl-duo-vak.is-groen { background: rgba(62, 207, 110, .06); border: 1px solid rgba(62, 207, 110, .15); }
+.fin-app .fin-dl .dl-duo-vak.is-goud { background: rgba(240, 192, 64, .06); border: 1px solid rgba(240, 192, 64, .15); }
+.fin-app .fin-dl .dl-duo-vak.is-blauw { background: rgba(0, 180, 216, .06); border: 1px solid rgba(0, 180, 216, .15); }
+.fin-app .fin-dl .dl-duo-v { font-size: 1rem; font-weight: 700; }
+
+/* Smal scherm: de site laat z'n vier-koloms rasters inklappen, hier ook. */
+@media (max-width: 900px) {
+    .fin-app .fin-dl .dl-stats,
+    .fin-app .fin-dl .dl-grid { grid-template-columns: repeat(2, 1fr); }
+    .fin-app .fin-dl .dl-charts { grid-template-columns: 1fr; }
+}
+@media (max-width: 560px) {
+    .fin-app .fin-dl .dl-stats,
+    .fin-app .fin-dl .dl-grid { grid-template-columns: 1fr; }
+}
+
+/* Recente kills & losses: dezelfde tabel als onderaan de site, met de rijen om
+   en om iets lichter zodat je regels uit elkaar houdt zonder randlijnen. */
+.fin-app .fin-dl .dl-kills { width: 100%; border-collapse: collapse; }
+.fin-app .fin-dl .dl-kills th {
+    font-size: .58rem; font-weight: 700; letter-spacing: .12em; color: var(--dl-dim);
+    text-align: left; padding: .45rem .6rem; border-top: 1px solid var(--dl-border);
+    border-bottom: 1px solid var(--dl-border);
+}
+.fin-app .fin-dl .dl-kills td { padding: .45rem .6rem; vertical-align: middle; font-size: .75rem; }
+.fin-app .fin-dl .dl-kills tbody tr:nth-child(even) { background: rgba(15, 15, 34, .5); }
+.fin-app .fin-dl .dl-kill-kop { display: flex; align-items: center; gap: .4rem; margin-bottom: .2rem; }
+.fin-app .fin-dl .dl-kill-isk { font-size: .8rem; font-weight: 700; padding-left: 1.35rem; }
+.fin-app .fin-dl .dl-solo {
+    padding: .05rem .28rem; border-radius: 2px; font-size: .54rem; font-weight: 800;
+    background: #f0c04022; border: 1px solid #f0c04055; color: #f0c040; letter-spacing: .03em;
+}
+.fin-app .fin-dl .dl-kill-schip { display: flex; align-items: center; gap: .6rem; }
+.fin-app .fin-dl .dl-kill-schip img { width: 40px; height: 40px; border-radius: 2px; }
+.fin-app .fin-dl .dl-ent { display: flex; align-items: center; gap: .4rem; }
+.fin-app .fin-dl .dl-ent img { width: 24px; height: 24px; border-radius: 2px; }
+.fin-app .fin-dl .dl-nowrap { white-space: nowrap; }
+.fin-app .fin-dl .dl-leegrij { text-align: center; padding: 1.5rem; }

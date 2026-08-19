@@ -2,280 +2,462 @@
 {% load i18n %}
 
 {% comment %}
-    Overgenomen van de startpagina van dutchlegionsdashboard.eu: dezelfde
-    indeling en dezelfde betekenis achter de cijfers. Wat daar met JavaScript
-    per widget wordt bijgeladen, staat hier in één keer op de pagina — een
-    Django-template heeft geen laadfases, en alles komt uit dezelfde gecachte
-    ESI-laag als de andere tabbladen.
+    De startpagina van dutchlegionsdashboard.eu, nagebouwd: banner, character-
+    kaarten, vier stat-kaarten, acht widgets in een raster van 155px hoog, de
+    grafiekrij (wallet / ratten-ESS / mining) en de in-game agenda. Palet,
+    lettergroottes, randen en de ISK-notatie (3.21B) komen van de site; daarom
+    staat dit blok in een eigen `fin-dl`-schil met de kleuren van daar in plaats
+    van het plugin-palet.
+
+    Wat de site met JavaScript doet en hier niet kan: widgets verslepen en per
+    widget bijladen. De volgorde is die van de site zelf.
 {% endcomment %}
 
 {% block fin_icoon %}
-    {% if hero %}
-        <img class="fin-hero-icon" alt=""
-             src="https://images.evetech.net/characters/{{ hero.character_id }}/portrait?size=64">
-    {% endif %}
+    <img class="fin-hero-icon" alt=""
+         src="https://images.evetech.net/characters/{{ banner.character_id }}/portrait?size=64">
 {% endblock %}
-
-{% block fin_title %}{{ hero.naam|default:_("Dashboard") }}{% endblock %}
-{% block fin_sub %}
-    {% if hero %}
-        {% if hero.corp_ticker %}<span class="fin-dash-ticker">[{{ hero.corp_ticker }}]</span>{% endif %}
-        {{ hero.corp }}{% if hero.alliance %} · <span class="fin-dash-alli">{{ hero.alliance }}</span>{% endif %}
-    {% endif %}
-{% endblock %}
+{% block fin_title %}{% translate "Dashboard" %}{% endblock %}
+{% block fin_sub %}{{ aantal_characters }} {% translate "characters" %}{% endblock %}
 
 {% block details %}
-    {% if leeg %}
-        <div class="fin-melding">{% translate "Nog geen characters gekoppeld." %}</div>
-    {% else %}
+{% if leeg %}
+    <div class="fin-melding">{% translate "Nog geen characters gekoppeld." %}</div>
+{% else %}
+<div class="fin-dl">
 
-        {# Waar de main is en waarin. Bovenaan, want dat is de vraag die je stelt. #}
-        <div class="fin-dash-hero">
-            <div class="fin-dash-plek">
-                <span class="fin-dash-stip {% if hero.online %}is-online{% endif %}"
-                      title="{% if hero.online %}{% translate 'ingelogd' %}{% else %}{% translate 'offline' %}{% endif %}"></span>
-                <span class="fin-dash-sys">⬡ {{ hero.systeem|default:"—" }}</span>
-                {% if hero.schip_type_id %}
-                    <img class="fin-dash-schipicoon" loading="lazy" alt=""
-                         src="https://images.evetech.net/types/{{ hero.schip_type_id }}/icon?size=32">
+    {# ── Banner: wie, waar, waarin, en het saldo ─────────────────────── #}
+    <div class="dl-banner">
+        <img class="dl-banner-portret" alt=""
+             src="https://images.evetech.net/characters/{{ banner.character_id }}/portrait?size=128">
+        <div class="dl-banner-mid">
+            <div class="dl-banner-naam">{{ banner.naam }}</div>
+            {% if banner.corp %}
+                <div class="dl-banner-org">
+                    {% if banner.corp_id %}
+                        <img alt="" src="https://images.evetech.net/corporations/{{ banner.corp_id }}/logo?size=32">
+                    {% endif %}
+                    <span class="dl-ticker">[{{ banner.corp_ticker }}]</span>
+                    <span class="dl-corp">{{ banner.corp }}</span>
+                </div>
+            {% endif %}
+            {% if banner.alliance %}
+                <div class="dl-banner-org">
+                    {% if banner.alliance_id %}
+                        <img alt="" src="https://images.evetech.net/alliances/{{ banner.alliance_id }}/logo?size=32">
+                    {% endif %}
+                    <span class="dl-ticker">[{{ banner.alliance_ticker }}]</span>
+                    <span class="dl-alli">{{ banner.alliance }}</span>
+                </div>
+            {% endif %}
+            <div class="dl-banner-plek">
+                <span class="dl-hex">⬡</span>
+                <span class="dl-sys">{{ banner.systeem|default:"—" }}</span>
+                <span class="dl-punt">·</span>
+                {% if banner.schip_type_id %}
+                    <img alt="" src="https://images.evetech.net/types/{{ banner.schip_type_id }}/icon?size=32">
                 {% endif %}
-                {% if hero.schip %}
-                    <span class="fin-dash-schip">{{ hero.schip }}
-                        {% if hero.schip_type and hero.schip_type != hero.schip %}
-                            <i>({{ hero.schip_type }})</i>
-                        {% endif %}
-                    </span>
-                {% endif %}
-            </div>
-            <div class="fin-dash-wallet">
-                <span class="l">{% translate "Wallet" %}</span>
-                <span class="v">{{ totaal_wallet_fmt }} ISK</span>
-                <span class="s {% if vandaag_omhoog %}fin-pos{% endif %}">
-                    {% if vandaag_omhoog %}▲{% else %}▼{% endif %} {{ vandaag_fmt }} {% translate "vandaag" %}
-                </span>
-            </div>
-        </div>
-
-        {% if meerdere %}
-            <div class="fin-dash-chars">
-                {% for c in kaarten %}
-                    <div class="fin-dash-char" style="--kleur: {{ c.kleur }};">
-                        <div class="fin-dash-charkop">
-                            <img loading="lazy" alt=""
-                                 src="https://images.evetech.net/characters/{{ c.character_id }}/portrait?size=64">
-                            <span class="fin-dash-charnaam">{{ c.naam }}</span>
-                            <span class="fin-dash-stip {% if c.online %}is-online{% endif %}"></span>
-                        </div>
-                        <div class="fin-dash-charisk">{{ c.saldo_fmt }} ISK</div>
-                        <div class="fin-dash-charsub {% if c.vandaag %}fin-pos{% endif %}">
-                            {% if c.vandaag %}
-                                +{{ c.vandaag_fmt }} {% translate "vandaag" %}
-                            {% else %}
-                                {% translate "geen inkomsten vandaag" %}
-                            {% endif %}
-                        </div>
-                        <div class="fin-dash-charplek">
-                            ⬡ {{ c.systeem|default:"—" }}
-                            {% if c.schip %}
-                                · {% if c.schip_type_id %}
-                                    <img loading="lazy" alt=""
-                                         src="https://images.evetech.net/types/{{ c.schip_type_id }}/icon?size=32">
-                                  {% endif %}{{ c.schip }}
-                            {% endif %}
-                        </div>
-                    </div>
-                {% endfor %}
-            </div>
-        {% endif %}
-
-        <div class="fin-stats">
-            <div class="fin-stat fin-stat-totaal">
-                <span class="l">{% translate "Totaal wallet" %}</span>
-                <span class="v">{{ totaal_wallet_fmt }}</span>
-                <span class="s">{{ aantal_characters }} {% translate "characters" %}</span>
-            </div>
-            <div class="fin-stat fin-stat-in">
-                <span class="l">{% translate "Vandaag" %}</span>
-                <span class="v {% if vandaag_omhoog %}fin-pos{% endif %}">{{ vandaag_fmt }}</span>
-                <span class="s">{% translate "gisteren" %} {{ gisteren_fmt }}</span>
-            </div>
-            <div class="fin-stat fin-stat-ess">
-                <span class="l">{% translate "Actieve orders" %}</span>
-                <span class="v">{{ orders_aantal }}</span>
-                <span class="s">{{ verkoopwaarde_fmt }} {% translate "te verkopen" %}</span>
-            </div>
-            <div class="fin-stat fin-stat-ess">
-                <span class="l">{% translate "Industry jobs" %}</span>
-                <span class="v">{{ jobs_aantal }}</span>
-                <span class="s">
-                    {% if jobs_klaar %}{{ jobs_klaar }} {% translate "klaar" %}{% else %}{% translate "niets af te halen" %}{% endif %}
-                </span>
-            </div>
-        </div>
-
-        {# De acht blokken van de startpagina, elk met een doorklik naar het tabblad waar het hele verhaal staat. #}
-        <div class="fin-dash-grid">
-
-            <section class="fin-dash-blok">
-                <header>{% translate "Skill queue" %}
-                    {% if queue_totaal %}<span>{{ queue_totaal }}</span>{% endif %}</header>
-                {% for q in queue %}
-                    <div class="fin-dash-regel">
-                        <span class="n">{{ q.naam }} {{ q.level }}</span>
-                        <span class="w">{{ q.rest_fmt }}</span>
-                    </div>
-                {% empty %}
-                    <div class="fin-leeg">{% translate "Niemand traint iets." %}</div>
-                {% endfor %}
-            </section>
-
-            <section class="fin-dash-blok">
-                <header>{% translate "Industry jobs" %}
-                    {% if jobs_aantal %}<span>{{ jobs_aantal }}</span>{% endif %}</header>
-                {% for j in jobs %}
-                    <div class="fin-dash-regel">
-                        <span class="n">
-                            {% if j.type_id %}
-                                <img loading="lazy" alt=""
-                                     src="https://images.evetech.net/types/{{ j.type_id }}/icon?size=32">
-                            {% endif %}
-                            {{ j.naam }}
-                        </span>
-                        <span class="w {% if j.klaar %}fin-pos{% endif %}">
-                            {% if j.klaar %}{% translate "klaar" %}{% else %}{{ j.rest_fmt }}{% endif %}
-                        </span>
-                    </div>
-                {% empty %}
-                    <div class="fin-leeg">{% translate "Geen lopende jobs." %}</div>
-                {% endfor %}
-            </section>
-
-            <section class="fin-dash-blok">
-                <header>
-                    <a href="{% url 'mijndashboard:markt' %}">{% translate "Market orders" %}</a>
-                    {% if orders_aantal %}<span>{{ orders_aantal }}</span>{% endif %}
-                </header>
-                {% for o in orderregels %}
-                    <div class="fin-dash-regel">
-                        <span class="n">
-                            <img loading="lazy" alt=""
-                                 src="https://images.evetech.net/types/{{ o.type_id }}/icon?size=32">
-                            {{ o.naam }} <i>×{{ o.aantal_fmt }}</i>
-                        </span>
-                        <span class="w">{{ o.waarde_fmt }}</span>
-                    </div>
-                {% empty %}
-                    <div class="fin-leeg">{% translate "Geen openstaande orders." %}</div>
-                {% endfor %}
-            </section>
-
-            <section class="fin-dash-blok">
-                <header><a href="{% url 'mijndashboard:wallet' %}">{% translate "Recente transacties" %}</a></header>
-                {% for t in transacties %}
-                    <div class="fin-dash-regel">
-                        <span class="n">
-                            <span class="fin-stip" style="background: {{ t.kleur }};"></span>{{ t.soort }}
-                        </span>
-                        <span class="w {% if t.positief %}fin-pos{% else %}fin-neg{% endif %}">{{ t.bedrag_fmt }}</span>
-                    </div>
-                {% empty %}
-                    <div class="fin-leeg">{% translate "Nog geen journaalregels." %}</div>
-                {% endfor %}
-            </section>
-
-            <section class="fin-dash-blok">
-                <header>{% translate "Netto waarde" %}</header>
-                <div class="fin-dash-groot">{{ netto_fmt }} ISK</div>
-                {% for d in netto_delen %}
-                    <div class="fin-dash-regel">
-                        <span class="n">{{ d.naam }}</span>
-                        <span class="w">{{ d.bedrag_fmt }}</span>
-                    </div>
-                {% endfor %}
-            </section>
-
-            <section class="fin-dash-blok">
-                <header>{% translate "Kill statistieken" %}</header>
-                {% if kills or verloren %}
-                    <div class="fin-dash-groot">{{ efficientie }}% <i>{% translate "efficiëntie" %}</i></div>
-                    <div class="fin-dash-regel">
-                        <span class="n">{% translate "Kills" %}</span>
-                        <span class="w fin-pos">{{ kills }} · {{ isk_kapot_fmt }}</span>
-                    </div>
-                    <div class="fin-dash-regel">
-                        <span class="n">{% translate "Verloren" %}</span>
-                        <span class="w fin-neg">{{ verloren }} · {{ isk_verloren_fmt }}</span>
-                    </div>
-                    <div class="fin-dash-noot">{% translate "van zKillboard, over al je characters" %}</div>
+                {% if banner.schip %}
+                    <span class="dl-schip">{{ banner.schip }}{% if banner.schip_type and banner.schip_type != banner.schip %} ({{ banner.schip_type }}){% endif %}</span>
                 {% else %}
-                    <div class="fin-leeg">{% translate "zKillboard kent nog niets van je." %}</div>
+                    <span class="dl-dim">—</span>
                 {% endif %}
-            </section>
+                <span class="dl-stip {% if banner.online %}is-online{% endif %}"
+                      title="{% if banner.online %}{% translate 'ingelogd' %}{% else %}{% translate 'offline' %}{% endif %}"></span>
+            </div>
+        </div>
+        <div class="dl-banner-wallet">
+            <div class="dl-kop">WALLET</div>
+            <div class="dl-bedrag {% if wallet_negatief %}dl-rood{% else %}dl-goud{% endif %}">{{ wallet_totaal }} ISK</div>
+            <div class="dl-trend {% if omhoog %}dl-groen{% else %}dl-rood{% endif %}">
+                {% if omhoog %}▲{% else %}▼{% endif %} {{ vandaag }} {% translate "vandaag" %}
+            </div>
+        </div>
+    </div>
 
-            <section class="fin-dash-blok">
-                <header><a href="{% url 'mijndashboard:wallet' %}">{% translate "Inkomstenverdeling" %}</a>
-                    <span>30 {% translate "dagen" %}</span></header>
+    {# ── Kaartje per character ───────────────────────────────────────── #}
+    {% if meerdere %}
+        <div class="dl-chars">
+            {% for c in kaarten %}
+                <div class="dl-char">
+                    <div class="dl-char-kop">
+                        <img alt="" src="https://images.evetech.net/characters/{{ c.character_id }}/portrait?size=64">
+                        <span class="dl-char-naam">{{ c.naam }}</span>
+                    </div>
+                    <div class="dl-char-isk">{{ c.isk }} ISK</div>
+                    <div class="dl-char-sub {% if c.vandaag %}dl-groen{% endif %}">
+                        {% if c.vandaag %}+{{ c.vandaag_fmt }} {% translate "vandaag" %}{% else %}{% translate "Geen inkomsten vandaag" %}{% endif %}
+                    </div>
+                    <div class="dl-char-plek">
+                        <span class="dl-hex">⬡</span>
+                        {% if c.systeem %}{{ c.systeem }}{% else %}<span class="dl-dim">—</span>{% endif %}
+                        {% if c.schip %}
+                            <span class="dl-punt">·</span>
+                            {% if c.schip_type_id %}
+                                <img alt="" src="https://images.evetech.net/types/{{ c.schip_type_id }}/icon?size=32">
+                            {% endif %}
+                            <span class="dl-schip">{{ c.schip }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    {# ── Vier stat-kaarten ───────────────────────────────────────────── #}
+    <div class="dl-stats">
+        <div class="dl-stat" style="--accent: var(--dl-gold);">
+            <div class="dl-stat-l">TOTAAL WALLET</div>
+            <div class="dl-stat-v dl-goud">{{ wallet_totaal }} ISK</div>
+        </div>
+        <div class="dl-stat" style="--accent: {% if omhoog %}var(--dl-green){% else %}var(--dl-text){% endif %};">
+            <div class="dl-stat-l">VANDAAG</div>
+            <div class="dl-stat-v {% if omhoog %}dl-groen{% endif %}">{{ vandaag }} ISK</div>
+            {% if gisteren_meer %}<div class="dl-stat-s">Gisteren: {{ gisteren }} ISK</div>{% endif %}
+        </div>
+        <div class="dl-stat" style="--accent: var(--dl-blue);">
+            <div class="dl-stat-l">ACTIEVE ORDERS</div>
+            <div class="dl-stat-v dl-blauw">{{ orders_aantal }}</div>
+            {% if orders_aantal %}<div class="dl-stat-s">{{ orders_isk }} ISK te verkopen</div>{% endif %}
+        </div>
+        <div class="dl-stat" style="--accent: var(--dl-blue);">
+            <div class="dl-stat-l">INDUSTRY JOBS</div>
+            <div class="dl-stat-v dl-blauw">{{ jobs_actief }}</div>
+            {% if jobs_klaar %}<div class="dl-stat-s">{{ jobs_klaar }} klaar</div>{% endif %}
+        </div>
+    </div>
+
+    {# ── De acht widgets, in de volgorde van de site ─────────────────── #}
+    <div class="dl-grid">
+
+        <section class="dl-sec">
+            <header><span>SKILL QUEUE</span></header>
+            <div class="dl-sec-body">
+                {% with s=skillblok %}
+                    {% if s.aantal %}
+                        {% if s.actief %}
+                            <div class="dl-rij dl-baseline">
+                                <span class="dl-skillnaam">{{ s.actief.naam }}
+                                    <span class="dl-lvl">Lvl {{ s.actief.level }}</span></span>
+                                <span class="dl-goud dl-klein">{{ s.actief.rest }}</span>
+                            </div>
+                            <div class="dl-bar dl-bar-3"><i style="width: {{ s.actief.pct }}%; background: var(--dl-blue);"></i></div>
+                        {% else %}
+                            <div class="dl-dim dl-klein">Geen actieve training</div>
+                        {% endif %}
+                        <div class="dl-rij dl-voet">
+                            <span>{{ s.aantal }} skill{{ s.aantal|pluralize:"s" }} in queue</span>
+                            {% if s.leeg_over %}<span>Queue leeg: {{ s.leeg_over }}</span>{% endif %}
+                        </div>
+                    {% else %}
+                        <div class="dl-dim dl-klein">Geen skills in training</div>
+                    {% endif %}
+                {% endwith %}
+            </div>
+        </section>
+
+        <section class="dl-sec">
+            <header><span>INDUSTRY JOBS</span></header>
+            <div class="dl-sec-body">
+                {% if industrieblok.klaar or industrieblok.regels %}
+                    {% if industrieblok.klaar %}
+                        <div class="dl-goud dl-klein dl-vet">⬡ {{ industrieblok.klaar }} job{{ industrieblok.klaar|pluralize:"s" }} klaar om op te halen</div>
+                    {% endif %}
+                    {% for j in industrieblok.regels %}
+                        <div class="dl-rij">
+                            <span class="dl-jobnaam">{{ j.naam }} ×{{ j.runs }}</span>
+                            <span class="dl-klein {% if j.spoed %}dl-goud{% else %}dl-dim{% endif %}">{{ j.rest }}</span>
+                        </div>
+                        <div class="dl-bar dl-bar-2"><i style="width: {{ j.pct }}%; background: var(--dl-blue);"></i></div>
+                    {% endfor %}
+                {% else %}
+                    <div class="dl-dim dl-klein">Geen actieve jobs</div>
+                {% endif %}
+            </div>
+        </section>
+
+        <section class="dl-sec">
+            <header><span>MARKET ORDERS</span>
+                <a href="{% url 'mijndashboard:markt' %}">Meer →</a></header>
+            <div class="dl-sec-body">
+                {% if orders_aantal %}
+                    <div class="dl-rij"><span class="dl-dim dl-klein">Sell orders</span>
+                        <span class="dl-groen dl-klein dl-vet">{{ orderblok.verkoop }} &nbsp;·&nbsp; {{ orderblok.verkoop_isk }} ISK</span></div>
+                    <div class="dl-rij"><span class="dl-dim dl-klein">Buy orders</span>
+                        <span class="dl-blauw dl-klein dl-vet">{{ orderblok.koop }}</span></div>
+                    <div class="dl-rij"><span class="dl-dim dl-klein">Escrow</span>
+                        <span class="dl-goud dl-klein dl-vet">{{ orderblok.escrow }} ISK</span></div>
+                    {% if orderblok.verloopt %}
+                        <div class="dl-rood dl-mini">⚠ {{ orderblok.verloopt }} order{{ orderblok.verloopt|pluralize:"s" }} verloopt binnen 24u</div>
+                    {% endif %}
+                {% else %}
+                    <div class="dl-dim dl-klein">Geen actieve orders</div>
+                {% endif %}
+            </div>
+        </section>
+
+        <section class="dl-sec">
+            <header><span>RECENTE TRANSACTIES</span>
+                <a href="{% url 'mijndashboard:wallet' %}">Meer →</a></header>
+            <div class="dl-sec-body">
+                {% for t in transacties %}
+                    <div class="dl-tx">
+                        <span class="dl-tx-icoon">{{ t.icoon }}</span>
+                        <span class="dl-tx-tekst">{{ t.tekst }}</span>
+                        <span class="dl-tx-bedrag {% if t.positief %}dl-groen{% else %}dl-rood{% endif %}">{{ t.bedrag }}</span>
+                        <span class="dl-tx-tijd">{{ t.geleden }}</span>
+                    </div>
+                {% empty %}
+                    <div class="dl-dim dl-klein">Geen transacties</div>
+                {% endfor %}
+            </div>
+        </section>
+
+        <section class="dl-sec">
+            <header><span>NETTO WAARDE</span>
+                <a href="{% url 'mijndashboard:wallet' %}">Meer →</a></header>
+            <div class="dl-sec-body">
+                <div class="dl-groot dl-goud">{{ nettoblok.totaal }} ISK</div>
+                {% for d in nettoblok.delen %}
+                    <div class="dl-rij">
+                        <span class="dl-dim dl-mini">{{ d.label }}</span>
+                        <span class="dl-klein dl-vet" style="color: {{ d.kleur }};">{{ d.waarde }}</span>
+                    </div>
+                {% endfor %}
+            </div>
+        </section>
+
+        <section class="dl-sec">
+            <header><span>KILL STATISTIEKEN</span></header>
+            <div class="dl-sec-body">
+                {% if killblok.heeft %}
+                    <div class="dl-rij dl-baseline">
+                        <span class="dl-dim dl-klein">ISK efficiëntie</span>
+                        <span class="dl-groot" style="color: {{ killblok.kleur }};">{{ killblok.eff }}%</span>
+                    </div>
+                    <div class="dl-bar dl-bar-4"><i style="width: {{ killblok.eff }}%; background: {{ killblok.kleur }};"></i></div>
+                    <div class="dl-rij"><span class="dl-dim dl-mini">{{ killblok.kills }} kills</span>
+                        <span class="dl-groen dl-klein dl-vet">{{ killblok.kapot }} ISK</span></div>
+                    <div class="dl-rij"><span class="dl-dim dl-mini">{{ killblok.verloren }} losses</span>
+                        <span class="dl-rood dl-klein dl-vet">{{ killblok.kwijt }} ISK</span></div>
+                {% else %}
+                    <div class="dl-dim dl-klein">Geen kills/losses gevonden</div>
+                {% endif %}
+            </div>
+        </section>
+
+        <section class="dl-sec">
+            <header><span>INKOMSTENVERDELING</span>
+                <a href="{% url 'mijndashboard:wallet' %}">Meer →</a></header>
+            <div class="dl-sec-body">
                 {% for i in inkomsten %}
-                    <div class="fin-dash-regel">
-                        <span class="n">{{ i.naam }}</span>
-                        <span class="w">{{ i.bedrag_fmt }} <i>{{ i.pct }}%</i></span>
+                    <div class="dl-rij">
+                        <span class="dl-mini" style="color: {{ i.kleur }};">{{ i.naam }}</span>
+                        <span class="dl-dim dl-mini">{{ i.pct }}% · {{ i.bedrag }}</span>
                     </div>
-                    <div class="fin-dash-balk"><i style="width: {{ i.pct }}%;"></i></div>
+                    <div class="dl-bar dl-bar-3"><i style="width: {{ i.pct }}%; background: {{ i.kleur }}; opacity: .75;"></i></div>
                 {% empty %}
-                    <div class="fin-leeg">{% translate "Geen inkomsten in 30 dagen." %}</div>
+                    <div class="dl-dim dl-klein">Geen inkomsten in journaal</div>
                 {% endfor %}
-            </section>
+            </div>
+        </section>
 
-            <section class="fin-dash-blok">
-                <header>{% translate "Aankomend" %}</header>
+        <section class="dl-sec">
+            <header><span>AANKOMEND</span></header>
+            <div class="dl-sec-body">
                 {% for a in aankomend %}
-                    <div class="fin-dash-regel">
-                        <span class="n">
-                            <span class="fin-dash-soort is-{{ a.soort }}">{{ a.soort }}</span>{{ a.wat }}
-                        </span>
-                        <span class="w">{{ a.rest_fmt }}</span>
+                    <div class="dl-op">
+                        <span class="dl-op-stip" style="background: {{ a.kleur }};"></span>
+                        <span class="dl-op-label">{{ a.label }}</span>
+                        <span class="dl-dim dl-mini">{{ a.rest }}</span>
                     </div>
                 {% empty %}
-                    <div class="fin-leeg">{% translate "Niets in de planning." %}</div>
+                    <div class="dl-dim dl-klein">Niets aankomend</div>
                 {% endfor %}
-            </section>
+            </div>
+        </section>
+    </div>
+
+    {# ── In-game agenda ──────────────────────────────────────────────── #}
+    <section class="dl-sec dl-breed">
+        <header><span>IN-GAME AGENDA</span></header>
+        <div class="dl-sec-body">
+            {% for e in agenda %}
+                <div class="dl-event {% if e.belangrijk %}is-belangrijk{% endif %}"
+                     style="border-left-color: {{ e.soort_kleur }};">
+                    <span class="dl-rsvp" style="color: {{ e.rsvp_kleur }}; border-color: {{ e.rsvp_kleur }}66; background: {{ e.rsvp_kleur }}22;">{{ e.rsvp }}</span>
+                    <div class="dl-event-mid">
+                        <div class="dl-event-titel">
+                            {% if e.belangrijk %}<span class="dl-ster">★</span>{% endif %}{{ e.titel }}
+                        </div>
+                        <div class="dl-event-sub">
+                            <span class="dl-vet" style="color: {{ e.soort_kleur }};">{{ e.soort_label }}</span>
+                            {% if e.eigenaar %}<span class="dl-dim">{{ e.eigenaar }}</span>{% endif %}
+                        </div>
+                    </div>
+                    <div class="dl-event-tijd">
+                        <div class="{% if e.bezig %}dl-oranje{% endif %}">{{ e.over }}</div>
+                        <div class="dl-dim dl-mini">{{ e.datum }}</div>
+                    </div>
+                </div>
+            {% empty %}
+                <div class="dl-dim dl-klein">Geen aankomende events</div>
+            {% endfor %}
+        </div>
+    </section>
+
+    {# ── Grafiekrij: wallet breed, ratten en mining smal ─────────────── #}
+    <div class="dl-charts">
+        <div class="dl-kaart">
+            <div class="dl-kaart-kop">
+                <span class="dl-kop">WALLET — {{ walletgrafiek.dagen }} DAGEN</span>
+                {% if walletgrafiek.dagen > 1 %}
+                    <span class="dl-klein dl-vet {% if walletgrafiek.positief %}dl-groen{% else %}dl-rood{% endif %}">{{ walletgrafiek.verschil }}</span>
+                {% endif %}
+            </div>
+            {% if walletgrafiek.reeks %}
+                {% comment %}
+                    Het eindsaldo per dag. De schaal loopt van het laagste tot het
+                    hoogste saldo en niet vanaf nul: een saldo dat procentueel
+                    nauwelijks beweegt zou anders een rechte lijn zijn.
+                    (Meerregelig commentaar moet met {% comment %} — {# #} geldt in
+                    Django maar voor één regel en wordt anders gewoon afgedrukt.)
+                {% endcomment %}
+                <div class="dl-plot">
+                    {% for r in walletgrafiek.reeks %}
+                        <div class="dl-plot-kolom" title="{{ r.dag }}">
+                            <i style="height: {{ r.pct }}%;"></i>
+                        </div>
+                    {% endfor %}
+                </div>
+                <div class="dl-plot-as">
+                    <span>{{ walletgrafiek.laag }}</span><span>{{ walletgrafiek.hoog }}</span>
+                </div>
+            {% else %}
+                <div class="dl-dim dl-klein">Geen journaal</div>
+            {% endif %}
         </div>
 
-        <h2 class="fin-kop">{% translate "In-game agenda" %}
-            <span>— {% translate "uitnodigingen uit het spel; dubbele zijn samengevoegd" %}</span></h2>
-        {% if agenda %}
-            <div class="fin-tablewrap">
-                <table class="fin-table">
-                    <thead>
-                        <tr>
-                            <th>{% translate "Wanneer" %}</th>
-                            <th>{% translate "Wat" %}</th>
-                            <th>{% translate "Van" %}</th>
-                            <th>{% translate "Antwoord" %}</th>
-                            <th class="fin-getal">{% translate "Over" %}</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for e in agenda %}
-                            <tr class="{% if e.loopt %}fin-in{% endif %}">
-                                <td class="fin-nowrap fin-dim">{{ e.wanneer|date:"d-m-Y H:i" }}</td>
-                                <td>{{ e.titel }}</td>
-                                <td class="fin-nowrap fin-dim">{{ e.eigenaar }}</td>
-                                <td class="fin-nowrap">
-                                    <span class="fin-badge fin-antwoord-{{ e.antwoord|slugify }}">{{ e.antwoord|default:"—" }}</span>
-                                </td>
-                                <td class="fin-getal fin-nowrap">
-                                    {% if e.loopt %}
-                                        <span class="fin-pos">{% translate "bezig" %}</span>
-                                    {% else %}{{ e.rest_fmt }}{% endif %}
-                                </td>
-                            </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+        <div class="dl-kaart">
+            <div class="dl-kaart-kop">
+                <span class="dl-kop">RATTEN / ESS</span>
+                {% if ratblok.heeft_vandaag %}
+                    <span class="dl-goud dl-klein dl-vet">{{ ratblok.totaal }} vandaag</span>
+                {% endif %}
             </div>
-        {% else %}
-            <div class="fin-melding">{% translate "Geen uitnodigingen in de agenda." %}</div>
-        {% endif %}
-    {% endif %}
+            <div class="dl-week">
+                {% for d in ratblok.dagen %}
+                    <div class="dl-week-kolom" title="{{ d.label }}: {{ d.tip }}">
+                        <div class="dl-week-balk">
+                            <i class="dl-ess" style="height: {{ d.ess_pct }}%;"></i>
+                            <i class="dl-bounty" style="height: {{ d.bounty_pct }}%;"></i>
+                        </div>
+                        <span class="dl-week-label">{{ d.label }}</span>
+                    </div>
+                {% endfor %}
+            </div>
+            <div class="dl-duo">
+                <div class="dl-duo-vak is-groen">
+                    <div class="dl-kop dl-groen">BOUNTIES</div>
+                    <div class="dl-duo-v">{{ ratblok.bounty }}</div>
+                    <div class="dl-dim dl-mini">vandaag</div>
+                </div>
+                <div class="dl-duo-vak is-goud">
+                    <div class="dl-kop dl-goud">ESS</div>
+                    <div class="dl-duo-v">{{ ratblok.ess }}</div>
+                    <div class="dl-dim dl-mini">vandaag</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="dl-kaart">
+            <div class="dl-kaart-kop">
+                <span class="dl-kop">MINING</span>
+                {% if mijnblok.heeft %}
+                    <span class="dl-goud dl-klein dl-vet">{{ mijnblok.vandaag }} vandaag</span>
+                {% endif %}
+            </div>
+            <div class="dl-week">
+                {% for d in mijnblok.dagen %}
+                    <div class="dl-week-kolom" title="{{ d.label }}: {{ d.tip }} ISK">
+                        <div class="dl-week-balk"><i class="dl-mijn" style="height: {{ d.pct }}%;"></i></div>
+                        <span class="dl-week-label">{{ d.label }}</span>
+                    </div>
+                {% endfor %}
+            </div>
+            <div class="dl-duo">
+                <div class="dl-duo-vak is-blauw">
+                    <div class="dl-kop dl-blauw">TOTAAL</div>
+                    <div class="dl-duo-v">{{ mijnblok.totaal }}</div>
+                    <div class="dl-dim dl-mini">in de ledger</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# ── Recente kills & losses (alleen van je main, net als op de site) ─ #}
+    <div class="dl-kaart">
+        <div class="dl-kaart-kop">
+            <span class="dl-kop">RECENTE KILLS &amp; LOSSES</span>
+            <a class="dl-mini dl-dim" target="_blank" rel="noopener noreferrer"
+               href="https://zkillboard.com/character/{{ banner.character_id }}/">zkillboard ↗</a>
+        </div>
+        <table class="dl-kills">
+            <thead>
+                <tr><th>Tijd</th><th>Ship</th><th>Systeem</th><th>Victim</th><th>Final Blow</th></tr>
+            </thead>
+            <tbody>
+                {% for k in killrijen %}
+                    <tr>
+                        <td>
+                            <div class="dl-kill-kop">
+                                <span class="{% if k.kill %}dl-groen{% else %}dl-rood{% endif %}">{% if k.kill %}✓{% else %}✗{% endif %}</span>
+                                <span class="dl-dim dl-klein">{{ k.tijd|date:"d-m H:i" }}</span>
+                                {% if k.solo %}<span class="dl-solo">SOLO</span>{% endif %}
+                            </div>
+                            <div class="dl-kill-isk {% if k.kill %}dl-groen{% else %}dl-rood{% endif %}">{{ k.isk }}</div>
+                        </td>
+                        <td>
+                            <div class="dl-kill-schip">
+                                {% if k.schip_id %}
+                                    <img loading="lazy" alt=""
+                                         src="https://images.evetech.net/types/{{ k.schip_id }}/icon?size=64">
+                                {% endif %}
+                                <span>{{ k.schip }}</span>
+                            </div>
+                        </td>
+                        <td class="dl-nowrap">{{ k.systeem }}</td>
+                        <td>
+                            <div class="dl-ent">
+                                {% if k.slachtoffer_id %}
+                                    <img loading="lazy" alt=""
+                                         src="https://images.evetech.net/characters/{{ k.slachtoffer_id }}/portrait?size=32">
+                                {% endif %}
+                                <div>
+                                    <div>{{ k.slachtoffer|default:"—" }}</div>
+                                    <div class="dl-dim dl-mini">{{ k.slachtoffer_corp }}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <div class="dl-ent">
+                                {% if k.klap_id %}
+                                    <img loading="lazy" alt=""
+                                         src="https://images.evetech.net/characters/{{ k.klap_id }}/portrait?size=32">
+                                {% endif %}
+                                <div>
+                                    <div>{{ k.klap|default:"—" }}</div>
+                                    <div class="dl-dim dl-mini">{{ k.klap_corp }}</div>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="5" class="dl-dim dl-leegrij">Geen recente kills</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
 {% endblock %}

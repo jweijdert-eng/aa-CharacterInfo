@@ -491,6 +491,49 @@ def agenda(character_id):
                         AGENDA_SCOPE, "agenda", TTL_AGENDA, [])
 
 
+def zkill_lijst(character_id, soort="kills", limiet=10):
+    """De laatste kills of losses van dit character volgens zKillboard.
+
+    Geeft alleen killmail-id, hash en de waarde; het verhaal (schip, systeem,
+    wie) zit in de killmail zelf, die je met die hash publiek uit ESI haalt.
+    """
+    key = f"fin_zk{soort}_{character_id}"
+    hit = cache.get(key)
+    if hit is not None:
+        return hit
+    uit = []
+    try:
+        r = _session.get(
+            f"https://zkillboard.com/api/{soort}/characterID/{character_id}/",
+            headers=UA, timeout=25)
+        if r.status_code == 200:
+            for rij in (r.json() or [])[:limiet]:
+                zkb = rij.get("zkb") or {}
+                uit.append({"id": rij.get("killmail_id"), "hash": zkb.get("hash"),
+                            "waarde": float(zkb.get("totalValue") or 0),
+                            "solo": bool(zkb.get("solo"))})
+    except (requests.RequestException, ValueError) as exc:
+        logger.info("Finance: zKillboard %s onbereikbaar: %s", soort, exc)
+        return []
+    cache.set(key, uit, TTL_ZKILL)
+    return uit
+
+
+def killmail(killmail_id, killmail_hash):
+    """Eén killmail, publiek op te vragen met z'n hash.
+
+    Een killmail verandert nooit meer, dus die mag een maand blijven staan.
+    """
+    key = f"fin_km_{killmail_id}"
+    hit = cache.get(key)
+    if hit is not None:
+        return hit
+    data = _request(f"/killmails/{killmail_id}/{killmail_hash}/") or {}
+    if data:
+        cache.set(key, data, 30 * 86400)
+    return data
+
+
 def zkill_stats(character_id):
     """Kills en verliezen van zKillboard (publiek, geen token).
 

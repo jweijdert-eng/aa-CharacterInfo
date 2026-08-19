@@ -34,12 +34,13 @@ Wie de rechten per groep heeft ingesteld hoeft niets te doen; de permissie heet 
 
 Acht tabbladen:
 
-- **Dashboard** — de voorpagina, overgenomen van de startpagina van
-  [dutchlegionsdashboard.eu](https://dutchlegionsdashboard.eu/): waar je main is en waarin, een kaartje per
-  character met saldo, locatie en schip, vier tegels (wallet, vandaag, actieve orders, industry jobs) en acht
-  blokken — skill queue, industry jobs, market orders, recente transacties, netto waarde, kill statistieken
-  (zKillboard), inkomstenverdeling en wat er als eerste afloopt. Onderaan de in-game agenda. Elk blok valt
-  los weg als het bijbehorende token ontbreekt; de pagina blijft dan gewoon werken.
+- **Dashboard** — de voorpagina, **nagebouwd naar de startpagina van**
+  [dutchlegionsdashboard.eu](https://dutchlegionsdashboard.eu/): dezelfde banner (waar je main is, waarin,
+  ingelogd of niet, en het saldo), dezelfde kaartjes per character, dezelfde vier stat-kaarten, dezelfde acht
+  widgets (skill queue, industry jobs, market orders, recente transacties, netto waarde, kill statistieken,
+  inkomstenverdeling, aankomend), de in-game agenda, de grafiekrij (wallet / ratten-ESS / mining) en de tabel
+  met recente kills & losses. Ook het palet, de maatvoering en de ISK-notatie (3.21B) komen van daar. Wat niet
+  meekomt: widgets verslepen en per widget bijladen — dat is JavaScript-werk.
 - **Wallet** — saldo per character, je resultaat per dag over 30 dagen, waar je geld vandaan kwam tegenover
   waar het heen ging, en twee tabellen: **Transactions** (het journaal) en **Market Transactions** (wat je
   gekocht en verkocht hebt, per item)
