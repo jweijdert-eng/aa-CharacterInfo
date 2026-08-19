@@ -3260,3 +3260,80 @@ def dashboard(user):
         "agenda": agenda[:8],
         "aantal_characters": len(chars),
     }
+
+
+# --------------------------------------------------------------------------
+# Local chat
+# --------------------------------------------------------------------------
+#
+# De chatlogs zelf leest de browser: EVE schrijft ze op de pc van het lid en de
+# server heeft er niets mee te maken (en zou er ook niet bij kunnen). Wat de
+# server wél weet is wie er vriendelijk is — daar zijn tokens voor nodig. Deze
+# functie beantwoordt die vraag per naam, zodat de browser alleen nog hoeft te
+# kleuren.
+#
+# De regels komen van `standingView.ts`: eigen character > eigen corp > eigen
+# alliance > contacten. Wat daarna overblijft is **niet** neutraal maar vijandig
+# — een onbekende in local is een risico, geen gegeven. Die laatste stap zet de
+# browser, zodat een handmatige override er nog tussen kan.
+
+STANDING_ONBEKEND = "neutral"
+
+
+def standings(user, namen):
+    """{naam: 'own'|'corp'|'alliance'|'friend'|'enemy'|'neutral'} voor deze namen."""
+    chars = esi.characters(user)
+    if not chars:
+        return {}
+    eigen = {c.character_name.lower(): c for c in chars}
+    main = chars[0]
+    mijn_corp = main.corporation_id
+    mijn_alliance = main.alliance_id
+
+    namen = [n.strip() for n in namen if n and n.strip()][:200]
+    uit, zoeken = {}, []
+    for naam in namen:
+        if naam.lower() in eigen:
+            uit[naam] = "own"
+        else:
+            zoeken.append(naam)
+
+    if not zoeken:
+        return uit
+
+    gevonden = esi.zoek_ids(zoeken)
+    contacten = esi.contacten([c.character_id for c in chars], mijn_corp, mijn_alliance)
+
+    for naam in zoeken:
+        vak = gevonden.get(naam.lower())
+        if not vak or vak.get("soort") != "character":
+            uit[naam] = STANDING_ONBEKEND      # naam bestaat niet (of is geen character)
+            continue
+        char_id = vak["id"]
+        info = esi.character_info(char_id)
+        corp_id, alliance_id = info.get("corporation_id"), info.get("alliance_id")
+
+        # Je eigen corp en alliance staan niet in je contactenlijst — je zet geen
+        # standing op jezelf. Zonder deze twee kleurde je eigen corp rood.
+        if corp_id and corp_id == mijn_corp:
+            uit[naam] = "corp"
+            continue
+        if alliance_id and mijn_alliance and alliance_id == mijn_alliance:
+            uit[naam] = "alliance"
+            continue
+
+        # Meest specifieke contact wint: character vóór corp vóór alliance.
+        waarde = None
+        for sleutel in (char_id, corp_id, alliance_id):
+            if sleutel and sleutel in contacten:
+                waarde = contacten[sleutel]
+                break
+        if waarde is None:
+            uit[naam] = STANDING_ONBEKEND
+        elif waarde > 0:
+            uit[naam] = "friend"
+        elif waarde < 0:
+            uit[naam] = "enemy"
+        else:
+            uit[naam] = STANDING_ONBEKEND
+    return uit

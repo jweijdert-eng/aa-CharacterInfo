@@ -1,0 +1,46 @@
+{% extends 'mijndashboard/base.html' %}
+{% load i18n %}
+{% load static %}
+
+{% comment %}
+    Local chat, zoals op dutchlegionsdashboard.eu. De logs staan op de pc van
+    het lid en worden dus door de browser gelezen (File System Access API); de
+    server kleurt alleen de namen, want daar zijn tokens voor nodig.
+{% endcomment %}
+
+{% block fin_icoon %}
+    {# Local is een communicatiekanaal: het Communications Logs-icoon. #}
+    <img class="fin-hero-icon" alt=""
+         src="https://images.evetech.net/types/19730/icon?size=64">
+{% endblock %}
+{% block fin_title %}{% translate "Local" %}{% endblock %}
+{% block fin_sub %}{% translate "wie er in je systeem zit, en of dat goed nieuws is" %}{% endblock %}
+
+{% block details %}
+<div class="fin-dl">
+    <div class="dl-sec lc-paneel is-groot" data-localchat
+         data-standings-url="{% url 'mijndashboard:local_standings' %}"
+         data-csrf="{{ csrf_token }}"
+         data-eigen="{{ eigen_namen }}"
+         data-max="200">
+        <header>
+            <span>LOCAL CHAT</span>
+            <div class="lc-knoppen">
+                <span class="lc-bestand dl-mini dl-dim" data-rol="bestand"></span>
+                <button type="button" class="lc-knop" data-rol="kies">Kies Chatlogs-map</button>
+                <button type="button" class="lc-knop" data-rol="kies-bestand">Los bestand</button>
+                <span class="lc-status" data-rol="status">● Niet ingesteld</span>
+            </div>
+        </header>
+        <div class="dl-sec-body lc-lijst" data-rol="lijst"></div>
+    </div>
+
+    <p class="fin-onderschrift">
+        {% blocktranslate %}De chatlogs staan op jouw pc — je browser leest ze rechtstreeks, er gaat niets naar de server. Zet in EVE onder Settings → Chat de optie "Log Chat to File" aan en wijs hier je map <code>Documents/EVE/logs/Chatlogs</code> aan; de keuze wordt onthouden. Namen zonder bekende standing kleuren rood: onbekend in local is een risico, geen neutraal gegeven. Rechtermuisknop op een naam voor een eigen oordeel.{% endblocktranslate %}
+    </p>
+</div>
+{% endblock %}
+
+{% block extra_javascript %}
+    <script src="{% static 'mijndashboard/localchat.js' %}?v={{ versie }}"></script>
+{% endblock %}

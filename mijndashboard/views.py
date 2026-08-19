@@ -1,10 +1,12 @@
 """Views — Finance."""
 
+import json
+
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
 from django.core.cache import cache
 from django.core.handlers.wsgi import WSGIRequest
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
 from django.utils.translation import gettext_lazy as _
 
@@ -25,9 +27,13 @@ def _character_ids(user):
 
 def _basis(request, actief):
     """Gedeelde context: welk tabblad actief is en of er iets gekoppeld is."""
-    ids = _character_ids(request.user)
+    chars = esi.characters(request.user)
+    ids = [c.character_id for c in chars]
     return {
         "actief": actief,
+        # Voor het local-paneel: het kleurt je eigen namen groen en let op of je
+        # genoemd wordt. Staat op twee tabbladen, dus hier één keer.
+        "eigen_namen": json.dumps([c.character_name for c in chars]),
         # Hangt achter de stylesheet-URL. Zonder dat blijft een browser na een
         # nieuwe versie de oude CSS gebruiken — dan staat de hele pagina
         # ongestyled onder elkaar en lijkt er een bug te zijn.
@@ -50,6 +56,33 @@ def dashboard(request: WSGIRequest) -> HttpResponse:
     # het bijbehorende token er niet is.
     ctx.update(data.dashboard(request.user))
     return render(request, "mijndashboard/dashboard.html", ctx)
+
+
+@login_required
+@permission_required("mijndashboard.basic_access")
+def local(request: WSGIRequest) -> HttpResponse:
+    """Local chat: de logs leest de browser zelf, wij kleuren de namen."""
+    ctx = _basis(request, "local")
+    return render(request, "mijndashboard/local.html", ctx)
+
+
+@login_required
+@permission_required("mijndashboard.basic_access")
+def local_standings(request: WSGIRequest) -> HttpResponse:
+    """Namen uit local -> standing. Alleen POST, want het is een lijst namen.
+
+    De browser vraagt dit per groepje op en onthoudt het antwoord; wij hoeven
+    dus niet per bericht iets op te zoeken.
+    """
+    if request.method != "POST":
+        return JsonResponse({"fout": "alleen POST"}, status=405)
+    try:
+        namen = (json.loads(request.body or b"{}") or {}).get("namen") or []
+    except ValueError:
+        return JsonResponse({"fout": "geen geldige JSON"}, status=400)
+    if not isinstance(namen, list):
+        return JsonResponse({"fout": "namen moet een lijst zijn"}, status=400)
+    return JsonResponse(data.standings(request.user, [str(n) for n in namen]))
 
 
 @login_required

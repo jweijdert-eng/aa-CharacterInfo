@@ -11,6 +11,8 @@ urlpatterns = [
     # zodat oude links en bladwijzers naar /wallet/ blijven werken.
     path("", views.dashboard, name="index"),
     path("dashboard/", views.dashboard, name="dashboard"),
+    path("local/", views.local, name="local"),
+    path("local/standings/", views.local_standings, name="local_standings"),
     path("wallet/", views.wallet, name="wallet"),
     path("contracts/", views.contracts, name="contracts"),
     path("ratting/", views.ratting, name="ratting"),

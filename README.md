@@ -32,7 +32,7 @@ Let op: de URL verandert van `/finance/` naar `/mijndashboard/`, dus oude bladwi
 Wie de rechten per groep heeft ingesteld hoeft niets te doen; de permissie heet nu
 `mijndashboard.basic_access` en houdt dezelfde toewijzingen.
 
-Acht tabbladen:
+Negen tabbladen:
 
 - **Dashboard** — de voorpagina, **nagebouwd naar de startpagina van**
   [dutchlegionsdashboard.eu](https://dutchlegionsdashboard.eu/): dezelfde banner (waar je main is, waarin,
@@ -71,6 +71,16 @@ Acht tabbladen:
   per slot en een EFT-blok dat je zo in het spel plakt. En je kunt **mail versturen en beantwoorden**:
   ontvangers typ je op naam (character, corporatie, alliantie of mailinglijst), de rest zoekt de plugin op.
 
+- **Local** — de local-chat van je EVE-client, met de namen gekleurd op standing: je eigen characters en
+  corpgenoten groen, je alliance lichtblauw, contacten met een positieve standing groen, en al het andere
+  **rood** — onbekend in local is een risico, geen neutraal gegeven. Rechtermuisknop op een naam voor een
+  eigen oordeel (blijft in je browser staan). Word je bij naam genoemd, dan licht de regel goud op.
+
+  De logs worden **door je browser gelezen**, niet door de server: EVE schrijft ze op jouw pc en een
+  Auth-server komt daar niet bij. Je wijst je map `Documents/EVE/logs/Chatlogs` eenmalig aan (Chrome, Edge of
+  Opera; de keuze gaat in IndexedDB) en het paneel volgt daarna het nieuwste `Local_*.txt`. De server doet
+  alleen de standings, want daar zijn tokens voor nodig. Hetzelfde paneel staat verkleind op het dashboard.
+
 ## Installeren
 
 ```
@@ -108,6 +118,8 @@ stukje weg:
 - `esi-skills.read_skillqueue.v1` — skill queue (dashboard)
 - `esi-industry.read_character_jobs.v1` — industry jobs (dashboard)
 - `esi-calendar.read_calendar_events.v1` — in-game agenda (dashboard)
+- `esi-characters.read_contacts.v1`, `esi-corporations.read_contacts.v1`, `esi-alliances.read_contacts.v1` —
+  standings voor het kleuren van local
 
 Wie via CharLink of Member Audit gekoppeld heeft, heeft die meestal al.
 

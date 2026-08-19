@@ -1308,3 +1308,45 @@
 .fin-app .fin-dl .dl-ent img { width: 24px; height: 24px; border-radius: 2px; }
 .fin-app .fin-dl .dl-nowrap { white-space: nowrap; }
 .fin-app .fin-dl .dl-leegrij { text-align: center; padding: 1.5rem; }
+
+
+/* ── Local chat ───────────────────────────────────────────────────────── */
+/* Zelfde chrome als de andere blokken; alleen de lijst zelf is anders, want
+   die moet veel regels kwijt zonder dat de pagina meegroeit. */
+.fin-app .fin-dl .lc-paneel { min-height: 220px; }
+.fin-app .fin-dl .lc-paneel.is-groot { min-height: 60vh; }
+.fin-app .fin-dl .lc-knoppen { display: flex; align-items: center; gap: .5rem; }
+.fin-app .fin-dl .lc-knop {
+    background: transparent; border: 1px solid var(--dl-border); border-radius: 2px;
+    color: var(--dl-dim); font-size: .58rem; font-weight: 700; letter-spacing: .04em;
+    padding: .1rem .4rem; cursor: pointer;
+}
+.fin-app .fin-dl .lc-knop:hover { color: var(--dl-text); border-color: var(--dl-blue); }
+.fin-app .fin-dl .lc-status { font-size: .68rem; font-weight: 600; white-space: nowrap; }
+.fin-app .fin-dl .lc-bestand { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fin-app .fin-dl .lc-lijst { font-size: .68rem; line-height: 1.5; max-height: 60vh; }
+.fin-app .fin-dl .lc-paneel.is-groot .lc-lijst { max-height: none; }
+.fin-app .fin-dl .lc-leeg { color: var(--dl-dim); text-align: center; padding: 1rem 0; }
+.fin-app .fin-dl .lc-rij {
+    display: flex; gap: .4rem; align-items: baseline;
+    padding: .25rem .4rem; border-radius: 2px; margin-bottom: .3rem;
+}
+.fin-app .fin-dl .lc-tijd { font-size: .62rem; color: var(--dl-dim); flex: none; }
+.fin-app .fin-dl .lc-naam { font-weight: 600; white-space: nowrap; flex: none; }
+.fin-app .fin-dl .lc-tekst {
+    color: var(--dl-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+/* Het rechtsklikmenu hangt aan <body>, dus buiten de .fin-dl-schil: hier de
+   kleuren voluit in plaats van via de variabelen van dat blok. */
+.lc-menu {
+    position: fixed; z-index: 1000; min-width: 170px; overflow: hidden;
+    background: #0b0b1a; border: 1px solid #1c1c35; border-radius: 3px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, .5); color: #c8cde8;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+}
+.lc-menu-kop {
+    padding: .35rem .65rem; font-size: .6rem; color: #a0a0be;
+    border-bottom: 1px solid #1c1c35; letter-spacing: .1em;
+}
+.lc-menu-item { padding: .45rem .65rem; font-size: .72rem; cursor: pointer; }
+.lc-menu-item:hover { background: rgba(255, 255, 255, .04); }

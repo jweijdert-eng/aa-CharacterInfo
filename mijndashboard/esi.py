@@ -1026,3 +1026,66 @@ def jita_buy(type_ids):
             uit[int(sleutel)] = prijs
             cache.set(f"fin_prijs_{int(sleutel)}", prijs, TTL_PRIJZEN)
     return uit
+
+
+# --------------------------------------------------------------------------
+# Local chat: wie is er vriendelijk?
+# --------------------------------------------------------------------------
+
+CONTACTS_SCOPE = "esi-characters.read_contacts.v1"
+CORP_CONTACTS_SCOPE = "esi-corporations.read_contacts.v1"
+ALLIANCE_CONTACTS_SCOPE = "esi-alliances.read_contacts.v1"
+TTL_CONTACTEN = 900
+TTL_CHARINFO = 86400
+
+
+def character_info(character_id):
+    """Publieke gegevens van een character: in welke corp en alliance hij zit."""
+    key = f"fin_charinfo_{character_id}"
+    hit = cache.get(key)
+    if hit is not None:
+        return hit
+    data = _request(f"/characters/{character_id}/") or {}
+    if data:
+        cache.set(key, {"corporation_id": data.get("corporation_id"),
+                        "alliance_id": data.get("alliance_id")}, TTL_CHARINFO)
+    return cache.get(key) or {}
+
+
+def _contacten_van(pad, scope, character_ids):
+    """Contacten van een endpoint, met het eerste token dat er langs mag."""
+    for token in _tokens_met_scope(character_ids, scope):
+        rijen = _paged(pad, token)
+        if rijen:
+            return rijen
+    return []
+
+
+def contacten(character_ids, corporation_id=None, alliance_id=None):
+    """{entiteit_id: standing} uit alliance-, corp- én persoonlijke contacten.
+
+    De volgorde is oplopende voorrang, net als op de site: alliance wordt
+    overschreven door corp, en corp door je persoonlijke contacten.
+    """
+    key = f"fin_contacten_{corporation_id}_{alliance_id}_{min(character_ids) if character_ids else 0}"
+    hit = cache.get(key)
+    if hit is not None:
+        return hit
+
+    uit = {}
+    if alliance_id:
+        for c in _contacten_van(f"/alliances/{alliance_id}/contacts/",
+                               ALLIANCE_CONTACTS_SCOPE, character_ids):
+            uit[c.get("contact_id")] = float(c.get("standing") or 0)
+    if corporation_id:
+        for c in _contacten_van(f"/corporations/{corporation_id}/contacts/",
+                               CORP_CONTACTS_SCOPE, character_ids):
+            uit[c.get("contact_id")] = float(c.get("standing") or 0)
+    for cid in character_ids:
+        token = token_for(cid, CONTACTS_SCOPE)
+        if token:
+            for c in _paged(f"/characters/{cid}/contacts/", token):
+                uit[c.get("contact_id")] = float(c.get("standing") or 0)
+            break
+    cache.set(key, uit, TTL_CONTACTEN)
+    return uit

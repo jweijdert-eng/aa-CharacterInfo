@@ -46,6 +46,8 @@
                href="{% url 'mijndashboard:markt' %}">{% translate "Market" %}</a>
             <a class="fin-tab {% if actief == 'mail' %}is-actief{% endif %}"
                href="{% url 'mijndashboard:mail' %}">{% translate "Mail" %}</a>
+            <a class="fin-tab {% if actief == 'local' %}is-actief{% endif %}"
+               href="{% url 'mijndashboard:local' %}">{% translate "Local" %}</a>
         </div>
 
         {% block details %}{% endblock %}
