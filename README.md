@@ -79,7 +79,7 @@ Negen tabbladen:
   De logs worden **door je browser gelezen**, niet door de server: EVE schrijft ze op jouw pc en een
   Auth-server komt daar niet bij. Je wijst je map `Documents/EVE/logs/Chatlogs` eenmalig aan (Chrome, Edge of
   Opera; de keuze gaat in IndexedDB) en het paneel volgt daarna het nieuwste `Local_*.txt`. De server doet
-  alleen de standings, want daar zijn tokens voor nodig. Hetzelfde paneel staat verkleind op het dashboard.
+  alleen de standings, want daar zijn tokens voor nodig.
 
 ## Installeren
 

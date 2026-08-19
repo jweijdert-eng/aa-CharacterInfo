@@ -1,6 +1,5 @@
 {% extends 'mijndashboard/base.html' %}
 {% load i18n %}
-{% load static %}
 
 {% comment %}
     De startpagina van dutchlegionsdashboard.eu, nagebouwd: banner, character-
@@ -126,27 +125,6 @@
             <div class="dl-stat-v dl-blauw">{{ jobs_actief }}</div>
             {% if jobs_klaar %}<div class="dl-stat-s">{{ jobs_klaar }} klaar</div>{% endif %}
         </div>
-    </div>
-
-    {% comment %}
-        Local chat staat op de site tussen de stat-kaarten en de widgets. De
-        logs komen uit de browser, niet van de server: EVE schrijft ze op de pc
-        van het lid. Zonder gekozen map staat hier de knop en verder niets.
-    {% endcomment %}
-    <div class="dl-sec lc-paneel" data-localchat
-         data-standings-url="{% url 'mijndashboard:local_standings' %}"
-         data-csrf="{{ csrf_token }}"
-         data-eigen="{{ eigen_namen }}"
-         data-max="60">
-        <header>
-            <span>LOCAL CHAT</span>
-            <div class="lc-knoppen">
-                <a class="dl-mini dl-dim" href="{% url 'mijndashboard:local' %}">Meer →</a>
-                <button type="button" class="lc-knop" data-rol="kies">Kies Chatlogs-map</button>
-                <span class="lc-status" data-rol="status">● Niet ingesteld</span>
-            </div>
-        </header>
-        <div class="dl-sec-body lc-lijst" data-rol="lijst"></div>
     </div>
 
     {# ── De acht widgets, in de volgorde van de site ─────────────────── #}
@@ -482,8 +460,4 @@
     </div>
 </div>
 {% endif %}
-{% endblock %}
-
-{% block extra_javascript %}
-    <script src="{% static 'mijndashboard/localchat.js' %}?v={{ versie }}"></script>
 {% endblock %}
