@@ -25,7 +25,12 @@ jobs:
         id: version
         run: |
           VERSION=$(grep -oE '__version__ = "[^"]+"' finance/__init__.py | cut -d'"' -f2)
+          # De naam ook uit de code lezen in plaats van hem hier te herhalen:
+          # bij de hernoeming naar Mijn Dashboard bleef de release anders
+          # "Character Info" heten.
+          TITLE=$(grep -oE '__title__ = "[^"]+"' finance/__init__.py | cut -d'"' -f2)
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "title=$TITLE" >> "$GITHUB_OUTPUT"
           if git rev-parse "v$VERSION" >/dev/null 2>&1; then
             echo "exists=yes" >> "$GITHUB_OUTPUT"
             echo "Tag v$VERSION bestaat al — geen nieuwe release."
@@ -51,6 +56,6 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.version.outputs.version }}
-          name: Character Info ${{ steps.version.outputs.version }}
+          name: ${{ steps.version.outputs.title }} ${{ steps.version.outputs.version }}
           generate_release_notes: true
           files: dist/*
