@@ -6,7 +6,7 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('finance', '0002_alter_general_options'),
+        ('mijndashboard', '0002_alter_general_options'),
     ]
 
     operations = [

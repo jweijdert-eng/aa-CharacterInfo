@@ -1,4 +1,4 @@
-{% extends 'finance/base.html' %}
+{% extends 'mijndashboard/base.html' %}
 {% load i18n %}
 
 {% block fin_icoon %}
@@ -14,7 +14,7 @@
     {% if not heeft_mining %}
         <div class="fin-melding">
             <p class="mb-2">{% translate "Om je mining-ledger te tonen hebben we toegang tot je mining-gegevens nodig." %}</p>
-            <a href="{% url 'finance:koppelen' %}" class="fin-knop">{% translate "Character koppelen" %}</a>
+            <a href="{% url 'mijndashboard:koppelen' %}" class="fin-knop">{% translate "Character koppelen" %}</a>
         </div>
     {% elif not totaal %}
         <div class="fin-melding">

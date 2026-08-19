@@ -42,7 +42,7 @@ def _basis(request, actief):
 
 
 @login_required
-@permission_required("finance.basic_access")
+@permission_required("mijndashboard.basic_access")
 def wallet(request: WSGIRequest) -> HttpResponse:
     """Saldo per character plus het gecombineerde journaal."""
     ctx = _basis(request, "wallet")
@@ -51,31 +51,31 @@ def wallet(request: WSGIRequest) -> HttpResponse:
         # Beide tabellen meteen meesturen: het wisselen tussen de twee gebeurt
         # in CSS, dus een tweede paginaverzoek zou alleen maar vertragen.
         ctx.update(data.transacties(request.user))
-    return render(request, "finance/wallet.html", ctx)
+    return render(request, "mijndashboard/wallet.html", ctx)
 
 
 @login_required
-@permission_required("finance.basic_access")
+@permission_required("mijndashboard.basic_access")
 def contracts(request: WSGIRequest) -> HttpResponse:
     """Je persoonlijke contracten."""
     ctx = _basis(request, "contracts")
     if ctx["heeft_contracts"]:
         ctx.update(data.contracten(request.user))
-    return render(request, "finance/contracts.html", ctx)
+    return render(request, "mijndashboard/contracts.html", ctx)
 
 
 @login_required
-@permission_required("finance.basic_access")
+@permission_required("mijndashboard.basic_access")
 def ratting(request: WSGIRequest) -> HttpResponse:
     """Bounty- en ESS-inkomsten."""
     ctx = _basis(request, "ratting")
     if ctx["heeft_wallet"]:
         ctx.update(data.ratting(request.user))
-    return render(request, "finance/ratting.html", ctx)
+    return render(request, "mijndashboard/ratting.html", ctx)
 
 
 @login_required
-@permission_required("finance.basic_access")
+@permission_required("mijndashboard.basic_access")
 def mining(request: WSGIRequest) -> HttpResponse:
     """Wat je bij elkaar gemijnd hebt."""
     ctx = _basis(request, "mining")
@@ -87,27 +87,27 @@ def mining(request: WSGIRequest) -> HttpResponse:
         except ValueError:
             rendement = data.REFINE_STANDAARD
         ctx.update(data.mining(request.user, rendement=rendement))
-    return render(request, "finance/mining.html", ctx)
+    return render(request, "mijndashboard/mining.html", ctx)
 
 
 @login_required
-@permission_required("finance.basic_access")
+@permission_required("mijndashboard.basic_access")
 def pi(request: WSGIRequest) -> HttpResponse:
     """Je planetaire kolonies."""
     ctx = _basis(request, "pi")
     if ctx["heeft_pi"]:
         ctx.update(data.pi(request.user))
-    return render(request, "finance/pi.html", ctx)
+    return render(request, "mijndashboard/pi.html", ctx)
 
 
 @login_required
-@permission_required("finance.basic_access")
+@permission_required("mijndashboard.basic_access")
 def markt(request: WSGIRequest) -> HttpResponse:
     """Je marktorders en hoe ze tegenover de concurrentie staan."""
     ctx = _basis(request, "markt")
     if ctx["heeft_markt"]:
         ctx.update(data.markt(request.user))
-    return render(request, "finance/markt.html", ctx)
+    return render(request, "mijndashboard/markt.html", ctx)
 
 
 def _antwoord(ctx, mail_id):
@@ -131,7 +131,7 @@ def _antwoord(ctx, mail_id):
 
 
 @login_required
-@permission_required("finance.basic_access")
+@permission_required("mijndashboard.basic_access")
 def mail(request: WSGIRequest) -> HttpResponse:
     """Je EVE-mail van al je characters bij elkaar, en versturen."""
     ctx = _basis(request, "mail")
@@ -148,7 +148,7 @@ def mail(request: WSGIRequest) -> HttpResponse:
                 _("Mail verstuurd namens %(afzender)s aan %(n)s ontvanger(s): %(wie)s.")
                 % {"afzender": uitslag["afzender"], "n": uitslag["aantal"],
                    "wie": ", ".join(uitslag["ontvangers"])})
-            return redirect("finance:mail")
+            return redirect("mijndashboard:mail")
         messages.error(request, uitslag["fout"])
 
     if ctx["heeft_mail"]:
@@ -165,11 +165,11 @@ def mail(request: WSGIRequest) -> HttpResponse:
     elif request.GET.get("antwoord"):
         ctx["formulier"] = _antwoord(ctx, request.GET["antwoord"])
         ctx["formulier_open"] = bool(ctx["formulier"])
-    return render(request, "finance/mail.html", ctx)
+    return render(request, "mijndashboard/mail.html", ctx)
 
 
 @login_required
-@permission_required("finance.basic_access")
+@permission_required("mijndashboard.basic_access")
 @token_required(scopes=SCOPES)
 def koppelen(request: WSGIRequest, token) -> HttpResponse:
     """Character koppelen zodat we z'n wallet en contracten mogen lezen."""
@@ -186,4 +186,4 @@ def koppelen(request: WSGIRequest, token) -> HttpResponse:
         _("%(naam)s is gekoppeld — je financiën worden nu getoond.")
         % {"naam": token.character_name},
     )
-    return redirect("finance:wallet")
+    return redirect("mijndashboard:wallet")

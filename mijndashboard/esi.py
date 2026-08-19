@@ -15,7 +15,7 @@ from django.core.cache import cache
 logger = logging.getLogger(__name__)
 
 ESI = "https://esi.evetech.net/latest"
-UA = {"User-Agent": "aa-finance (Alliance Auth plugin; maintainer: Dutch Legions)"}
+UA = {"User-Agent": "aa-mijndashboard (Alliance Auth plugin; maintainer: Dutch Legions)"}
 
 WALLET_SCOPE = "esi-wallet.read_character_wallet.v1"
 CONTRACTS_SCOPE = "esi-contracts.read_character_contracts.v1"

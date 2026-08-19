@@ -5,7 +5,7 @@ requires = [
 ]
 
 [project]
-name = "aa-finance"
+name = "aa-mijndashboard"
 description = "Mijn Dashboard voor Alliance Auth — je eigen wallet, contracten, ratting, mining, PI, markt en mail op één plek."
 readme = "README.md"
 keywords = [
@@ -41,7 +41,7 @@ dependencies = [
 ]
 
 [tool.hatch]
-version.path = "finance/__init__.py"
+version.path = "mijndashboard/__init__.py"
 build.include = [
-    "/finance",
+    "/mijndashboard",
 ]

@@ -12,8 +12,8 @@ Let op: dit vult alleen de lijst met kolonies. De inrichting per planeet
 (extractors, fabrieken, opslag) komt uit een tweede endpoint die deze verzonnen
 kolonies niet kent, dus de kaarten blijven dan leeg op de kop na.
 
-    python manage.py finance_testpi
-    python manage.py finance_testpi --wis
+    python manage.py mijndashboard_testpi
+    python manage.py mijndashboard_testpi --wis
 """
 
 from datetime import datetime, timedelta, timezone
@@ -22,7 +22,7 @@ from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.core.management.base import BaseCommand, CommandError
 
-from finance import esi
+from mijndashboard import esi
 
 BEWAARTIJD = 6 * 3600
 
@@ -108,4 +108,4 @@ class Command(BaseCommand):
 
         self.stdout.write(self.style.SUCCESS(
             f"{totaal} testkolonies, {BEWAARTIJD // 3600} uur geldig"))
-        self.stdout.write("weghalen kan met:  manage.py finance_testpi --wis")
+        self.stdout.write("weghalen kan met:  manage.py mijndashboard_testpi --wis")

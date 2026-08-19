@@ -1,5 +1,5 @@
 # Maakt automatisch een tag + GitHub Release zodra de versie in
-# finance/__init__.py omhoog gaat en je naar main pusht.
+# mijndashboard/__init__.py omhoog gaat en je naar main pusht.
 # De gebouwde wheel + sdist worden aan de release gehangen.
 
 name: Auto Release
@@ -24,11 +24,11 @@ jobs:
       - name: Lees versie + check of de tag al bestaat
         id: version
         run: |
-          VERSION=$(grep -oE '__version__ = "[^"]+"' finance/__init__.py | cut -d'"' -f2)
+          VERSION=$(grep -oE '__version__ = "[^"]+"' mijndashboard/__init__.py | cut -d'"' -f2)
           # De naam ook uit de code lezen in plaats van hem hier te herhalen:
           # bij de hernoeming naar Mijn Dashboard bleef de release anders
           # "Character Info" heten.
-          TITLE=$(grep -oE '__title__ = "[^"]+"' finance/__init__.py | cut -d'"' -f2)
+          TITLE=$(grep -oE '__title__ = "[^"]+"' mijndashboard/__init__.py | cut -d'"' -f2)
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "title=$TITLE" >> "$GITHUB_OUTPUT"
           if git rev-parse "v$VERSION" >/dev/null 2>&1; then

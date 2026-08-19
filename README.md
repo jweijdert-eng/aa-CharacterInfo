@@ -2,9 +2,35 @@
 
 Alliance Auth-plugin die je **eigen** gegevens op één plek toont: wallet, contracten, ratting, mining, PI, markt en mail.
 
-> De interne naam is `finance` — app-label, URL (`/finance/`), pip-naam en migraties hangen daaraan.
-> Alleen wat je in de interface ziet heet Mijn Dashboard. De plugin heette eerder Finance en daarna Character
-> Info; die laatste botste in het menu met **Character Scan**, dat over een heel ander soort character gaat.
+> De plugin heette eerder **Finance** en daarna **Character Info**. Sinds **v3.0.0** heet ook de binnenkant
+> `mijndashboard`: package, app-label, URL (`/mijndashboard/`) en pip-naam (`aa-mijndashboard`).
+
+## Bijwerken van v2.x naar v3.0.0
+
+De omdoping raakt de database, dus dit gaat niet vanzelf. De plugin heeft geen eigen tabellen
+(`managed = False`), dus er is niets te verhuizen — alleen het app-label staat op twee plekken.
+
+1. Zet de site stil (web + worker). Een menu-item dat naar een verdwenen hook wijst laat het hele
+   dashboard omvallen, dus je wil niet halverwege blijven hangen.
+2. `pip uninstall aa-finance` en installeer deze versie.
+3. In `local.py`: `'finance'` → `'mijndashboard'` in `INSTALLED_APPS`.
+4. Werk het app-label bij en gooi het oude menu-item weg:
+
+   ```sql
+   UPDATE django_migrations   SET app       = 'mijndashboard' WHERE app       = 'finance';
+   UPDATE django_content_type SET app_label = 'mijndashboard' WHERE app_label = 'finance';
+   DELETE FROM menu_menuitem
+    WHERE hook_hash = SHA2('finance.auth_hooks.CharacterInfoMenuItem', 256);
+   ```
+
+   Het content type hernoemen in plaats van weggooien is belangrijk: de permissie `basic_access` hangt
+   eraan, en daarmee iedereen aan wie je hem gegeven hebt.
+5. `manage.py migrate` (0004 zet de omschrijving van de permissie goed), `manage.py collectstatic`,
+   en start web + worker weer.
+
+Let op: de URL verandert van `/finance/` naar `/mijndashboard/`, dus oude bladwijzers werken niet meer.
+Wie de rechten per groep heeft ingesteld hoeft niets te doen; de permissie heet nu
+`mijndashboard.basic_access` en houdt dezelfde toewijzingen.
 
 Zeven tabbladen:
 
@@ -44,7 +70,7 @@ Zeven tabbladen:
 pip install git+https://github.com/jweijdert-eng/aa-CharacterInfo.git
 ```
 
-Voeg `finance` toe aan `INSTALLED_APPS`, draai `migrate` en `collectstatic`, en herstart web + worker.
+Voeg `mijndashboard` toe aan `INSTALLED_APPS`, draai `migrate` en `collectstatic`, en herstart web + worker.
 
 ## Menu
 
@@ -73,4 +99,4 @@ alleen dat stukje weg:
 
 ## Permissie
 
-`finance.basic_access` — mag de eigen financiën bekijken.
+`mijndashboard.basic_access` — mag de eigen EVE-gegevens bekijken.

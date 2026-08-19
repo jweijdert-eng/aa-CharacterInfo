@@ -1,7 +1,7 @@
-{% extends 'finance/base.html' %}
+{% extends 'mijndashboard/base.html' %}
 {% load i18n %}
 
-{% block fin_icoon %}{% include "finance/isk_icoon.html" %}{% endblock %}
+{% block fin_icoon %}{% include "mijndashboard/isk_icoon.html" %}{% endblock %}
 
 {% block fin_title %}{% translate "Wallet" %}{% endblock %}
 {% block fin_sub %}{% if heeft_wallet %}{{ totaal_fmt }} ISK {% translate "over al je characters" %}{% endif %}{% endblock %}
@@ -13,7 +13,7 @@
             <p class="mb-3 fin-dim" style="font-size:.85rem;">
                 {% translate "Koppel je character één keer; dat geldt meteen voor alle drie de tabbladen." %}
             </p>
-            <a href="{% url 'finance:koppelen' %}" class="fin-knop">{% translate "Character koppelen" %}</a>
+            <a href="{% url 'mijndashboard:koppelen' %}" class="fin-knop">{% translate "Character koppelen" %}</a>
         </div>
     {% else %}
 

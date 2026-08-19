@@ -7,7 +7,7 @@
 
 {% block extra_css %}
     {# ?v=versie: anders serveert de browser na een update z'n oude gecachte CSS. #}
-    <link rel="stylesheet" href="{% static 'finance/finance.css' %}?v={{ versie }}">
+    <link rel="stylesheet" href="{% static 'mijndashboard/mijndashboard.css' %}?v={{ versie }}">
 {% endblock extra_css %}
 
 {% block content %}
@@ -31,19 +31,19 @@
         {# Tabbladen: wisselen tussen de drie pagina's zonder terug naar het menu. #}
         <div class="fin-tabs">
             <a class="fin-tab {% if actief == 'wallet' %}is-actief{% endif %}"
-               href="{% url 'finance:wallet' %}">{% translate "Wallet" %}</a>
+               href="{% url 'mijndashboard:wallet' %}">{% translate "Wallet" %}</a>
             <a class="fin-tab {% if actief == 'contracts' %}is-actief{% endif %}"
-               href="{% url 'finance:contracts' %}">{% translate "Contracts" %}</a>
+               href="{% url 'mijndashboard:contracts' %}">{% translate "Contracts" %}</a>
             <a class="fin-tab {% if actief == 'ratting' %}is-actief{% endif %}"
-               href="{% url 'finance:ratting' %}">{% translate "Ratting" %}</a>
+               href="{% url 'mijndashboard:ratting' %}">{% translate "Ratting" %}</a>
             <a class="fin-tab {% if actief == 'mining' %}is-actief{% endif %}"
-               href="{% url 'finance:mining' %}">{% translate "Mining" %}</a>
+               href="{% url 'mijndashboard:mining' %}">{% translate "Mining" %}</a>
             <a class="fin-tab {% if actief == 'pi' %}is-actief{% endif %}"
-               href="{% url 'finance:pi' %}">{% translate "PI" %}</a>
+               href="{% url 'mijndashboard:pi' %}">{% translate "PI" %}</a>
             <a class="fin-tab {% if actief == 'markt' %}is-actief{% endif %}"
-               href="{% url 'finance:markt' %}">{% translate "Market" %}</a>
+               href="{% url 'mijndashboard:markt' %}">{% translate "Market" %}</a>
             <a class="fin-tab {% if actief == 'mail' %}is-actief{% endif %}"
-               href="{% url 'finance:mail' %}">{% translate "Mail" %}</a>
+               href="{% url 'mijndashboard:mail' %}">{% translate "Mail" %}</a>
         </div>
 
         {% block details %}{% endblock %}

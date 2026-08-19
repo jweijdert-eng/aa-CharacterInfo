@@ -2,9 +2,9 @@
 
 from django.urls import path
 
-from finance import views
+from mijndashboard import views
 
-app_name = "finance"
+app_name = "mijndashboard"
 
 urlpatterns = [
     path("", views.wallet, name="index"),

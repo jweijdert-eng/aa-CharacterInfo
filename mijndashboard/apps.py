@@ -2,10 +2,10 @@
 
 from django.apps import AppConfig
 
-from finance import __version__
+from mijndashboard import __version__
 
 
 class FinanceConfig(AppConfig):
-    name = "finance"
-    label = "finance"
+    name = "mijndashboard"
+    label = "mijndashboard"
     verbose_name = f"Mijn Dashboard v{__version__}"
