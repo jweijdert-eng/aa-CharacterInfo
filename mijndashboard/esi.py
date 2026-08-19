@@ -24,6 +24,15 @@ PLANETS_SCOPE = "esi-planets.manage_planets.v1"
 MAIL_SCOPE = "esi-mail.read_mail.v1"
 SEND_MAIL_SCOPE = "esi-mail.send_mail.v1"
 ORDERS_SCOPE = "esi-markets.read_character_orders.v1"
+# Voor het Dashboard-tabblad. Geen van deze wordt bij het koppelen gevraagd: ze
+# zijn leuk maar niet essentieel, en bijna elk account heeft ze al liggen van
+# CharLink of Member Audit. Ontbreekt er een, dan valt alleen dat blokje weg.
+LOCATIE_SCOPE = "esi-location.read_location.v1"
+SCHIP_SCOPE = "esi-location.read_ship_type.v1"
+ONLINE_SCOPE = "esi-location.read_online.v1"
+SKILLQUEUE_SCOPE = "esi-skills.read_skillqueue.v1"
+JOBS_SCOPE = "esi-industry.read_character_jobs.v1"
+AGENDA_SCOPE = "esi-calendar.read_calendar_events.v1"
 # Ook niet gevraagd bij het koppelen: zonder dit token kunnen we het orderboek
 # van een spelersstructuur niet lezen en valt alleen de vergelijking met de
 # concurrentie daar weg — de orders zelf blijven gewoon staan.
@@ -38,6 +47,10 @@ TTL_JOURNAL = 900           # journaal-regels zijn onveranderlijk zodra ze er st
 TTL_CONTRACTS = 600
 TTL_MINING = 1800           # de ledger vat per dag samen, dus dit hoeft niet vers
 TTL_PLANETS = 900           # extractors lopen af, dus niet te lang vasthouden
+TTL_LOCATIE = 60            # waar je bent verandert elke warp; kort vasthouden
+TTL_QUEUE = 900             # skill queue en industry jobs lopen in uren, niet in seconden
+TTL_AGENDA = 1800
+TTL_ZKILL = 3600
 TTL_ORDERS = 300            # je eigen orders veranderen zodra er iets verkoopt
 TTL_ORDERHIST = 1800        # afgelopen orders veranderen niet meer
 TTL_BOEK = 900              # de markt beweegt, maar niet elke paginaweergave
@@ -417,6 +430,90 @@ def contract_items(character_id, contract_id):
     rows = rows or []
     cache.set(key, rows, 7 * 86400)
     return rows
+
+
+# --------------------------------------------------------------------------
+# Dashboard: waar je bent, wat je traint, wat er in de oven staat
+# --------------------------------------------------------------------------
+
+def _persoonlijk(character_id, pad, scope, sleutel, ttl, leeg):
+    """Kleine gecachte GET op een character-endpoint.
+
+    Deze zes blokjes lijken zo op elkaar dat ze anders zes keer hetzelfde
+    zouden zijn. Zonder token geven we de lege waarde terug: het dashboard laat
+    dat blok dan gewoon weg in plaats van te klagen.
+    """
+    key = f"fin_{sleutel}_{character_id}"
+    hit = cache.get(key)
+    if hit is not None:
+        return hit
+    token = token_for(character_id, scope)
+    data = _request(pad.format(id=character_id), token) if token else None
+    if data is None:
+        data = leeg
+    cache.set(key, data, ttl)
+    return data
+
+
+def locatie(character_id):
+    """Systeem (en eventueel station of structuur) waar dit character is."""
+    return _persoonlijk(character_id, "/characters/{id}/location/",
+                        LOCATIE_SCOPE, "loc", TTL_LOCATIE, {})
+
+
+def schip(character_id):
+    """Het schip waar dit character in zit: type en de naam die het draagt."""
+    return _persoonlijk(character_id, "/characters/{id}/ship/",
+                        SCHIP_SCOPE, "schip", TTL_LOCATIE, {})
+
+
+def online(character_id):
+    """Of het character ingelogd is, en wanneer het voor het laatst was."""
+    return _persoonlijk(character_id, "/characters/{id}/online/",
+                        ONLINE_SCOPE, "online", TTL_LOCATIE, {})
+
+
+def skillqueue(character_id):
+    """De trainingswachtrij."""
+    return _persoonlijk(character_id, "/characters/{id}/skillqueue/",
+                        SKILLQUEUE_SCOPE, "queue", TTL_QUEUE, [])
+
+
+def industry_jobs(character_id):
+    """Lopende en net afgeronde industry jobs."""
+    return _persoonlijk(character_id, "/characters/{id}/industry/jobs/",
+                        JOBS_SCOPE, "jobs", TTL_QUEUE, [])
+
+
+def agenda(character_id):
+    """De in-game agenda: fleet-ops en andere uitnodigingen."""
+    return _persoonlijk(character_id, "/characters/{id}/calendar/",
+                        AGENDA_SCOPE, "agenda", TTL_AGENDA, [])
+
+
+def zkill_stats(character_id):
+    """Kills en verliezen van zKillboard (publiek, geen token).
+
+    ESI kan dit niet in één klap: `/characters/{id}/killmails/recent/` geeft
+    alleen ids en hashes, en dan moet je elke killmail apart ophalen. zKillboard
+    heeft de totalen al geteld. Een uur cache — het zijn statistieken, geen
+    live-feed.
+    """
+    key = f"fin_zkill_{character_id}"
+    hit = cache.get(key)
+    if hit is not None:
+        return hit
+    uit = {}
+    try:
+        r = _session.get(f"https://zkillboard.com/api/stats/characterID/{character_id}/",
+                         headers=UA, timeout=20)
+        if r.status_code == 200:
+            uit = r.json() or {}
+    except (requests.RequestException, ValueError) as exc:
+        logger.info("Finance: zKillboard onbereikbaar: %s", exc)
+        return {}
+    cache.set(key, uit, TTL_ZKILL)
+    return uit
 
 
 # --------------------------------------------------------------------------

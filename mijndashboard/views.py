@@ -43,6 +43,17 @@ def _basis(request, actief):
 
 @login_required
 @permission_required("mijndashboard.basic_access")
+def dashboard(request: WSGIRequest) -> HttpResponse:
+    """De startpagina: waar sta je, wat loopt er, en wat is het waard."""
+    ctx = _basis(request, "dashboard")
+    # Geen enkele scope nodig om de pagina te tonen: elk blok valt los weg als
+    # het bijbehorende token er niet is.
+    ctx.update(data.dashboard(request.user))
+    return render(request, "mijndashboard/dashboard.html", ctx)
+
+
+@login_required
+@permission_required("mijndashboard.basic_access")
 def wallet(request: WSGIRequest) -> HttpResponse:
     """Saldo per character plus het gecombineerde journaal."""
     ctx = _basis(request, "wallet")

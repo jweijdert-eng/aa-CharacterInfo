@@ -1,0 +1,281 @@
+{% extends 'mijndashboard/base.html' %}
+{% load i18n %}
+
+{% comment %}
+    Overgenomen van de startpagina van dutchlegionsdashboard.eu: dezelfde
+    indeling en dezelfde betekenis achter de cijfers. Wat daar met JavaScript
+    per widget wordt bijgeladen, staat hier in één keer op de pagina — een
+    Django-template heeft geen laadfases, en alles komt uit dezelfde gecachte
+    ESI-laag als de andere tabbladen.
+{% endcomment %}
+
+{% block fin_icoon %}
+    {% if hero %}
+        <img class="fin-hero-icon" alt=""
+             src="https://images.evetech.net/characters/{{ hero.character_id }}/portrait?size=64">
+    {% endif %}
+{% endblock %}
+
+{% block fin_title %}{{ hero.naam|default:_("Dashboard") }}{% endblock %}
+{% block fin_sub %}
+    {% if hero %}
+        {% if hero.corp_ticker %}<span class="fin-dash-ticker">[{{ hero.corp_ticker }}]</span>{% endif %}
+        {{ hero.corp }}{% if hero.alliance %} · <span class="fin-dash-alli">{{ hero.alliance }}</span>{% endif %}
+    {% endif %}
+{% endblock %}
+
+{% block details %}
+    {% if leeg %}
+        <div class="fin-melding">{% translate "Nog geen characters gekoppeld." %}</div>
+    {% else %}
+
+        {# Waar de main is en waarin. Bovenaan, want dat is de vraag die je stelt. #}
+        <div class="fin-dash-hero">
+            <div class="fin-dash-plek">
+                <span class="fin-dash-stip {% if hero.online %}is-online{% endif %}"
+                      title="{% if hero.online %}{% translate 'ingelogd' %}{% else %}{% translate 'offline' %}{% endif %}"></span>
+                <span class="fin-dash-sys">⬡ {{ hero.systeem|default:"—" }}</span>
+                {% if hero.schip_type_id %}
+                    <img class="fin-dash-schipicoon" loading="lazy" alt=""
+                         src="https://images.evetech.net/types/{{ hero.schip_type_id }}/icon?size=32">
+                {% endif %}
+                {% if hero.schip %}
+                    <span class="fin-dash-schip">{{ hero.schip }}
+                        {% if hero.schip_type and hero.schip_type != hero.schip %}
+                            <i>({{ hero.schip_type }})</i>
+                        {% endif %}
+                    </span>
+                {% endif %}
+            </div>
+            <div class="fin-dash-wallet">
+                <span class="l">{% translate "Wallet" %}</span>
+                <span class="v">{{ totaal_wallet_fmt }} ISK</span>
+                <span class="s {% if vandaag_omhoog %}fin-pos{% endif %}">
+                    {% if vandaag_omhoog %}▲{% else %}▼{% endif %} {{ vandaag_fmt }} {% translate "vandaag" %}
+                </span>
+            </div>
+        </div>
+
+        {% if meerdere %}
+            <div class="fin-dash-chars">
+                {% for c in kaarten %}
+                    <div class="fin-dash-char" style="--kleur: {{ c.kleur }};">
+                        <div class="fin-dash-charkop">
+                            <img loading="lazy" alt=""
+                                 src="https://images.evetech.net/characters/{{ c.character_id }}/portrait?size=64">
+                            <span class="fin-dash-charnaam">{{ c.naam }}</span>
+                            <span class="fin-dash-stip {% if c.online %}is-online{% endif %}"></span>
+                        </div>
+                        <div class="fin-dash-charisk">{{ c.saldo_fmt }} ISK</div>
+                        <div class="fin-dash-charsub {% if c.vandaag %}fin-pos{% endif %}">
+                            {% if c.vandaag %}
+                                +{{ c.vandaag_fmt }} {% translate "vandaag" %}
+                            {% else %}
+                                {% translate "geen inkomsten vandaag" %}
+                            {% endif %}
+                        </div>
+                        <div class="fin-dash-charplek">
+                            ⬡ {{ c.systeem|default:"—" }}
+                            {% if c.schip %}
+                                · {% if c.schip_type_id %}
+                                    <img loading="lazy" alt=""
+                                         src="https://images.evetech.net/types/{{ c.schip_type_id }}/icon?size=32">
+                                  {% endif %}{{ c.schip }}
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        <div class="fin-stats">
+            <div class="fin-stat fin-stat-totaal">
+                <span class="l">{% translate "Totaal wallet" %}</span>
+                <span class="v">{{ totaal_wallet_fmt }}</span>
+                <span class="s">{{ aantal_characters }} {% translate "characters" %}</span>
+            </div>
+            <div class="fin-stat fin-stat-in">
+                <span class="l">{% translate "Vandaag" %}</span>
+                <span class="v {% if vandaag_omhoog %}fin-pos{% endif %}">{{ vandaag_fmt }}</span>
+                <span class="s">{% translate "gisteren" %} {{ gisteren_fmt }}</span>
+            </div>
+            <div class="fin-stat fin-stat-ess">
+                <span class="l">{% translate "Actieve orders" %}</span>
+                <span class="v">{{ orders_aantal }}</span>
+                <span class="s">{{ verkoopwaarde_fmt }} {% translate "te verkopen" %}</span>
+            </div>
+            <div class="fin-stat fin-stat-ess">
+                <span class="l">{% translate "Industry jobs" %}</span>
+                <span class="v">{{ jobs_aantal }}</span>
+                <span class="s">
+                    {% if jobs_klaar %}{{ jobs_klaar }} {% translate "klaar" %}{% else %}{% translate "niets af te halen" %}{% endif %}
+                </span>
+            </div>
+        </div>
+
+        {# De acht blokken van de startpagina, elk met een doorklik naar het tabblad waar het hele verhaal staat. #}
+        <div class="fin-dash-grid">
+
+            <section class="fin-dash-blok">
+                <header>{% translate "Skill queue" %}
+                    {% if queue_totaal %}<span>{{ queue_totaal }}</span>{% endif %}</header>
+                {% for q in queue %}
+                    <div class="fin-dash-regel">
+                        <span class="n">{{ q.naam }} {{ q.level }}</span>
+                        <span class="w">{{ q.rest_fmt }}</span>
+                    </div>
+                {% empty %}
+                    <div class="fin-leeg">{% translate "Niemand traint iets." %}</div>
+                {% endfor %}
+            </section>
+
+            <section class="fin-dash-blok">
+                <header>{% translate "Industry jobs" %}
+                    {% if jobs_aantal %}<span>{{ jobs_aantal }}</span>{% endif %}</header>
+                {% for j in jobs %}
+                    <div class="fin-dash-regel">
+                        <span class="n">
+                            {% if j.type_id %}
+                                <img loading="lazy" alt=""
+                                     src="https://images.evetech.net/types/{{ j.type_id }}/icon?size=32">
+                            {% endif %}
+                            {{ j.naam }}
+                        </span>
+                        <span class="w {% if j.klaar %}fin-pos{% endif %}">
+                            {% if j.klaar %}{% translate "klaar" %}{% else %}{{ j.rest_fmt }}{% endif %}
+                        </span>
+                    </div>
+                {% empty %}
+                    <div class="fin-leeg">{% translate "Geen lopende jobs." %}</div>
+                {% endfor %}
+            </section>
+
+            <section class="fin-dash-blok">
+                <header>
+                    <a href="{% url 'mijndashboard:markt' %}">{% translate "Market orders" %}</a>
+                    {% if orders_aantal %}<span>{{ orders_aantal }}</span>{% endif %}
+                </header>
+                {% for o in orderregels %}
+                    <div class="fin-dash-regel">
+                        <span class="n">
+                            <img loading="lazy" alt=""
+                                 src="https://images.evetech.net/types/{{ o.type_id }}/icon?size=32">
+                            {{ o.naam }} <i>×{{ o.aantal_fmt }}</i>
+                        </span>
+                        <span class="w">{{ o.waarde_fmt }}</span>
+                    </div>
+                {% empty %}
+                    <div class="fin-leeg">{% translate "Geen openstaande orders." %}</div>
+                {% endfor %}
+            </section>
+
+            <section class="fin-dash-blok">
+                <header><a href="{% url 'mijndashboard:wallet' %}">{% translate "Recente transacties" %}</a></header>
+                {% for t in transacties %}
+                    <div class="fin-dash-regel">
+                        <span class="n">
+                            <span class="fin-stip" style="background: {{ t.kleur }};"></span>{{ t.soort }}
+                        </span>
+                        <span class="w {% if t.positief %}fin-pos{% else %}fin-neg{% endif %}">{{ t.bedrag_fmt }}</span>
+                    </div>
+                {% empty %}
+                    <div class="fin-leeg">{% translate "Nog geen journaalregels." %}</div>
+                {% endfor %}
+            </section>
+
+            <section class="fin-dash-blok">
+                <header>{% translate "Netto waarde" %}</header>
+                <div class="fin-dash-groot">{{ netto_fmt }} ISK</div>
+                {% for d in netto_delen %}
+                    <div class="fin-dash-regel">
+                        <span class="n">{{ d.naam }}</span>
+                        <span class="w">{{ d.bedrag_fmt }}</span>
+                    </div>
+                {% endfor %}
+            </section>
+
+            <section class="fin-dash-blok">
+                <header>{% translate "Kill statistieken" %}</header>
+                {% if kills or verloren %}
+                    <div class="fin-dash-groot">{{ efficientie }}% <i>{% translate "efficiëntie" %}</i></div>
+                    <div class="fin-dash-regel">
+                        <span class="n">{% translate "Kills" %}</span>
+                        <span class="w fin-pos">{{ kills }} · {{ isk_kapot_fmt }}</span>
+                    </div>
+                    <div class="fin-dash-regel">
+                        <span class="n">{% translate "Verloren" %}</span>
+                        <span class="w fin-neg">{{ verloren }} · {{ isk_verloren_fmt }}</span>
+                    </div>
+                    <div class="fin-dash-noot">{% translate "van zKillboard, over al je characters" %}</div>
+                {% else %}
+                    <div class="fin-leeg">{% translate "zKillboard kent nog niets van je." %}</div>
+                {% endif %}
+            </section>
+
+            <section class="fin-dash-blok">
+                <header><a href="{% url 'mijndashboard:wallet' %}">{% translate "Inkomstenverdeling" %}</a>
+                    <span>30 {% translate "dagen" %}</span></header>
+                {% for i in inkomsten %}
+                    <div class="fin-dash-regel">
+                        <span class="n">{{ i.naam }}</span>
+                        <span class="w">{{ i.bedrag_fmt }} <i>{{ i.pct }}%</i></span>
+                    </div>
+                    <div class="fin-dash-balk"><i style="width: {{ i.pct }}%;"></i></div>
+                {% empty %}
+                    <div class="fin-leeg">{% translate "Geen inkomsten in 30 dagen." %}</div>
+                {% endfor %}
+            </section>
+
+            <section class="fin-dash-blok">
+                <header>{% translate "Aankomend" %}</header>
+                {% for a in aankomend %}
+                    <div class="fin-dash-regel">
+                        <span class="n">
+                            <span class="fin-dash-soort is-{{ a.soort }}">{{ a.soort }}</span>{{ a.wat }}
+                        </span>
+                        <span class="w">{{ a.rest_fmt }}</span>
+                    </div>
+                {% empty %}
+                    <div class="fin-leeg">{% translate "Niets in de planning." %}</div>
+                {% endfor %}
+            </section>
+        </div>
+
+        <h2 class="fin-kop">{% translate "In-game agenda" %}
+            <span>— {% translate "uitnodigingen uit het spel; dubbele zijn samengevoegd" %}</span></h2>
+        {% if agenda %}
+            <div class="fin-tablewrap">
+                <table class="fin-table">
+                    <thead>
+                        <tr>
+                            <th>{% translate "Wanneer" %}</th>
+                            <th>{% translate "Wat" %}</th>
+                            <th>{% translate "Van" %}</th>
+                            <th>{% translate "Antwoord" %}</th>
+                            <th class="fin-getal">{% translate "Over" %}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for e in agenda %}
+                            <tr class="{% if e.loopt %}fin-in{% endif %}">
+                                <td class="fin-nowrap fin-dim">{{ e.wanneer|date:"d-m-Y H:i" }}</td>
+                                <td>{{ e.titel }}</td>
+                                <td class="fin-nowrap fin-dim">{{ e.eigenaar }}</td>
+                                <td class="fin-nowrap">
+                                    <span class="fin-badge fin-antwoord-{{ e.antwoord|slugify }}">{{ e.antwoord|default:"—" }}</span>
+                                </td>
+                                <td class="fin-getal fin-nowrap">
+                                    {% if e.loopt %}
+                                        <span class="fin-pos">{% translate "bezig" %}</span>
+                                    {% else %}{{ e.rest_fmt }}{% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="fin-melding">{% translate "Geen uitnodigingen in de agenda." %}</div>
+        {% endif %}
+    {% endif %}
+{% endblock %}

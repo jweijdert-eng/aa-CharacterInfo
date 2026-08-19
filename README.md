@@ -32,8 +32,14 @@ Let op: de URL verandert van `/finance/` naar `/mijndashboard/`, dus oude bladwi
 Wie de rechten per groep heeft ingesteld hoeft niets te doen; de permissie heet nu
 `mijndashboard.basic_access` en houdt dezelfde toewijzingen.
 
-Zeven tabbladen:
+Acht tabbladen:
 
+- **Dashboard** — de voorpagina, overgenomen van de startpagina van
+  [dutchlegionsdashboard.eu](https://dutchlegionsdashboard.eu/): waar je main is en waarin, een kaartje per
+  character met saldo, locatie en schip, vier tegels (wallet, vandaag, actieve orders, industry jobs) en acht
+  blokken — skill queue, industry jobs, market orders, recente transacties, netto waarde, kill statistieken
+  (zKillboard), inkomstenverdeling en wat er als eerste afloopt. Onderaan de in-game agenda. Elk blok valt
+  los weg als het bijbehorende token ontbreekt; de pagina blijft dan gewoon werken.
 - **Wallet** — saldo per character, je resultaat per dag over 30 dagen, waar je geld vandaan kwam tegenover
   waar het heen ging, en twee tabellen: **Transactions** (het journaal) en **Market Transactions** (wat je
   gekocht en verkocht hebt, per item)
@@ -90,12 +96,19 @@ niets in de admin in te richten.
 
 Ze worden in één keer gevraagd bij het koppelen.
 
-Twee scopes worden **niet** gevraagd maar wel gebruikt als een van je characters ze al heeft — zonder valt
-alleen dat stukje weg:
+Deze worden **niet** gevraagd maar wel gebruikt als een van je characters ze al heeft — zonder valt alleen dat
+stukje weg:
 
 - `esi-universe.read_structures.v1` — namen van spelersstructuren
 - `esi-markets.structure_markets.v1` — het orderboek van een spelersstructuur, voor de vergelijking met de
   concurrentie op die markt
+- `esi-location.read_location.v1`, `esi-location.read_ship_type.v1`, `esi-location.read_online.v1` — waar je
+  bent, waarin, en of je ingelogd bent (dashboard)
+- `esi-skills.read_skillqueue.v1` — skill queue (dashboard)
+- `esi-industry.read_character_jobs.v1` — industry jobs (dashboard)
+- `esi-calendar.read_calendar_events.v1` — in-game agenda (dashboard)
+
+Wie via CharLink of Member Audit gekoppeld heeft, heeft die meestal al.
 
 ## Permissie
 

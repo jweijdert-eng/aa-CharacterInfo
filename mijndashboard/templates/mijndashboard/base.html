@@ -30,6 +30,8 @@
 
         {# Tabbladen: wisselen tussen de drie pagina's zonder terug naar het menu. #}
         <div class="fin-tabs">
+            <a class="fin-tab {% if actief == 'dashboard' %}is-actief{% endif %}"
+               href="{% url 'mijndashboard:dashboard' %}">{% translate "Dashboard" %}</a>
             <a class="fin-tab {% if actief == 'wallet' %}is-actief{% endif %}"
                href="{% url 'mijndashboard:wallet' %}">{% translate "Wallet" %}</a>
             <a class="fin-tab {% if actief == 'contracts' %}is-actief{% endif %}"

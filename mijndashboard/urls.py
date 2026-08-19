@@ -7,7 +7,10 @@ from mijndashboard import views
 app_name = "mijndashboard"
 
 urlpatterns = [
-    path("", views.wallet, name="index"),
+    # Het dashboard is de voorpagina; de wallet blijft op z'n eigen pad staan,
+    # zodat oude links en bladwijzers naar /wallet/ blijven werken.
+    path("", views.dashboard, name="index"),
+    path("dashboard/", views.dashboard, name="dashboard"),
     path("wallet/", views.wallet, name="wallet"),
     path("contracts/", views.contracts, name="contracts"),
     path("ratting/", views.ratting, name="ratting"),

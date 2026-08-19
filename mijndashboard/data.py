@@ -2782,3 +2782,279 @@ def verstuur_mail(user, gegevens):
     return {"ok": True, "fout": "", "formulier": None, "aantal": len(uniek),
             "ontvangers": getoond, "mail_id": mail_id,
             "afzender": mijn[afzender_id]}
+
+
+# --------------------------------------------------------------------------
+# Dashboard
+# --------------------------------------------------------------------------
+
+# Overgenomen van de startpagina van dutchlegionsdashboard.eu: dezelfde
+# indeling (hero, character-kaarten, vier tegels, widgetblokken, agenda) en
+# dezelfde betekenis achter de cijfers. "Vandaag" is daar de som van de
+# **positieve** journaalregels van vandaag, en netto waarde is wallet +
+# verkooporders + escrow; die twee definities zijn hier letterlijk overgenomen,
+# anders staat op twee plekken hetzelfde woord met een ander getal eronder.
+
+ACTIVITEIT = {1: "Bouwen", 3: "TE-research", 4: "ME-research", 5: "Kopiëren",
+              7: "Reverse engineering", 8: "Invention", 9: "Reacties"}
+JOB_KLAAR = ("delivered", "ready")
+WIDGET_REGELS = 5           # hoeveel regels er in zo'n blokje passen
+
+
+def _op_dag(journal, dagen_terug=0):
+    """Som van de positieve journaalregels van die dag (UTC, zoals ESI boekt)."""
+    dag = (datetime.now(timezone.utc) - timedelta(days=dagen_terug)).date().isoformat()
+    return sum(float(e.get("amount") or 0) for e in journal
+               if (e.get("date") or "").startswith(dag) and float(e.get("amount") or 0) > 0)
+
+
+def dashboard(user):
+    """De startpagina: waar sta je, wat loopt er, en wat is het waard."""
+    chars = esi.characters(user)                 # main eerst
+    if not chars:
+        return {"leeg": True}
+    mijn = {c.character_id: c for c in chars}
+    kleuren = _kleur_per_character([{"character_id": cid} for cid in mijn])
+    nu = datetime.now(timezone.utc)
+
+    # Alles per character tegelijk ophalen. Elk stukje zit achter z'n eigen
+    # cache, dus warm kost deze pagina bijna niets; koud is het één ronde.
+    def _alles(cid):
+        return {
+            "saldo": esi.balance(cid),
+            "journal": esi.journal(cid),
+            "orders": esi.orders(cid),
+            "locatie": esi.locatie(cid),
+            "schip": esi.schip(cid),
+            "online": esi.online(cid),
+            "queue": esi.skillqueue(cid),
+            "jobs": esi.industry_jobs(cid),
+            "agenda": esi.agenda(cid),
+            "zkill": esi.zkill_stats(cid),
+        }
+
+    with ThreadPoolExecutor(max_workers=6) as pool:
+        per_char = dict(zip(mijn, pool.map(_alles, list(mijn))))
+
+    # ── Namen: systemen via ESI, types uit eveuniverse ────────────────────
+    systeem_ids, type_ids = set(), set()
+    for vak in per_char.values():
+        if vak["locatie"].get("solar_system_id"):
+            systeem_ids.add(vak["locatie"]["solar_system_id"])
+        if vak["schip"].get("ship_type_id"):
+            type_ids.add(vak["schip"]["ship_type_id"])
+        for q in vak["queue"]:
+            type_ids.add(q.get("skill_id"))
+        for j in vak["jobs"]:
+            type_ids.add(j.get("product_type_id") or j.get("blueprint_type_id"))
+        for o in vak["orders"]:
+            type_ids.add(o.get("type_id"))
+    type_ids.discard(None)
+    systeemnamen = esi.names(systeem_ids) if systeem_ids else {}
+    typen = _type_info(type_ids)
+
+    def _type_naam(tid):
+        return (typen.get(tid) or {}).get("naam") or (f"Type {tid}" if tid else "")
+
+    # ── Per character ─────────────────────────────────────────────────────
+    kaarten, totaal_wallet, vandaag, gisteren = [], 0.0, 0.0, 0.0
+    for cid, c in mijn.items():
+        vak = per_char[cid]
+        saldo = float(vak["saldo"] or 0)
+        totaal_wallet += saldo
+        dag = _op_dag(vak["journal"])
+        vandaag += dag
+        gisteren += _op_dag(vak["journal"], 1)
+        loc = vak["locatie"]
+        kaarten.append({
+            "character_id": cid,
+            "naam": c.character_name,
+            "kleur": kleuren[cid],
+            "saldo_fmt": fmt_isk(saldo),
+            "vandaag": dag,
+            "vandaag_fmt": fmt_isk(dag),
+            "systeem": systeemnamen.get(loc.get("solar_system_id"), ""),
+            "schip": vak["schip"].get("ship_name") or "",
+            "schip_type": _type_naam(vak["schip"].get("ship_type_id")),
+            "schip_type_id": vak["schip"].get("ship_type_id") or 0,
+            "online": bool(vak["online"].get("online")),
+            "queue_aantal": len(vak["queue"]),
+        })
+
+    main = mijn[chars[0].character_id]
+    main_vak = per_char[chars[0].character_id]
+    hero = {
+        "character_id": main.character_id,
+        "naam": main.character_name,
+        "corp": main.corporation_name or "",
+        "corp_ticker": main.corporation_ticker or "",
+        "corp_id": main.corporation_id or 0,
+        "alliance": main.alliance_name or "",
+        "alliance_ticker": main.alliance_ticker or "",
+        "systeem": systeemnamen.get(main_vak["locatie"].get("solar_system_id"), ""),
+        "schip": main_vak["schip"].get("ship_name") or "",
+        "schip_type": _type_naam(main_vak["schip"].get("ship_type_id")),
+        "schip_type_id": main_vak["schip"].get("ship_type_id") or 0,
+        "online": bool(main_vak["online"].get("online")),
+    }
+
+    # ── Alles bij elkaar ──────────────────────────────────────────────────
+    alle_orders = [o for vak in per_char.values() for o in vak["orders"]]
+    alle_jobs = [{**j, "_char": mijn[cid].character_name}
+                 for cid, vak in per_char.items() for j in vak["jobs"]]
+    alle_queue = [{**q, "_char": mijn[cid].character_name}
+                  for cid, vak in per_char.items() for q in vak["queue"]]
+    alle_journal = [{**e, "_char": mijn[cid].character_name, "_kleur": kleuren[cid]}
+                    for cid, vak in per_char.items() for e in vak["journal"]]
+    alle_journal.sort(key=lambda e: e.get("date") or "", reverse=True)
+
+    verkoopwaarde = sum(float(o.get("price") or 0) * int(o.get("volume_remain") or 0)
+                        for o in alle_orders if not o.get("is_buy_order"))
+    escrow = sum(float(o.get("escrow") or 0) for o in alle_orders)
+    lopende_jobs = [j for j in alle_jobs if j.get("status") in ("active", "ready")]
+    klaar_jobs = [j for j in alle_jobs if j.get("status") in JOB_KLAAR]
+
+    # ── Widget: skill queue ───────────────────────────────────────────────
+    # Alleen wat nog niet af is, eerst wat het eerst klaar is.
+    queue = []
+    for q in sorted((q for q in alle_queue if q.get("finish_date")),
+                    key=lambda q: q["finish_date"]):
+        klaar = _parse(q["finish_date"])
+        if not klaar or klaar < nu:
+            continue
+        queue.append({
+            "naam": _type_naam(q.get("skill_id")),
+            "level": q.get("finished_level") or 0,
+            "klaar": klaar,
+            "rest_fmt": _duur((klaar - nu).total_seconds()),
+            "char": q["_char"],
+        })
+    queue_totaal = len(queue)
+
+    # ── Widget: industry jobs ─────────────────────────────────────────────
+    jobs = []
+    for j in sorted(lopende_jobs, key=lambda j: j.get("end_date") or ""):
+        eind = _parse(j.get("end_date"))
+        rest = (eind - nu).total_seconds() if eind else 0
+        jobs.append({
+            "activiteit": ACTIVITEIT.get(j.get("activity_id"), "Job"),
+            "naam": _type_naam(j.get("product_type_id") or j.get("blueprint_type_id")),
+            "type_id": j.get("product_type_id") or j.get("blueprint_type_id") or 0,
+            "klaar": rest <= 0,
+            "eind": eind,
+            "rest_fmt": _duur(rest) if rest > 0 else "",
+            "runs": j.get("runs") or 0,
+            "char": j["_char"],
+        })
+
+    # ── Widget: market orders ─────────────────────────────────────────────
+    orders = sorted(alle_orders,
+                    key=lambda o: -(float(o.get("price") or 0) * int(o.get("volume_remain") or 0)))
+    orderregels = [{
+        "naam": _type_naam(o.get("type_id")),
+        "type_id": o.get("type_id"),
+        "koop": bool(o.get("is_buy_order")),
+        "aantal": int(o.get("volume_remain") or 0),
+        "aantal_fmt": _getal(int(o.get("volume_remain") or 0)),
+        "waarde_fmt": fmt_isk(float(o.get("price") or 0) * int(o.get("volume_remain") or 0)),
+    } for o in orders[:WIDGET_REGELS]]
+
+    # ── Widget: recente transacties ───────────────────────────────────────
+    transacties = [{
+        "datum": _parse(e.get("date")),
+        "soort": (e.get("ref_type") or "").replace("_", " ").capitalize(),
+        "bedrag_fmt": fmt_isk(float(e.get("amount") or 0)),
+        "positief": float(e.get("amount") or 0) >= 0,
+        "char": e["_char"],
+        "kleur": e["_kleur"],
+    } for e in alle_journal[:WIDGET_REGELS]]
+
+    # ── Widget: inkomstenverdeling (30 dagen) ─────────────────────────────
+    grens = nu - timedelta(days=30)
+    per_soort = defaultdict(float)
+    for e in alle_journal:
+        bedrag = float(e.get("amount") or 0)
+        d = _parse(e.get("date"))
+        if bedrag > 0 and d and d >= grens:
+            per_soort[e.get("ref_type") or "onbekend"] += bedrag
+    inkomsten_totaal = sum(per_soort.values()) or 1
+    inkomsten = [{"naam": k.replace("_", " ").capitalize(), "bedrag_fmt": fmt_isk(v),
+                  "pct": round(v / inkomsten_totaal * 100)}
+                 for k, v in sorted(per_soort.items(), key=lambda kv: -kv[1])[:WIDGET_REGELS]]
+
+    # ── Widget: kills (zKillboard) ────────────────────────────────────────
+    kills = verloren = 0
+    isk_kapot = isk_verloren = 0.0
+    for vak in per_char.values():
+        z = vak["zkill"] or {}
+        kills += int(z.get("shipsDestroyed") or 0)
+        verloren += int(z.get("shipsLost") or 0)
+        isk_kapot += float(z.get("iskDestroyed") or 0)
+        isk_verloren += float(z.get("iskLost") or 0)
+    efficientie = round(isk_kapot / (isk_kapot + isk_verloren) * 100) if (isk_kapot + isk_verloren) else 0
+
+    # ── Widget: aankomend ─────────────────────────────────────────────────
+    # Skills en jobs door elkaar op één tijdlijn: dat is wat er als eerste je
+    # aandacht vraagt, ongeacht waar het vandaan komt.
+    aankomend = sorted(
+        [{"wat": f"{q['naam']} {q['level']}", "soort": "skill", "klaar": q["klaar"],
+          "rest_fmt": q["rest_fmt"], "char": q["char"]} for q in queue]
+        + [{"wat": j["naam"], "soort": "job", "klaar": j["eind"],
+            "rest_fmt": j["rest_fmt"], "char": j["char"]}
+           for j in jobs if not j["klaar"] and j["eind"]],
+        key=lambda r: r["klaar"])[:WIDGET_REGELS]
+
+    # ── In-game agenda ────────────────────────────────────────────────────
+    gezien, agenda = set(), []
+    for cid, vak in per_char.items():
+        for e in vak["agenda"]:
+            sleutel = (e.get("event_id"), e.get("event_date"))
+            if sleutel in gezien:
+                continue                # dezelfde fleet-op komt bij elke uitgenodigde binnen
+            gezien.add(sleutel)
+            wanneer = _parse(e.get("event_date"))
+            if not wanneer or wanneer < nu - timedelta(hours=6):
+                continue
+            agenda.append({
+                "titel": e.get("title") or "",
+                "wanneer": wanneer,
+                "rest_fmt": _duur((wanneer - nu).total_seconds()) if wanneer > nu else "",
+                "loopt": wanneer <= nu,
+                "antwoord": (e.get("event_response") or "").replace("_", " "),
+                "eigenaar": e.get("owner_name") or "",
+                "char": mijn[cid].character_name,
+            })
+    agenda.sort(key=lambda e: e["wanneer"])
+
+    return {
+        "leeg": False,
+        "hero": hero,
+        "kaarten": kaarten,
+        "meerdere": len(kaarten) > 1,
+        "totaal_wallet_fmt": fmt_isk(totaal_wallet),
+        "vandaag_fmt": fmt_isk(vandaag),
+        "vandaag_omhoog": vandaag >= gisteren,
+        "gisteren_fmt": fmt_isk(gisteren),
+        "orders_aantal": len(alle_orders),
+        "verkoopwaarde_fmt": fmt_isk(verkoopwaarde),
+        "jobs_aantal": len(lopende_jobs),
+        "jobs_klaar": sum(1 for j in jobs if j["klaar"]),
+        "netto_fmt": fmt_isk(totaal_wallet + verkoopwaarde + escrow),
+        "netto_delen": [
+            {"naam": "Wallet", "bedrag_fmt": fmt_isk(totaal_wallet), "klasse": "goud"},
+            {"naam": "Verkooporders", "bedrag_fmt": fmt_isk(verkoopwaarde), "klasse": "groen"},
+            {"naam": "Escrow", "bedrag_fmt": fmt_isk(escrow), "klasse": "blauw"},
+        ],
+        "queue": queue[:WIDGET_REGELS],
+        "queue_totaal": queue_totaal,
+        "jobs": jobs[:WIDGET_REGELS],
+        "orderregels": orderregels,
+        "transacties": transacties,
+        "inkomsten": inkomsten,
+        "kills": kills, "verloren": verloren,
+        "isk_kapot_fmt": fmt_isk(isk_kapot), "isk_verloren_fmt": fmt_isk(isk_verloren),
+        "efficientie": efficientie,
+        "aankomend": aankomend,
+        "agenda": agenda[:8],
+        "aantal_characters": len(chars),
+    }

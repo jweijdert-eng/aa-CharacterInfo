@@ -1043,3 +1043,110 @@
 /* De chips staan in een tabelcel die met de inhoud meegroeit; laat ze afbreken
    in plaats van de tabel breder maken dan het scherm. */
 .fin-app .fin-table .fin-pi-voorraad { flex-wrap: wrap; margin-bottom: .3rem; }
+
+
+/* ── Dashboard ────────────────────────────────────────────────────────── */
+/* Waar de main is en waarin, plus het saldo. Zelfde indeling als de banner op
+   dutchlegionsdashboard.eu: plek links, geld rechts. */
+.fin-app .fin-dash-hero {
+    display: flex; gap: 1rem; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; margin-bottom: .75rem; padding: .6rem .9rem; border-radius: 8px;
+    background: var(--fin-surface); border: 1px solid var(--fin-border);
+}
+.fin-app .fin-dash-plek { display: flex; align-items: center; gap: .45rem; flex-wrap: wrap; font-size: .84rem; }
+.fin-app .fin-dash-sys { color: var(--fin-green); font-weight: 600; }
+.fin-app .fin-dash-schip { color: var(--fin-gold); }
+.fin-app .fin-dash-schip i { color: var(--fin-dim); font-style: normal; font-size: .78rem; }
+.fin-app .fin-dash-schipicoon { width: 22px; height: 22px; border-radius: 3px; }
+.fin-app .fin-dash-ticker { color: var(--fin-gold); font-weight: 700; }
+.fin-app .fin-dash-alli { color: var(--fin-blue); }
+/* Online-lampje: kleur alleen is geen boodschap, dus de titel zegt het ook. */
+.fin-app .fin-dash-stip {
+    width: 8px; height: 8px; border-radius: 50%; flex: none;
+    background: var(--fin-border); border: 1px solid #2a2a4a;
+}
+.fin-app .fin-dash-stip.is-online { background: var(--fin-green); border-color: var(--fin-green); }
+.fin-app .fin-dash-wallet { text-align: right; line-height: 1.25; }
+.fin-app .fin-dash-wallet .l {
+    display: block; font-size: .62rem; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--fin-dim);
+}
+.fin-app .fin-dash-wallet .v { font-size: 1.15rem; font-weight: 700; color: var(--fin-gold); }
+.fin-app .fin-dash-wallet .s { display: block; font-size: .72rem; color: var(--fin-dim); }
+
+/* Character-kaartjes: een rij die horizontaal mag scrollen in plaats van
+   afbreken, zodat de tegels eronder op hun plek blijven staan. */
+.fin-app .fin-dash-chars {
+    display: flex; gap: .6rem; overflow-x: auto; padding-bottom: .25rem; margin-bottom: .75rem;
+}
+.fin-app .fin-dash-char {
+    flex: 0 0 auto; min-width: 190px; padding: .5rem .7rem; border-radius: 8px;
+    background: var(--fin-surface); border: 1px solid var(--fin-border);
+    border-left: 3px solid var(--kleur, var(--fin-border));
+}
+.fin-app .fin-dash-charkop { display: flex; align-items: center; gap: .4rem; margin-bottom: .3rem; }
+.fin-app .fin-dash-charkop img { width: 26px; height: 26px; border-radius: 50%; }
+.fin-app .fin-dash-charnaam {
+    font-size: .76rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis;
+    white-space: nowrap; flex: 1 1 auto;
+}
+.fin-app .fin-dash-charisk { font-size: .84rem; font-weight: 700; color: var(--fin-gold); }
+.fin-app .fin-dash-charsub { font-size: .68rem; color: var(--fin-dim); }
+.fin-app .fin-dash-charplek {
+    font-size: .66rem; color: var(--fin-dim); margin-top: .2rem;
+    display: flex; align-items: center; gap: .2rem; white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis;
+}
+.fin-app .fin-dash-charplek img { width: 16px; height: 16px; border-radius: 2px; }
+
+/* De acht blokken. Vaste rijhoogte zoals op de site, zodat de rasterlijnen
+   doorlopen ook als het ene blok drie regels heeft en het andere vijf. */
+.fin-app .fin-dash-grid {
+    display: grid; gap: .75rem; margin: .75rem 0;
+    grid-template-columns: repeat(auto-fit, minmax(255px, 1fr));
+}
+.fin-app .fin-dash-blok {
+    background: var(--fin-surface); border: 1px solid var(--fin-border);
+    border-radius: 8px; padding: .55rem .75rem .65rem; min-height: 158px;
+}
+.fin-app .fin-dash-blok > header {
+    display: flex; justify-content: space-between; align-items: baseline; gap: .5rem;
+    font-size: .64rem; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--fin-dim); font-weight: 700; margin-bottom: .45rem;
+    padding-bottom: .3rem; border-bottom: 1px solid var(--fin-border);
+}
+.fin-app .fin-dash-blok > header a { color: inherit; }
+.fin-app .fin-dash-blok > header a:hover { color: var(--fin-gold); text-decoration: none; }
+.fin-app .fin-dash-blok > header span { color: var(--fin-gold); letter-spacing: 0; }
+.fin-app .fin-dash-regel {
+    display: flex; justify-content: space-between; gap: .5rem; align-items: center;
+    font-size: .76rem; padding: .12rem 0; min-width: 0;
+}
+.fin-app .fin-dash-regel .n {
+    display: flex; align-items: center; gap: .3rem; min-width: 0;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.fin-app .fin-dash-regel .n img { width: 18px; height: 18px; flex: none; }
+.fin-app .fin-dash-regel .n i { color: var(--fin-dim); font-style: normal; font-size: .7rem; }
+.fin-app .fin-dash-regel .w { flex: none; font-variant-numeric: tabular-nums; font-weight: 600; }
+.fin-app .fin-dash-regel .w i { color: var(--fin-dim); font-style: normal; font-weight: 400; font-size: .7rem; }
+.fin-app .fin-dash-groot { font-size: 1.05rem; font-weight: 700; color: var(--fin-gold); margin-bottom: .3rem; }
+.fin-app .fin-dash-groot i { font-size: .68rem; font-style: normal; color: var(--fin-dim); font-weight: 400; }
+.fin-app .fin-dash-noot { font-size: .64rem; color: var(--fin-dim); margin-top: .35rem; }
+.fin-app .fin-dash-balk {
+    height: 2px; border-radius: 1px; background: var(--fin-border); margin-bottom: .3rem;
+}
+.fin-app .fin-dash-balk > i { display: block; height: 100%; background: var(--fin-bounty); }
+.fin-app .fin-dash-soort {
+    font-size: .58rem; text-transform: uppercase; letter-spacing: .06em;
+    padding: .05rem .3rem; border-radius: 3px; flex: none;
+    background: rgba(128, 128, 128, .16); color: var(--fin-dim);
+}
+.fin-app .fin-dash-soort.is-skill { background: rgba(0, 180, 216, .16); color: var(--fin-blue); }
+.fin-app .fin-dash-soort.is-job { background: rgba(240, 192, 64, .16); color: var(--fin-gold); }
+
+/* Agenda-antwoorden. De waarden komen van ESI (accepted / declined /
+   tentative / not_responded); onbekende waarden houden gewoon de grijze stijl. */
+.fin-app .fin-antwoord-accepted { background: rgba(62, 207, 110, .16); color: var(--fin-green); }
+.fin-app .fin-antwoord-declined { background: rgba(224, 85, 85, .16); color: var(--fin-red); }
+.fin-app .fin-antwoord-tentative { background: rgba(240, 192, 64, .16); color: var(--fin-gold); }
