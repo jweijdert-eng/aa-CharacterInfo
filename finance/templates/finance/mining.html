@@ -27,17 +27,44 @@
             verkopen of eerst refinen. Twee bedragen naast elkaar zetten laat de
             lezer zelf aftrekken; het verschil zelf is de boodschap.
         {% endcomment %}
-        {% if heeft_prijzen and refine_loont %}
+        {% if heeft_prijzen %}
             <div class="fin-advies">
                 <span class="fin-advies-icoon">⚒</span>
                 <div>
                     <div class="fin-advies-kop">
-                        {% blocktranslate with w=refine_winst_fmt p=refine_pct %}Refinen levert {{ w }} ISK extra op — {{ p }}% meer dan ruw verkopen{% endblocktranslate %}
+                        {% if refine_loont %}
+                            {% blocktranslate with w=refine_winst_fmt p=refine_pct %}Refinen levert {{ w }} ISK extra op — {{ p }}% meer dan ruw verkopen{% endblocktranslate %}
+                        {% else %}
+                            {% blocktranslate with w=refine_winst_fmt %}Ruw verkopen is hier beter — refinen kost je {{ w }} ISK{% endblocktranslate %}
+                        {% endif %}
                     </div>
                     <div class="fin-advies-sub">
-                        {% blocktranslate with a=totaal_isk_fmt b=totaal_ref_fmt %}Ruw {{ a }} tegenover {{ b }} na een perfecte refine, alles op Jita buy.{% endblocktranslate %}
+                        {% blocktranslate with a=totaal_isk_fmt b=totaal_ref_fmt r=rendement %}Ruw {{ a }} tegenover {{ b }} bij {{ r }}% rendement, alles op Jita buy.{% endblocktranslate %}
+                        {% if beste_erts %}
+                            {% blocktranslate with e=beste_erts.naam p=beste_erts.per_m3_fmt %}Per kubieke meter levert {{ e }} het meest op: {{ p }} ISK/m³.{% endblocktranslate %}
+                        {% endif %}
                     </div>
                 </div>
+            </div>
+        {% endif %}
+
+        {% comment %}
+            Het rendement stond hier tot v2.13 vast op een volledige refine, en
+            die bestaat in EVE niet: wat je terugkrijgt hangt af van je skills,
+            het station en z'n rigs. Zo'n te hoog getal maakt van "refinen loont"
+            een advies dat niet uitkomt. De opbrengst schaalt lineair, dus een
+            andere stand is één klik — en hij staat in de URL, dus deelbaar.
+        {% endcomment %}
+        {% if heeft_prijzen %}
+            <div class="fin-min-rendement">
+                <span class="l">{% translate "Refine-rendement" %}</span>
+                {% for k in refine_keuzes %}
+                    <a class="fin-min-keuze {% if k.actief %}is-actief{% endif %}"
+                       href="?refine={{ k.waarde }}">{{ k.waarde }}%</a>
+                {% endfor %}
+                <span class="fin-dim">
+                    {% translate "100% bestaat niet in het spel — dat is de bovengrens van de formule, niet van een oven." %}
+                </span>
             </div>
         {% endif %}
 
@@ -50,23 +77,23 @@
             <div class="fin-stat">
                 <span class="l">{% translate "Volume" %}</span>
                 <span class="v">{{ totaal_m3_fmt }}</span>
-                <span class="s">m³</span>
+                <span class="s">
+                    m³{% if heeft_prijzen %} · {% translate "na refinen" %}
+                        {{ mineraal_m3_fmt }} m³ ({{ krimp_pct }}% {% translate "minder" %}){% endif %}
+                </span>
             </div>
             {% if heeft_prijzen %}
                 <div class="fin-stat fin-stat-ruw">
                     <span class="l">{% translate "Waarde als erts" %}</span>
                     <span class="v">{{ totaal_isk_fmt }}</span>
-                    <span class="s">{% translate "Jita buy" %}</span>
+                    <span class="s">{% translate "Jita buy" %} · {{ ruw_per_m3_fmt }} ISK/m³</span>
                 </div>
                 <div class="fin-stat fin-stat-refine">
                     <span class="l">{% translate "Na refinen" %}</span>
-                    <span class="v fin-pos">{{ totaal_ref_fmt }}</span>
+                    <span class="v {% if refine_loont %}fin-pos{% endif %}">{{ totaal_ref_fmt }}</span>
                     <span class="s">
-                        {% if refine_loont %}
-                            +{{ refine_pct }}% {% translate "t.o.v. ruw" %}
-                        {% else %}
-                            {% translate "ruw verkopen is beter" %}
-                        {% endif %}
+                        {% if refine_loont %}+{{ refine_pct }}%{% else %}{{ refine_pct }}%{% endif %}
+                        {% translate "t.o.v. ruw" %} · {{ ref_per_m3_fmt }} ISK/m³
                     </span>
                 </div>
             {% endif %}
@@ -125,6 +152,73 @@
             </div>
         {% endif %}
 
+        {% comment %}
+            De grafiek hierboven zegt hoe groot een dag was, niet waar hij uit
+            bestond. Dit blok zegt dat wel — per dag de ertsen bij elkaar
+            opgeteld over al je characters en systemen, nieuwste bovenaan, zodat
+            je niet de hele ledger hoeft door te lopen voor "wat deed ik gisteren".
+        {% endcomment %}
+        {% if dagen_detail %}
+            <h2 class="fin-kop">{% translate "Per dag: wat je gemijnd hebt" %}
+                <span>— {% translate "alle characters bij elkaar, nieuwste eerst" %}</span></h2>
+            <div class="fin-tablewrap">
+                <table class="fin-table">
+                    <thead>
+                        <tr>
+                            <th>{% translate "Dag" %}</th>
+                            <th>{% translate "Wat" %}</th>
+                            <th class="fin-getal">{% translate "Eenheden" %}</th>
+                            <th class="fin-getal">{% translate "Volume" %}</th>
+                            {% if heeft_prijzen %}
+                                <th class="fin-getal">{% translate "Ruw" %}</th>
+                                <th class="fin-getal">⚒ {% translate "Gerefined" %}</th>
+                            {% endif %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for d in dagen_detail %}
+                            <tr>
+                                <td class="fin-nowrap" style="width: 1%;">
+                                    <span class="fin-min-dag">{{ d.weekdag }} {{ d.dag_fmt }}</span>
+                                    {% if d.beste %}
+                                        <span class="fin-badge fin-badge-klaar">{% translate "beste dag" %}</span>
+                                    {% endif %}
+                                    <div class="fin-min-dagwie">
+                                        {% for c in d.characters %}
+                                            <span class="fin-stip" style="background: {{ c.kleur }};"></span>{{ c.naam }}{% if not forloop.last %} · {% endif %}
+                                        {% endfor %}
+                                    </div>
+                                    <div class="fin-min-dagwaar">{{ d.systemen|join:" · " }}</div>
+                                </td>
+                                <td>
+                                    <div class="fin-pi-voorraad">
+                                        {% for e in d.ertsen %}
+                                            <span class="fin-pi-chip"
+                                                  title="{{ e.naam }} — {{ e.aantal_fmt }} eenheden, {{ e.isk_fmt }} ISK ruw">
+                                                <img loading="lazy" alt=""
+                                                     src="https://images.evetech.net/types/{{ e.type_id }}/icon?size=32">
+                                                {{ e.aantal_fmt }}
+                                            </span>
+                                        {% endfor %}
+                                    </div>
+                                    <div class="fin-bron-balk" style="width: {{ d.pct }}%;"></div>
+                                </td>
+                                <td class="fin-getal" style="width: 1%;">{{ d.aantal_fmt }}</td>
+                                <td class="fin-getal fin-dim fin-nowrap" style="width: 1%;">{{ d.m3_fmt }} m³</td>
+                                {% if heeft_prijzen %}
+                                    <td class="fin-getal fin-dim" style="width: 1%;">{{ d.isk_fmt }}</td>
+                                    <td class="fin-getal" style="width: 1%;">{{ d.ref_isk_fmt }}</td>
+                                {% endif %}
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <p class="fin-onderschrift">
+                {% blocktranslate with r=rendement %}De chips zijn de ertsen van die dag met hun aantal; houd de muis erop voor naam en waarde. Gerefined rekent met {{ r }}% rendement.{% endblocktranslate %}
+            </p>
+        {% endif %}
+
         <h2 class="fin-kop">{% translate "Per erts" %}
             <span>— {% translate "varianten van hetzelfde erts staan bij elkaar" %}</span></h2>
         <div class="fin-kaarten">
@@ -137,6 +231,10 @@
                             <div class="fin-kaart-naam">{{ g.naam }}</div>
                             <div class="fin-kaart-sub">
                                 {{ g.aantal_fmt }} {% translate "eenheden" %} · {{ g.m3_fmt }} m³
+                                {% if heeft_prijzen %}
+                                    · <span class="fin-min-perm3"
+                                            title="{% translate 'Beste opbrengst per kubieke meter erts' %}">{{ g.per_m3_fmt }} ISK/m³</span>
+                                {% endif %}
                             </div>
                         </div>
                         <div class="fin-kaart-deel">{{ g.deel }}%</div>
@@ -194,7 +292,7 @@
 
         {% if mineralen %}
             <h2 class="fin-kop">{% translate "Als je alles refinet" %}
-                <span>— {% translate "opbrengst bij een perfecte refine, tegen Jita buy" %}</span></h2>
+                <span>— {% blocktranslate with r=rendement %}opbrengst bij {{ r }}% rendement, tegen Jita buy{% endblocktranslate %}</span></h2>
             <div class="fin-tablewrap">
                 <table class="fin-table fin-table-pi">
                     <thead>

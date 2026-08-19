@@ -21,6 +21,13 @@ WALLET_SCOPE = "esi-wallet.read_character_wallet.v1"
 CONTRACTS_SCOPE = "esi-contracts.read_character_contracts.v1"
 MINING_SCOPE = "esi-industry.read_character_mining.v1"
 PLANETS_SCOPE = "esi-planets.manage_planets.v1"
+MAIL_SCOPE = "esi-mail.read_mail.v1"
+SEND_MAIL_SCOPE = "esi-mail.send_mail.v1"
+ORDERS_SCOPE = "esi-markets.read_character_orders.v1"
+# Ook niet gevraagd bij het koppelen: zonder dit token kunnen we het orderboek
+# van een spelersstructuur niet lezen en valt alleen de vergelijking met de
+# concurrentie daar weg — de orders zelf blijven gewoon staan.
+STRUCTUURMARKT_SCOPE = "esi-markets.structure_markets.v1"
 # Niet gevraagd bij het koppelen: spelersstructuren zijn mooi meegenomen, maar
 # er een herkoppeling voor afdwingen is het niet waard. Bijna elk account heeft
 # dit token al liggen van een andere plugin — dan gebruiken we dat.
@@ -31,7 +38,21 @@ TTL_JOURNAL = 900           # journaal-regels zijn onveranderlijk zodra ze er st
 TTL_CONTRACTS = 600
 TTL_MINING = 1800           # de ledger vat per dag samen, dus dit hoeft niet vers
 TTL_PLANETS = 900           # extractors lopen af, dus niet te lang vasthouden
+TTL_ORDERS = 300            # je eigen orders veranderen zodra er iets verkoopt
+TTL_ORDERHIST = 1800        # afgelopen orders veranderen niet meer
+TTL_BOEK = 900              # de markt beweegt, maar niet elke paginaweergave
+TTL_MAIL = 600              # nieuwe mail mag best een paar minuten op zich laten wachten
+TTL_MAILBODY = 30 * 86400   # een verzonden mail verandert nooit meer
 JOURNAL_PAGES = 5           # ESI geeft 1000 regels per pagina, 5 is ruim een maand
+MAIL_RONDES = 6             # 50 koppen per ronde, dus 300 mails terug
+
+# Grenzen bij het versturen. De ESI-spec noemt 10.000 tekens voor de body, maar
+# de server weigert alles boven de 8000 met "Maximum body length is 8000" — dat
+# is dezelfde 8000 als de teller in het mailvenster van de game. Afgaan op de
+# spec kostte in aa-vkvnieuws een mislukte verzending, dus: 8000.
+MAIL_MAX_BODY = 8000
+MAIL_MAX_ONDERWERP = 1000
+MAIL_MAX_ONTVANGERS = 50
 
 # Statussen waarbij opnieuw proberen zin heeft: foutlimiet, rate limit, storing.
 RETRY_STATUS = {420, 429, 500, 502, 503, 504}
@@ -45,9 +66,16 @@ _session.mount("https://", requests.adapters.HTTPAdapter(
 ))
 
 
-def _request_met_headers(path, token, params=None):
-    """Eén ESI-call met backoff. Geeft (data, headers) of (None, {})."""
-    headers = {**UA, "Authorization": f"Bearer {token}"}
+def _request_met_headers(path, token=None, params=None):
+    """Eén ESI-call met backoff. Geeft (data, headers) of (None, {}).
+
+    Zonder token gaat de call ongeauthenticeerd de deur uit — dat mag voor de
+    publieke endpoints (marktorders van een regio bijvoorbeeld). Aanroepers van
+    de persoonlijke endpoints controleren zelf of er een token is.
+    """
+    headers = {**UA}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
     for poging in range(1, MAX_TRIES + 1):
         try:
             r = _session.get(f"{ESI}{path}", headers=headers,
@@ -79,13 +107,13 @@ def _request_met_headers(path, token, params=None):
     return None, {}
 
 
-def _request(path, token, params=None):
+def _request(path, token=None, params=None):
     """Eén ESI-call met backoff. Geeft de data of None."""
     data, _ = _request_met_headers(path, token, params)
     return data
 
 
-def _paged(path, token, params=None, max_pages=20):
+def _paged(path, token=None, params=None, max_pages=20):
     """Alle pagina's van een gepagineerde endpoint.
 
     **Niet** stoppen zodra een pagina korter is dan 1000 regels. Dat leek een
@@ -392,8 +420,377 @@ def contract_items(character_id, contract_id):
 
 
 # --------------------------------------------------------------------------
+# Markt
+# --------------------------------------------------------------------------
+
+def orders(character_id, token=None):
+    """De openstaande marktorders van dit character."""
+    key = f"fin_orders_{character_id}"
+    hit = cache.get(key)
+    if hit is not None:
+        return hit
+    token = token or token_for(character_id, ORDERS_SCOPE)
+    rows = _request(f"/characters/{character_id}/orders/", token) if token else None
+    rows = rows or []
+    cache.set(key, rows, TTL_ORDERS)
+    return rows
+
+
+def order_history(character_id, token=None):
+    """Afgelopen orders van dit character (ESI houdt ~90 dagen bij).
+
+    Let op bij het lezen: een order die **helemaal gevuld** is krijgt state
+    `expired` met `volume_remain` 0 — er bestaat geen aparte status "verkocht".
+    Alleen een order die met spullen erin afloopt is écht verlopen.
+    """
+    key = f"fin_orderhist_{character_id}"
+    hit = cache.get(key)
+    if hit is not None:
+        return hit
+    token = token or token_for(character_id, ORDERS_SCOPE)
+    rows = _paged(f"/characters/{character_id}/orders/history/", token) if token else []
+    cache.set(key, rows, TTL_ORDERHIST)
+    return rows
+
+
+def markt_regio(region_id, type_id):
+    """Alle orders van één type in een regio. Publiek, dus zonder token.
+
+    Met het type-filter is dit één pagina — een heel regio-orderboek ophalen
+    voor één artikel zou onbeschoft zijn tegenover ESI én traag.
+    """
+    key = f"fin_mregio_{region_id}_{type_id}"
+    hit = cache.get(key)
+    if hit is not None:
+        return hit
+    rijen = _paged(f"/markets/{region_id}/orders/", None,
+                   {"type_id": type_id, "order_type": "all"}, max_pages=5)
+    # Alleen wat we nodig hebben bewaren: het order-id om onze eigen orders eruit
+    # te kunnen filteren, de prijs, de kant en waar hij ligt.
+    klein = [{"order_id": o.get("order_id"), "prijs": float(o.get("price") or 0),
+              "koop": bool(o.get("is_buy_order")), "systeem": o.get("system_id"),
+              "locatie": o.get("location_id")}
+             for o in rijen]
+    cache.set(key, klein, TTL_BOEK)
+    return klein
+
+
+def markt_structuur(structure_id, character_ids):
+    """Het orderboek van een spelersstructuur, per type gegroepeerd.
+
+    Een structuurmarkt staat **niet** in de regio-orders: die endpoint kent
+    alleen NPC-stations. Hier is dus een token nodig van iemand die er mag
+    docken — welke dat is verschilt per structuur, dus we proberen ze allemaal,
+    net als bij `structure_names`.
+
+    Het hele boek moet in één keer opgehaald (geen type-filter beschikbaar),
+    maar dat valt mee: de grootste markt hier is 4 pagina's in 0,8s. We bewaren
+    het per type uitgesplitst, want dat is waar we het voor gebruiken.
+    """
+    key = f"fin_mstruct_{structure_id}"
+    hit = cache.get(key)
+    if hit is not None:
+        return hit
+
+    boek = {}
+    for token in _tokens_met_scope(character_ids, STRUCTUURMARKT_SCOPE):
+        rijen = _paged(f"/markets/structures/{structure_id}/", token, max_pages=30)
+        if rijen:
+            for o in rijen:
+                boek.setdefault(o.get("type_id"), []).append(
+                    {"order_id": o.get("order_id"), "prijs": float(o.get("price") or 0),
+                     "koop": bool(o.get("is_buy_order")),
+                     "locatie": o.get("location_id")})
+            break
+    # Geen toegang? Kort cachen, zodat nieuwe dockingrechten vanzelf helpen.
+    cache.set(key, boek, TTL_BOEK if boek else 300)
+    return boek
+
+
+def station_systeem(station_id):
+    """In welk systeem een NPC-station staat (publiek, verandert nooit)."""
+    key = f"fin_station_{station_id}"
+    hit = cache.get(key)
+    if hit is not None:
+        return hit
+    data = _request(f"/universe/stations/{station_id}/")
+    systeem = (data or {}).get("system_id")
+    if systeem:
+        cache.set(key, systeem, 30 * 86400)
+    return systeem
+
+
+# --------------------------------------------------------------------------
+# Mail
+# --------------------------------------------------------------------------
+
+def mail_headers(character_id, token=None, rondes=MAIL_RONDES):
+    """De mailkoppen van dit character, nieuwste eerst.
+
+    **Deze endpoint pagineert niet zoals de rest.** Geen `page` en geen
+    X-Pages: je krijgt 50 koppen per keer en vraagt de volgende vijftig op met
+    `last_mail_id` = het laagste id dat je al hebt. Zoek je hier naar X-Pages,
+    dan blijf je bij die eerste vijftig steken zonder dat er iets misgaat.
+
+    `token` mag meegegeven worden: dan doet deze functie geen database-werk en
+    kan de aanroeper alle characters tegelijk ophalen.
+    """
+    key = f"fin_mailkop_{character_id}"
+    hit = cache.get(key)
+    if hit is not None:
+        return hit
+
+    token = token or token_for(character_id, MAIL_SCOPE)
+    if not token:
+        cache.set(key, [], TTL_MAIL)
+        return []
+
+    alles, laatste = [], None
+    for _ in range(rondes):
+        blok = _request(f"/characters/{character_id}/mail/", token,
+                        {"last_mail_id": laatste} if laatste else None)
+        if not blok:
+            break
+        alles.extend(blok)
+        if len(blok) < 50:              # minder dan een volle ronde = einde mailbox
+            break
+        laatste = min(m["mail_id"] for m in blok)
+    cache.set(key, alles, TTL_MAIL)
+    return alles
+
+
+def mail_body(character_id, mail_id, token=None):
+    """De inhoud van één mail.
+
+    Een verstuurde mail verandert nooit meer, dus dit mag een maand blijven
+    staan: daarna kost het openslaan van je mailbox geen enkele ESI-call meer.
+    """
+    key = f"fin_mailbody_{mail_id}"
+    hit = cache.get(key)
+    if hit is not None:
+        return hit
+
+    token = token or token_for(character_id, MAIL_SCOPE)
+    data = _request(f"/characters/{character_id}/mail/{mail_id}/", token) if token else None
+    data = data or {}
+    if data:                            # een mislukte poging niet een maand vasthouden
+        cache.set(key, data, TTL_MAILBODY)
+    return data
+
+
+def mail_labels(character_id, token=None):
+    """Labels van dit character met hun ongelezen-tellers."""
+    key = f"fin_maillabels_{character_id}"
+    hit = cache.get(key)
+    if hit is not None:
+        return hit
+    token = token or token_for(character_id, MAIL_SCOPE)
+    data = _request(f"/characters/{character_id}/mail/labels/", token) if token else None
+    data = data or {}
+    cache.set(key, data, TTL_MAIL)
+    return data
+
+
+def zoek_ids(namen):
+    """Namen → ids via /universe/ids/ (publiek).
+
+    `/universe/names` gaat van id naar naam; deze endpoint doet het andersom en
+    is de enige manier om een ingetypte ontvanger op te zoeken. Het antwoord is
+    per categorie gesorteerd (characters / corporations / alliances …), en die
+    categorie is precies het `recipient_type` dat de mail-endpoint wil hebben.
+
+    Hoofdlettergevoelig is het niet, maar exact wél: 'brandweer' vindt niets.
+    """
+    namen = [n for n in {n.strip() for n in namen} if n]
+    if not namen:
+        return {}
+    try:
+        r = _session.post(f"{ESI}/universe/ids/", json=namen, headers=UA,
+                          params={"datasource": "tranquility", "language": "en"},
+                          timeout=20)
+    except requests.RequestException as exc:
+        logger.info("Finance: /universe/ids onbereikbaar: %s", exc)
+        return {}
+    if r.status_code != 200:
+        logger.info("Finance: /universe/ids gaf %s", r.status_code)
+        return {}
+    try:
+        data = r.json() or {}
+    except ValueError:
+        return {}
+
+    # Een naam kan in meerdere categorieën voorkomen (een corp die net zo heet
+    # als een character). Volgorde is de voorrang: een persoon eerst.
+    uit = {}
+    for sleutel, soort in (("characters", "character"),
+                           ("corporations", "corporation"),
+                           ("alliances", "alliance")):
+        for rij in data.get(sleutel) or []:
+            uit.setdefault((rij.get("name") or "").lower(),
+                           {"id": rij.get("id"), "naam": rij.get("name"),
+                            "soort": soort})
+    return uit
+
+
+def stuur_mail(character_id, ontvangers, onderwerp, inhoud, token=None):
+    """Verstuur één mail. Geeft (mail_id, "") of (None, "wat er misging").
+
+    Geen uitzonderingen: de aanroeper is een formulier, en dat wil een zin die
+    je aan de gebruiker kunt laten zien.
+    """
+    token = token or token_for(character_id, SEND_MAIL_SCOPE)
+    if not token:
+        return None, ("Dit character mag geen mail versturen. Koppel het "
+                      "opnieuw, dan wordt die toestemming meteen gevraagd.")
+    if not ontvangers:
+        return None, "Geen ontvangers."
+    if len(ontvangers) > MAIL_MAX_ONTVANGERS:
+        return None, (f"ESI staat hoogstens {MAIL_MAX_ONTVANGERS} ontvangers per "
+                      f"mail toe; dit bericht heeft er {len(ontvangers)}.")
+    if not (inhoud or "").strip():
+        return None, "Lege mail."
+    if len(inhoud) > MAIL_MAX_BODY:
+        # Niet afkappen: een half verstuurd bericht is erger dan geen.
+        return None, (f"Te lang voor EVE: {_nl_getal(len(inhoud))} tekens "
+                      f"inclusief opmaak, en de grens is "
+                      f"{_nl_getal(MAIL_MAX_BODY)}.")
+
+    lading = {
+        "subject": (onderwerp or "")[:MAIL_MAX_ONDERWERP],
+        "body": inhoud,
+        "recipients": [{"recipient_type": soort, "recipient_id": int(eve_id)}
+                       for soort, eve_id in ontvangers],
+        # De CSPA-heffing die iemand op z'n mailbox kan zetten. Nul betekent:
+        # alleen versturen als het gratis is. ESI zegt het als dat niet zo is.
+        "approved_cost": 0,
+    }
+
+    for poging in (1, 2, 3):
+        try:
+            r = _session.post(
+                f"{ESI}/characters/{character_id}/mail/",
+                headers={**UA, "Authorization": f"Bearer {token}",
+                         "Content-Type": "application/json"},
+                params={"datasource": "tranquility"}, json=lading, timeout=30)
+        except requests.RequestException as exc:
+            if poging == 3:
+                return None, f"ESI niet bereikbaar: {exc}"
+            time.sleep(2 ** poging)
+            continue
+
+        if r.status_code in (200, 201):
+            try:
+                mail_id = r.json()
+            except ValueError:
+                mail_id = 0
+            logger.info("Finance: mail verstuurd door %s naar %s ontvangers",
+                        character_id, len(ontvangers))
+            return mail_id, ""
+
+        # Alleen bij een tijdelijke storing opnieuw. Een 403 verandert niet door
+        # het nog eens te doen, en bij 520 (CCP's eigen maillimiet) maak je het
+        # juist erger.
+        if r.status_code in (500, 502, 503, 504) and poging < 3:
+            time.sleep(2 ** poging)
+            continue
+        return None, _mailfout(r)
+    return None, "Verzenden lukte niet na drie pogingen."
+
+
+def _nl_getal(n):
+    return f"{n:,}".replace(",", ".")
+
+
+def _mailfout(respons):
+    """Van een ESI-foutcode iets maken waar de gebruiker wat aan heeft."""
+    try:
+        melding = (respons.json() or {}).get("error", "")
+    except ValueError:
+        melding = (respons.text or "")[:200]
+
+    uitleg = {
+        400: ("ESI weigerde het bericht. Meestal een ontvanger die niet bestaat, "
+              "een lege tekst, of een body boven de 8000 tekens."),
+        401: "Het token is verlopen of ingetrokken. Koppel het character opnieuw.",
+        403: ("Dit character mag deze mail niet versturen. Voor een mail aan een "
+              "hele corporatie of alliantie heb je in de game de rol "
+              "Communications Officer nodig."),
+        404: "ESI kent dit character niet.",
+        420: "ESI-foutlimiet bereikt. Even wachten en het daarna opnieuw proberen.",
+        520: ("EVE's eigen limiet op mail versturen is bereikt. Dat is een limiet "
+              "van CCP op het aantal mails per tijdseenheid — wachten helpt."),
+    }.get(respons.status_code, f"ESI gaf {respons.status_code} terug.")
+    return f"{uitleg} ({melding})" if melding else uitleg
+
+
+def mail_lists(character_id, token=None):
+    """De mailinglijsten waar dit character op zit.
+
+    Nodig voor de namen: een mailinglijst-id lost `/universe/names` niet op, dus
+    zonder deze lijst staat er een kaal nummer bij de ontvangers.
+    """
+    key = f"fin_maillists_{character_id}"
+    hit = cache.get(key)
+    if hit is not None:
+        return hit
+    token = token or token_for(character_id, MAIL_SCOPE)
+    rows = _request(f"/characters/{character_id}/mail/lists/", token) if token else None
+    rows = rows or []
+    cache.set(key, rows, TTL_MAIL)
+    return rows
+
+
+# --------------------------------------------------------------------------
 # Namen
 # --------------------------------------------------------------------------
+
+def name_info(ids):
+    """id → {"naam", "soort"} via /universe/names.
+
+    Zelfde bron als `names()`, maar hier houden we ook de **categorie** vast.
+    Bij een mail weet je van de afzender alleen het id, en zonder categorie kun
+    je niet zien of daar een portret of een corporatielogo bij hoort. Een eigen
+    cachesleutel, want `names()` bewaart alleen de kale naam en die twee door
+    elkaar halen zou de ene of de andere aanroeper laten struikelen.
+    """
+    ids = list({int(i) for i in ids if i})
+    uit, missend = {}, []
+    for i in ids:
+        hit = cache.get(f"fin_naamsoort_{i}")
+        if hit is not None:
+            uit[i] = hit
+        else:
+            missend.append(i)
+
+    def los_op(batch):
+        """Zelfde binaire splitsing als in `names()`: één rot id sloopt de batch."""
+        if not batch:
+            return
+        try:
+            r = _session.post(f"{ESI}/universe/names/", json=batch, headers=UA,
+                              params={"datasource": "tranquility"}, timeout=20)
+        except requests.RequestException:
+            return
+        if r.status_code == 200:
+            for x in r.json():
+                vak = {"naam": x.get("name") or "", "soort": x.get("category") or ""}
+                uit[x["id"]] = vak
+                cache.set(f"fin_naamsoort_{x['id']}", vak, 7 * 86400)
+        elif r.status_code >= 500 or r.status_code == 429:
+            return
+        elif len(batch) > 1:
+            half = len(batch) // 2
+            los_op(batch[:half])
+            los_op(batch[half:])
+        else:
+            vak = {"naam": "", "soort": ""}
+            uit[batch[0]] = vak
+            cache.set(f"fin_naamsoort_{batch[0]}", vak, 7 * 86400)
+
+    for i in range(0, len(missend), 1000):
+        los_op(missend[i:i + 1000])
+    return uit
+
 
 def names(ids):
     """id → naam via /universe/names.

@@ -1,14 +1,21 @@
-"""Rekenwerk voor de drie pagina's — Finance.
+"""Rekenwerk voor de tabbladen — Finance.
 
 De ratting-logica is een port van `Ratting.tsx` uit het dashboard: dezelfde twee
 ref_types, dezelfde totalen en dezelfde groepering per dag, zodat beide plekken
 hetzelfde getal laten zien.
 """
 
+import re
 from collections import Counter, defaultdict
+from html import escape
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 
-from . import esi
+from . import esi, mailtekst
+
+MAAND_KORT = ["", "jan", "feb", "mrt", "apr", "mei", "jun",
+              "jul", "aug", "sep", "okt", "nov", "dec"]
+WEEKDAG_KORT = ["ma", "di", "wo", "do", "vr", "za", "zo"]
 
 # EVE boekt ratting-inkomsten in twee soorten journaalregels weg. Nagekeken in
 # echte data: bounty_prizes is de kopgeldbetaling, ess_escrow_transfer is de
@@ -931,7 +938,17 @@ def _type_gegevens(type_ids):
     return volumes, portie, materialen, groepen
 
 
-def mining(user, dagen=30):
+# Refine-rendement. Tot v2.13 rekende deze pagina met een **volledige** refine,
+# en dat bestaat in EVE niet: wat je terugkrijgt hangt af van je skills, het
+# station of de structuur en z'n rigs. Zelfs met alles op V kom je niet aan de
+# 100%. Een te hoog rendement maakt van "refinen loont" een advies dat in het
+# spel niet uitkomt, dus staat het nu op een realistische waarde die je zelf kunt
+# bijstellen. De opbrengst schaalt lineair, dus een andere stand is één klik.
+REFINE_STANDAARD = 80
+REFINE_KEUZES = (50, 60, 70, 80, 90, 100)
+
+
+def mining(user, dagen=30, rendement=REFINE_STANDAARD):
     """Mining-ledger van alle characters, samengevat per erts, systeem en dag.
 
     ESI geeft de ledger al samengevat per dag en per ertssoort — geen losse
@@ -965,6 +982,10 @@ def mining(user, dagen=30):
     volumes, portie, materialen, groepen = _type_gegevens(type_ids)
     mineraal_ids = {mid for mats in materialen.values() for mid, _ in mats}
     prijzen = esi.jita_buy(type_ids | mineraal_ids)
+    # Ook de volumes van de mineralen. Erts is bijna alleen maar ruimte: pas als
+    # je weet hoeveel m³ er ná de oven overblijft, weet je of het de moeite is om
+    # het ruwe spul überhaupt te verslepen.
+    mineraal_volumes = _type_gegevens(mineraal_ids)[0] if mineraal_ids else {}
     # De namen van de mineralen staan niet in `namen` (dat gaat over erts en
     # systemen), dus die erbij halen — één gecachte call.
     namen = {**esi.names(mineraal_ids), **namen} if mineraal_ids else namen
@@ -972,13 +993,18 @@ def mining(user, dagen=30):
     def _ruwe_isk(tid, aantal):
         return aantal * prijzen.get(tid, 0.0)
 
+    # Alles wat uit de oven komt gaat door dit rendement heen: de ISK-schatting,
+    # de mineralen-chips op de kaarten en de totaaltabel. Eén plek, zodat die
+    # drie nooit uit elkaar kunnen lopen.
+    factor = max(min(int(rendement or REFINE_STANDAARD), 100), 10) / 100
+
     def _gerefined_isk(tid, aantal):
-        """(aantal / portionSize) x som(mineraalAantal x Jita-buy)."""
+        """(aantal / portionSize) x som(mineraalAantal x Jita-buy) x rendement."""
         mats = materialen.get(tid)
         p = portie.get(tid) or 0
         if not mats or not p:
             return 0.0
-        return (aantal / p) * sum(n * prijzen.get(mid, 0.0) for mid, n in mats)
+        return (aantal / p) * sum(n * prijzen.get(mid, 0.0) for mid, n in mats) * factor
 
     totaal = sum(int(e["quantity"]) for e in regels)
     totaal_m3 = sum(int(e["quantity"]) * volumes.get(e["type_id"], 0.0) for e in regels)
@@ -1039,7 +1065,7 @@ def mining(user, dagen=30):
         p = portie.get(tid) or 0
         if p:
             for mid, mn in materialen.get(tid, []):
-                vak["opbrengst"][mid] += (n / p) * mn
+                vak["opbrengst"][mid] += (n / p) * mn * factor
 
     ertsgroepen = sorted(vakken.values(), key=lambda v: -v["aantal"])
     hoogste_groep = ertsgroepen[0]["aantal"] if ertsgroepen else 1
@@ -1056,6 +1082,11 @@ def mining(user, dagen=30):
         g["ref_isk_fmt"] = fmt_isk(g["ref_isk"])
         g["ref_loont"] = g["ref_isk"] > g["isk"] > 0
         g["beste_fmt"] = fmt_isk(max(g["isk"], g["ref_isk"]))
+        # Wat een kubieke meter ruimte in je hold opbrengt. Dát is waar een
+        # miner op kiest: je hebt geen tekort aan erts, je hebt een tekort aan
+        # ruimte — in het schip, in de hangar en in de vracht naar Jita.
+        g["per_m3"] = (max(g["isk"], g["ref_isk"]) / g["m3"]) if g["m3"] else 0.0
+        g["per_m3_fmt"] = fmt_isk(g["per_m3"])
         g["pct"] = round(g["aantal"] / hoogste_groep * 100)
         g["deel"] = round(g["aantal"] / totaal * 100) if totaal else 0
         g["opbrengst"] = sorted(
@@ -1080,6 +1111,14 @@ def mining(user, dagen=30):
     for m in mineralen_lijst:
         m["pct"] = round(m["isk"] / hoogste_min * 100) if hoogste_min else 0
 
+    # Wat er ná de oven aan volume overblijft. Erts is grotendeels lucht, dus dit
+    # is niet alleen een ISK-vraag maar ook een vrachtvraag: het scheelt bij deze
+    # hoeveelheid het verschil tussen een paar Deep Space Transports en een hele
+    # jump freighter.
+    mineraal_m3 = sum(m["aantal"] * mineraal_volumes.get(m["type_id"], 0.0)
+                      for m in mineralen_lijst)
+    beste_erts = max(ertsgroepen, key=lambda g: g["per_m3"], default=None)
+
     per_dag = defaultdict(int)
     for e in regels:
         per_dag[e["date"]] += int(e["quantity"])
@@ -1097,6 +1136,48 @@ def mining(user, dagen=30):
         v["toon_label"] = (i % stap == 0) or (i == len(reeks) - 1)
         d = datetime.fromisoformat(v["dag"]).date()
         v["dag_kort"] = f"{d.day}/{d.month}"
+
+    # ── Per dag: wát je gemijnd hebt, niet alleen hoeveel ─────────────────
+    # De grafiek hierboven geeft één balk per dag; die zegt hoe groot een dag
+    # was maar niet waar hij uit bestond. Dit blok vult dat aan zonder dat je de
+    # hele ledger hoeft door te lopen: per dag de ertsen bij elkaar opgeteld
+    # over al je characters en systemen.
+    dagvakken = {}
+    for e in regels:
+        n = int(e["quantity"])
+        tid = e["type_id"]
+        vak = dagvakken.setdefault(e["date"], {
+            "dag": e["date"], "aantal": 0, "m3": 0.0, "isk": 0.0, "ref_isk": 0.0,
+            "ertsen": defaultdict(int), "characters": {}, "systemen": set()})
+        vak["aantal"] += n
+        vak["m3"] += n * volumes.get(tid, 0.0)
+        vak["isk"] += _ruwe_isk(tid, n)
+        vak["ref_isk"] += _gerefined_isk(tid, n)
+        vak["ertsen"][tid] += n
+        vak["characters"].setdefault(e["_char"], e["_kleur"])
+        vak["systemen"].add(naam_van(e["solar_system_id"]))
+
+    # Nieuwste bovenaan: de laatste sessie is waar je naar kijkt.
+    dagen_detail = sorted(dagvakken.values(), key=lambda d: d["dag"], reverse=True)
+    hoogste_dag = max((d["aantal"] for d in dagen_detail), default=0) or 1
+    for d in dagen_detail:
+        datum = datetime.fromisoformat(d["dag"]).date()
+        d["dag_fmt"] = f"{datum.day}-{datum.month}-{datum.year}"
+        d["weekdag"] = WEEKDAG_KORT[datum.weekday()]
+        d["aantal_fmt"] = _getal(d["aantal"])
+        d["m3_fmt"] = f"{d['m3']:,.0f}".replace(",", ".")
+        d["isk_fmt"] = fmt_isk(d["isk"])
+        d["ref_isk_fmt"] = fmt_isk(d["ref_isk"])
+        d["pct"] = round(d["aantal"] / hoogste_dag * 100)
+        d["beste"] = d["aantal"] >= hoogste_dag
+        # Grootste eerst: wat de dag bepaalde staat vooraan.
+        d["ertsen"] = [{"type_id": tid, "naam": naam_van(tid), "aantal": n,
+                        "aantal_fmt": _getal(n),
+                        "isk_fmt": fmt_isk(_ruwe_isk(tid, n))}
+                       for tid, n in sorted(d["ertsen"].items(), key=lambda kv: -kv[1])]
+        d["characters"] = [{"naam": naam, "kleur": kleur}
+                           for naam, kleur in sorted(d["characters"].items())]
+        d["systemen"] = sorted(d["systemen"])
 
     per_char = {}
     for e in regels:
@@ -1137,6 +1218,18 @@ def mining(user, dagen=30):
         "refine_winst_fmt": fmt_isk(abs(winst)),
         "refine_pct": round(winst / totaal_isk * 100) if totaal_isk else 0,
         "refine_loont": winst > 0,
+        # Het rendement staat in de URL, dus een andere stand is te delen en de
+        # terugknop werkt. 100% blijft kiesbaar, maar is nadrukkelijk theorie.
+        "rendement": round(factor * 100),
+        "refine_keuzes": [{"waarde": k, "actief": k == round(factor * 100)}
+                          for k in REFINE_KEUZES],
+        "mineraal_m3_fmt": f"{mineraal_m3:,.0f}".replace(",", "."),
+        "krimp_pct": round((1 - mineraal_m3 / totaal_m3) * 100) if totaal_m3 else 0,
+        # ISK per m³ vóór en ná de oven: het ruwe erts per m³ erts, de mineralen
+        # per m³ mineralen. Zo zie je wat een m³ vracht je in beide gevallen waard is.
+        "ruw_per_m3_fmt": fmt_isk(totaal_isk / totaal_m3) if totaal_m3 else "0",
+        "ref_per_m3_fmt": fmt_isk(totaal_ref / mineraal_m3) if mineraal_m3 else "0",
+        "beste_erts": beste_erts,
         "heeft_prijzen": bool(prijzen),
         "soorten": len(ertsen),
         "actieve_dagen": len(per_dag),
@@ -1147,6 +1240,7 @@ def mining(user, dagen=30):
         "mineralen": mineralen_lijst,
         "systemen": systemen[:10],
         "grafiek": reeks,
+        "dagen_detail": dagen_detail,
         "schaal": schaal,
         # Bij een handvol actieve dagen rekt elke balk uit tot een blok van
         # honderden pixels; dan houden we ze smal en gecentreerd.
@@ -1863,3 +1957,828 @@ def pi(user):
                             for k, v in per_type.items()), key=lambda x: -x["aantal"]),
         "verdeling": verdeling,
     }
+
+
+# --------------------------------------------------------------------------
+# Mail
+# --------------------------------------------------------------------------
+
+# De vier vaste labels van elke mailbox. Eigen labels die iemand zelf aanmaakt
+# komen met naam en al uit ESI mee.
+MAIL_VASTE_LABELS = {1: "Inbox", 2: "Verzonden", 4: "Corp", 8: "Alliance"}
+
+VAK_LABEL = {"inbox": "Inbox", "corp": "Corp", "alliance": "Alliance",
+             "verzonden": "Verzonden"}
+
+# Welk dogma-effect een module in welk slot hangt. Hiermee is uit een kale
+# fitting-link (die alleen type-ids draagt) alsnog een echte EFT-uitdraai te
+# maken, mét de slots in de goede volgorde.
+EFFECT_SLOT = {12: "hoog", 13: "midden", 11: "laag", 2663: "rig", 3772: "subsysteem"}
+CAT_DRONE = 18
+
+MAIL_MAX = 300              # zoveel mails tonen we; meer scrollt niemand door
+MAIL_KORT = 190             # lengte van het voorproefje onder het onderwerp
+
+PORTRET = {
+    "character": "https://images.evetech.net/characters/%s/portrait?size=64",
+    "corporation": "https://images.evetech.net/corporations/%s/logo?size=64",
+    "alliance": "https://images.evetech.net/alliances/%s/logo?size=64",
+}
+
+
+def _mail_typen(type_ids):
+    """Naam, groep en slot van alles wat in een fitting-link voorkomt.
+
+    Komt uit eveuniverse, dus zonder ESI-call. Het slot staat er niet als veld
+    in maar volgt uit de dogma-effects: een module met effect 11 past in een
+    laag slot, 13 in een midden, enzovoort. Heeft een type helemaal geen
+    slot-effect, dan is het geen module maar lading — drones apart, want die
+    horen in EFT in hun eigen blok.
+    """
+    typen = {}
+    ids = [int(i) for i in type_ids if i]
+    if not ids:
+        return typen
+    try:
+        from eveuniverse.models import EveType, EveTypeDogmaEffect
+    except ImportError:                 # eveuniverse niet geïnstalleerd
+        return typen
+
+    for t in EveType.objects.filter(id__in=ids).select_related("eve_group"):
+        typen[t.id] = {
+            "naam": t.name,
+            "groep": t.eve_group.name if t.eve_group_id else "",
+            "categorie": t.eve_group.eve_category_id if t.eve_group_id else 0,
+            "slot": "",
+        }
+    for type_id, effect_id in (EveTypeDogmaEffect.objects
+                               .filter(eve_type_id__in=ids,
+                                       eve_dogma_effect_id__in=list(EFFECT_SLOT))
+                               .values_list("eve_type_id", "eve_dogma_effect_id")):
+        vak = typen.get(type_id)
+        if vak and not vak["slot"]:
+            vak["slot"] = EFFECT_SLOT[effect_id]
+    for vak in typen.values():
+        if not vak["slot"]:
+            vak["slot"] = "drone" if vak["categorie"] == CAT_DRONE else "lading"
+
+    # Wat eveuniverse niet kent (een type uit een gloednieuwe patch) halen we
+    # alsnog bij naam op, anders staat er "Type 12345" in de fit.
+    ontbreekt = [i for i in ids if i not in typen]
+    if ontbreekt:
+        for tid, naam in esi.names(ontbreekt).items():
+            typen[tid] = {"naam": naam or f"Type {tid}", "groep": "",
+                          "categorie": 0, "slot": "lading"}
+    return typen
+
+
+def _mail_vak(kop, labels, mijn):
+    """In welk vak deze mail hoort.
+
+    Zelf verstuurd gaat vóór alles: een corp-mail die jíj rondstuurde staat bij
+    de ontvangers onder Corp, maar voor jou is het gewoon verzonden post. Daarna
+    telt het label dat de client eraan hing.
+    """
+    if kop.get("from") in mijn or 2 in labels:
+        return "verzonden"
+    if 4 in labels:
+        return "corp"
+    if 8 in labels:
+        return "alliance"
+    return "inbox"
+
+
+def mail(user, vak="alles", zoek=""):
+    """Alle mail van al je characters op één hoop, ontdubbeld en doorzoekbaar.
+
+    Dezelfde corp-mail komt in elke mailbox binnen — hier zijn dat 88 koppen
+    voor 35 echte mails. Ontdubbelen dus op afzender + tijdstip + onderwerp, en
+    onthouden wíe hem gekregen heeft; dat laatste is juist informatie ("dit ging
+    alleen naar je main").
+
+    De bodies halen we voor álle mails op en niet pas bij het openklappen: ze
+    veranderen nooit meer en blijven dus een maand in de cache staan, en pas mét
+    de tekst kun je je hele mailbox doorzoeken. Koud kost dat hier 2 seconden.
+    """
+    chars = esi.characters(user)
+    mijn = {c.character_id: c.character_name for c in chars}
+    kleuren = _kleur_per_character([{"character_id": cid} for cid in mijn])
+
+    # De tokens hier ophalen, niet in de threads hieronder: dan raakt geen enkele
+    # worker de database aan en hoeven we geen verbindingen op te ruimen.
+    tokens = {cid: esi.token_for(cid, esi.MAIL_SCOPE) for cid in mijn}
+
+    with ThreadPoolExecutor(max_workers=6) as pool:
+        koppen = dict(zip(mijn, pool.map(
+            lambda cid: esi.mail_headers(cid, tokens.get(cid)), list(mijn))))
+
+    # Mailinglijsten: hun id lost /universe/names niet op, dus die namen moeten
+    # van de lijst-endpoint komen.
+    lijstnamen = {}
+    for cid in mijn:
+        for lijst in esi.mail_lists(cid, tokens.get(cid)):
+            lijstnamen[lijst.get("mailing_list_id")] = lijst.get("name") or ""
+
+    # Versturen is een aparte toestemming van lezen: wie 'm niet heeft staat er
+    # niet bij als afzender.
+    afzenders = [{"character_id": cid, "naam": naam} for cid, naam in mijn.items()
+                 if esi.has_token([cid], esi.SEND_MAIL_SCOPE)]
+    verstuurblok = {
+        "afzenders": afzenders,
+        "kan_versturen": bool(afzenders),
+        "max_body": esi.MAIL_MAX_BODY,
+        "mailinglijsten": sorted(n for n in lijstnamen.values() if n),
+    }
+
+    uniek = {}
+    for cid, lijst in koppen.items():
+        for kop in lijst:
+            sleutel = (kop.get("from"), kop.get("timestamp"), kop.get("subject") or "")
+            vakje = uniek.setdefault(sleutel, {
+                "kop": kop, "bron": (cid, kop["mail_id"]),
+                "chars": [], "ongelezen": [], "labels": set(),
+            })
+            vakje["chars"].append(cid)
+            vakje["labels"].update(kop.get("labels") or [])
+            if not kop.get("is_read"):
+                vakje["ongelezen"].append(cid)
+
+    if not uniek:
+        return {"mails": [], "aantal": 0, "totaal": 0, "aantal_characters": len(chars),
+                "ongelezen": 0, "fits_totaal": 0, "afzenders_top": [], "maanden": [],
+                "per_char": [], "vakken": [], "zoek": zoek, "vak": vak,
+                **verstuurblok}
+
+    # Op tijd sorteren vóór het ophalen van de bodies: dan kappen we bij een
+    # volle mailbox de oudste af in plaats van een willekeurige greep.
+    op_tijd = sorted(uniek.values(),
+                     key=lambda v: v["kop"].get("timestamp") or "", reverse=True)[:MAIL_MAX]
+
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        bodies = list(pool.map(
+            lambda v: esi.mail_body(v["bron"][0], v["bron"][1], tokens.get(v["bron"][0])),
+            op_tijd))
+
+    # Eerst alle fitting-links aftasten, dan in één keer de types opzoeken.
+    fit_ids = set()
+    for body in bodies:
+        fit_ids |= mailtekst.fit_type_ids((body or {}).get("body") or "")
+    typen = _mail_typen(fit_ids)
+
+    # Afzenders en ontvangers: mét categorie, want die bepaalt of er een portret
+    # of een corporatielogo bij hoort.
+    ids = set()
+    for vakje in op_tijd:
+        kop = vakje["kop"]
+        if kop.get("from"):
+            ids.add(kop["from"])
+        for ontv in kop.get("recipients") or []:
+            if ontv.get("recipient_type") != "mailing_list" and ontv.get("recipient_id"):
+                ids.add(ontv["recipient_id"])
+    info = esi.name_info(ids) if ids else {}
+
+    def _wie(entiteit_id, soort=""):
+        gegevens = info.get(entiteit_id) or {}
+        soort = soort or gegevens.get("soort") or ""
+        naam = (gegevens.get("naam") or mijn.get(entiteit_id)
+                or lijstnamen.get(entiteit_id) or f"#{entiteit_id}")
+        return naam, soort
+
+    mails = []
+    for vakje, body in zip(op_tijd, bodies):
+        kop = vakje["kop"]
+        labels = vakje["labels"]
+        opmaak = mailtekst.render((body or {}).get("body") or "", typen)
+
+        afzender_id = kop.get("from")
+        afzender, afzender_soort = _wie(afzender_id)
+        if afzender_id in lijstnamen:
+            afzender_soort = "mailing_list"
+
+        ontvangers = []
+        for ontv in kop.get("recipients") or []:
+            oid, soort = ontv.get("recipient_id"), ontv.get("recipient_type") or ""
+            if soort == "mailing_list":
+                ontvangers.append({"naam": lijstnamen.get(oid) or f"Lijst #{oid}",
+                                   "soort": soort, "id": oid})
+            else:
+                naam, _ = _wie(oid, soort)
+                ontvangers.append({"naam": naam, "soort": soort, "id": oid})
+
+        # Eigen labels van de gebruiker erbij: die zeggen vaak meer dan de vaste.
+        eigen_labels = sorted(l for l in labels if l not in MAIL_VASTE_LABELS)
+
+        # Veel mails openen met het onderwerp als kop in de tekst. In het
+        # voorproefje staat dat dan twee keer onder elkaar, dus die eerste regel
+        # slaan we over als hij het onderwerp herhaalt.
+        tekst = opmaak["tekst"]
+        onderwerp = kop.get("subject") or ""
+        eerste, _, rest = tekst.partition("\n")
+        if onderwerp and rest and eerste.strip().lower() == onderwerp.strip().lower():
+            voorproef = rest.strip()
+        else:
+            voorproef = tekst
+        # Mails met opmaak zitten vol scheidingslijnen van ═ of ─. Op één regel
+        # samengeperst vult zo'n lijn het halve voorproefje met streepjes.
+        voorproef = re.sub(r"[═─━=_~-]{4,}", "·", voorproef)
+
+        mails.append({
+            "id": kop["mail_id"],
+            "onderwerp": kop.get("subject") or "(geen onderwerp)",
+            "datum": _parse(kop.get("timestamp")),
+            "afzender": afzender,
+            "afzender_id": afzender_id,
+            "afzender_soort": afzender_soort,
+            "afzender_plaatje": (PORTRET[afzender_soort] % afzender_id
+                                 if afzender_soort in PORTRET and afzender_id else ""),
+            "eigen": afzender_id in mijn,
+            "ontvangers": ontvangers,
+            "ontvangers_kort": ", ".join(o["naam"] for o in ontvangers[:3]),
+            "ontvangers_meer": max(len(ontvangers) - 3, 0),
+            "vak": _mail_vak(kop, labels, mijn),
+            "vak_naam": VAK_LABEL[_mail_vak(kop, labels, mijn)],
+            "eigen_labels": eigen_labels,
+            "ongelezen": bool(vakje["ongelezen"]),
+            # Wie van jouw characters hem kreeg. Bij een corp-mail zijn dat er
+            # vijf, bij een persoonlijk berichtje precies één — en dát verschil
+            # is nou net wat je wil zien.
+            "voor": [{"naam": mijn[cid], "character_id": cid, "kleur": kleuren[cid],
+                      "ongelezen": cid in vakje["ongelezen"]}
+                     for cid in sorted(set(vakje["chars"]), key=lambda c: mijn[c])],
+            "html": opmaak["html"],
+            "tekst": tekst,
+            "kort": (voorproef[:MAIL_KORT] + "…") if len(voorproef) > MAIL_KORT else voorproef,
+            "leeg": not tekst.strip(),
+            "fits": opmaak["fits"],
+            "zoektekst": f"{kop.get('subject') or ''}\n{afzender}\n{tekst}".lower(),
+        })
+
+    # ── Tellingen over álles, dus vóór het filteren ────────────────────────
+    tellers = Counter(m["vak"] for m in mails)
+    ongelezen = sum(1 for m in mails if m["ongelezen"])
+    fits_totaal = sum(len(m["fits"]) for m in mails)
+
+    vakken = [{"sleutel": "alles", "naam": "Alles", "aantal": len(mails)}]
+    for sleutel in ("inbox", "corp", "alliance", "verzonden"):
+        if tellers.get(sleutel):
+            vakken.append({"sleutel": sleutel, "naam": VAK_LABEL[sleutel],
+                           "aantal": tellers[sleutel]})
+    if ongelezen:
+        vakken.append({"sleutel": "ongelezen", "naam": "Ongelezen", "aantal": ongelezen})
+    for v in vakken:
+        v["actief"] = v["sleutel"] == vak
+
+    # ── Afzenders, maanden en characters (over alles, niet over de selectie) ─
+    per_afzender = {}
+    for m in mails:
+        if m["eigen"]:
+            continue                    # jezelf in "wie mailt jou" is ruis
+        gegevens = per_afzender.setdefault(m["afzender_id"], {
+            "naam": m["afzender"], "plaatje": m["afzender_plaatje"],
+            "aantal": 0, "laatste": None, "soort": m["afzender_soort"]})
+        gegevens["aantal"] += 1
+        if m["datum"] and (not gegevens["laatste"] or m["datum"] > gegevens["laatste"]):
+            gegevens["laatste"] = m["datum"]
+    # `afzenders_top` en niet `afzenders`: dat tweede is in dit tabblad de lijst
+    # characters waarmee je zélf mag versturen, en die twee door elkaar halen
+    # levert een pagina op waar de verkeerde namen in het formulier staan.
+    afzenders_top = sorted(per_afzender.values(), key=lambda a: -a["aantal"])[:10]
+    hoogste = max((a["aantal"] for a in afzenders_top), default=0) or 1
+    for a in afzenders_top:
+        a["pct"] = round(a["aantal"] / hoogste * 100)
+
+    # Per maand, en **gevensterd op de mail zelf** — niet op de laatste twaalf
+    # maanden vanaf vandaag. Een mailbox loopt hier van 2021 tot nu maar staat
+    # het grootste deel van die tijd stil; een vaste jaarreeks zou dus tien lege
+    # kolommen tonen en de twee maanden waar het gebeurde platdrukken. Dezelfde
+    # les als bij de mining-grafiek. De tijdas is daardoor niet aaneengesloten,
+    # dus staat eronder hoeveel maanden er mail hebben.
+    per_maand = Counter((m["datum"].year, m["datum"].month) for m in mails if m["datum"])
+    reeks = sorted(per_maand)[-12:]
+    top = max((per_maand[s] for s in reeks), default=0) or 1
+    maanden = [{"label": f"{MAAND_KORT[m]} {str(j)[2:]}",
+                "aantal": per_maand[(j, m)],
+                "pct": round(per_maand[(j, m)] / top * 100)}
+               for j, m in reeks]
+
+    per_char = []
+    for cid, naam in mijn.items():
+        eigen = [m for m in mails if any(v["character_id"] == cid for v in m["voor"])]
+        laatste = max((m["datum"] for m in eigen if m["datum"]), default=None)
+        per_char.append({
+            "character_id": cid, "naam": naam, "kleur": kleuren[cid],
+            "aantal": len(eigen),
+            "ongelezen": sum(1 for m in eigen
+                             if any(v["character_id"] == cid and v["ongelezen"]
+                                    for v in m["voor"])),
+            "laatste": laatste,
+            "gekoppeld": bool(tokens.get(cid)),
+        })
+    per_char.sort(key=lambda c: -c["aantal"])
+
+    # ── Filter en zoek ────────────────────────────────────────────────────
+    getoond = mails
+    if vak == "ongelezen":
+        getoond = [m for m in getoond if m["ongelezen"]]
+    elif vak in VAK_LABEL:
+        getoond = [m for m in getoond if m["vak"] == vak]
+    zoek = (zoek or "").strip()
+    if zoek:
+        naald = zoek.lower()
+        getoond = [m for m in getoond if naald in m["zoektekst"]]
+
+    return {
+        "mails": getoond,
+        "aantal": len(getoond),
+        "totaal": len(mails),
+        "koppen_totaal": sum(len(v) for v in koppen.values()),
+        "gefilterd": len(getoond) != len(mails),
+        "aantal_characters": len(chars),
+        "ongelezen": ongelezen,
+        "ontvangen": (tellers.get("inbox", 0) + tellers.get("corp", 0)
+                      + tellers.get("alliance", 0)),
+        "verzonden": tellers.get("verzonden", 0),
+        "fits_totaal": fits_totaal,
+        "afzenders_top": afzenders_top,
+        "maanden": maanden,
+        **verstuurblok,
+        "per_char": per_char,
+        "vakken": vakken,
+        "vak": vak,
+        "zoek": zoek,
+        "oudste": min((m["datum"] for m in mails if m["datum"]), default=None),
+        "nieuwste": max((m["datum"] for m in mails if m["datum"]), default=None),
+    }
+
+
+# --------------------------------------------------------------------------
+# Markt
+# --------------------------------------------------------------------------
+
+REF_BROKER = "brokers_fee"
+REF_TAX = "transaction_tax"
+
+ORDER_SPOED_UREN = 72       # binnen drie dagen weg: dan wil je het weten
+MARKT_ITEMS = 25            # zoveel artikelen in de handelstabel
+HISTORIE_DAGEN = 90         # zover reikt ESI's orderhistorie terug
+
+
+def _marktpositie(order, boek, mijn_order_ids, systeem=None):
+    """Waar deze order in het boek staat, en wie er vóór ligt.
+
+    We vergelijken binnen **hetzelfde systeem** (of dezelfde structuur), niet
+    binnen de hele regio. Kopen kan alleen waar de order ligt, dus een order in
+    een andere regio is geen concurrent. Maar Jita heeft meerdere stations, en
+    daar wíl je juist weten dat je 30k boven de goedkoopste in het systeem zit —
+    dat is precies waarom je spullen blijven liggen.
+
+    Onze eigen orders vallen af op order-id: die staan gewoon in het publieke
+    boek en zouden zichzelf anders als concurrent tellen.
+    """
+    koop = bool(order.get("is_buy_order"))
+    prijs = float(order.get("price") or 0)
+    anderen = [b for b in boek
+               if b["koop"] == koop and b["order_id"] not in mijn_order_ids
+               and (systeem is None or b.get("systeem") == systeem)]
+    if not anderen:
+        return {"rang": 1, "totaal": 1, "concurrenten": 0, "beste": 0.0,
+                "beste_locatie": None, "positie": "alleen"}
+
+    if koop:
+        beter = [b for b in anderen if b["prijs"] > prijs]
+        beste = max(anderen, key=lambda b: b["prijs"])
+    else:
+        beter = [b for b in anderen if b["prijs"] < prijs]
+        beste = min(anderen, key=lambda b: b["prijs"])
+    return {
+        "rang": len(beter) + 1,
+        # Het totaal telt onze eigen order mee: "rang 3 van 2" is onzin, want de
+        # rang komt uit een rij waar wij zelf ook in staan.
+        "totaal": len(anderen) + 1,
+        "concurrenten": len(anderen),
+        "beste": beste["prijs"],
+        "beste_locatie": beste.get("locatie"),
+        "positie": "beste" if not beter else "onderboden",
+    }
+
+
+def markt(user):
+    """Je marktorders, hoe ze ervoor staan, en wat er de laatste 90 dagen liep.
+
+    Het punt van dit tabblad is de vergelijking: een lijst met je eigen orders
+    staat ook in het spel, maar dáár zie je pas dat je onderboden bent als je
+    elk artikel apart opzoekt. Hier staat het bij elke order.
+    """
+    chars = esi.characters(user)
+    mijn = {c.character_id: c.character_name for c in chars}
+    kleuren = _kleur_per_character([{"character_id": cid} for cid in mijn])
+    tokens = {cid: esi.token_for(cid, esi.ORDERS_SCOPE) for cid in mijn}
+    nu = datetime.now(timezone.utc)
+
+    # Tokens vooraf, dan hoeven de threads niet bij de database te zijn.
+    with ThreadPoolExecutor(max_workers=6) as pool:
+        open_per_char = dict(zip(mijn, pool.map(
+            lambda cid: esi.orders(cid, tokens.get(cid)), list(mijn))))
+        hist_per_char = dict(zip(mijn, pool.map(
+            lambda cid: esi.order_history(cid, tokens.get(cid)), list(mijn))))
+
+    open_orders = [{**o, "_char": cid}
+                   for cid, lijst in open_per_char.items() for o in lijst]
+    historie = [{**h, "_char": cid}
+                for cid, lijst in hist_per_char.items() for h in lijst]
+    mijn_order_ids = {o.get("order_id") for o in open_orders}
+
+    # ── De boeken van de markten waar iets ligt ───────────────────────────
+    # Spelersstructuren zitten niet in de regio-orders; die hebben een eigen
+    # endpoint en een token met dockingrechten.
+    stations = {o["location_id"] for o in open_orders if o["location_id"] < 100_000_000}
+    structuren = {o["location_id"] for o in open_orders if o["location_id"] >= 100_000_000}
+    paren = sorted({(o["region_id"], o["type_id"]) for o in open_orders
+                    if o["location_id"] in stations})
+
+    regioboeken, structuurboeken = {}, {}
+    if paren or structuren:
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            regioboeken = dict(zip(paren, pool.map(
+                lambda p: esi.markt_regio(p[0], p[1]), paren)))
+            structuurlijst = sorted(structuren)
+            structuurboeken = dict(zip(structuurlijst, pool.map(
+                lambda sid: esi.markt_structuur(sid, list(mijn)), structuurlijst)))
+
+    # ── Positie per order bepalen ─────────────────────────────────────────
+    posities, nodig = {}, set(stations)
+    for o in open_orders:
+        loc = o["location_id"]
+        if loc in structuren:
+            boek = (structuurboeken.get(loc) or {}).get(o["type_id"], [])
+            bekend = bool(structuurboeken.get(loc))
+            pos = _marktpositie(o, boek, mijn_order_ids)
+        else:
+            boek = regioboeken.get((o["region_id"], o["type_id"]), [])
+            bekend = bool(boek)
+            # Ons eigen systeem staat in het publieke boek bij onze eigen order;
+            # alleen als die er niet in staat moeten we het station opzoeken.
+            eigen = next((b for b in boek if b["order_id"] == o.get("order_id")), None)
+            systeem = eigen["systeem"] if eigen else esi.station_systeem(loc)
+            pos = _marktpositie(o, boek, mijn_order_ids, systeem)
+        if not bekend:
+            pos = {**pos, "positie": "onbekend"}
+        posities[o["order_id"]] = pos
+        if pos.get("beste_locatie"):
+            nodig.add(pos["beste_locatie"])
+
+    # Namen: stations via /universe/names, structuren via hun eigen endpoint.
+    st_ids = {i for i in nodig if i < 100_000_000}
+    str_ids = ({i for i in nodig if i >= 100_000_000} | structuren)
+    locatienamen = esi.names(st_ids) if st_ids else {}
+    if str_ids:
+        locatienamen.update(esi.structure_names(str_ids, list(mijn)))
+
+    typen = _type_info({o["type_id"] for o in open_orders}
+                       | {h["type_id"] for h in historie})
+
+    def _plek(loc_id):
+        return locatienamen.get(loc_id) or (f"#{loc_id}" if loc_id else "")
+
+    # Kort label per locatie. Normaal is het systeem genoeg ('Jita IV'), maar
+    # Jita heeft meerdere stations en dan staan er twee regels 'Jita IV' onder
+    # elkaar — terwijl het verschil tussen die twee juist de reden is dat je
+    # spullen blijven liggen. Alleen bij zo'n botsing komt de stationsnaam erbij.
+    def _plek_kort(naam):
+        return naam.split(" - ")[0] if naam else ""
+
+    kop_teller = Counter(_plek_kort(n) for n in
+                         {i: _plek(i) for i in nodig | structuren}.values() if n)
+
+    def _label(loc_id):
+        naam = _plek(loc_id)
+        if not naam:
+            return ""
+        kort = _plek_kort(naam)
+        if kop_teller.get(kort, 0) < 2 or " - " not in naam:
+            return kort
+        staart = naam.split(" - ")[-1]
+        if len(staart) > 22:
+            staart = staart[:21] + "…"
+        return f"{kort} · {staart}"
+
+    # ── De orders zelf ────────────────────────────────────────────────────
+    rijen, verkoopwaarde, escrow_totaal = [], 0.0, 0.0
+    for o in open_orders:
+        koop = bool(o.get("is_buy_order"))
+        prijs = float(o.get("price") or 0)
+        rest_aantal = int(o.get("volume_remain") or 0)
+        totaal_aantal = int(o.get("volume_total") or 0)
+        waarde = prijs * rest_aantal
+        if koop:
+            escrow_totaal += float(o.get("escrow") or 0)
+        else:
+            verkoopwaarde += waarde
+
+        pos = posities[o["order_id"]]
+        verschil = (pos["beste"] - prijs) if koop else (prijs - pos["beste"])
+        verschil_pct = (verschil / pos["beste"] * 100) if pos["beste"] else 0.0
+
+        verloopt = _parse(o.get("issued"))
+        seconden = None
+        if verloopt:
+            verloopt += timedelta(days=int(o.get("duration") or 0))
+            seconden = (verloopt - nu).total_seconds()
+
+        info = typen.get(o["type_id"], {})
+        plek = _plek(o["location_id"])
+        beste_plek = _plek(pos["beste_locatie"]) if pos.get("beste_locatie") else ""
+        rijen.append({
+            "type_id": o["type_id"],
+            "naam": info.get("naam") or f"Type {o['type_id']}",
+            "plaatje": info.get("plaatje") or "",
+            "koop": koop,
+            "prijs": prijs, "prijs_fmt": fmt_isk_vol(prijs),
+            "aantal": rest_aantal, "totaal": totaal_aantal,
+            "aantal_fmt": _getal(rest_aantal), "totaal_fmt": _getal(totaal_aantal),
+            # Hoeveel er al weg is: bij een order van 100 waarvan er 3 over zijn
+            # is "3" alleen niet het hele verhaal.
+            "gevuld_pct": round((totaal_aantal - rest_aantal) / totaal_aantal * 100)
+                          if totaal_aantal else 0,
+            "waarde": waarde, "waarde_fmt": fmt_isk(waarde),
+            "escrow_fmt": fmt_isk(float(o.get("escrow") or 0)),
+            "locatie": plek, "locatie_kort": _label(o["location_id"]),
+            "structuur": o["location_id"] in structuren,
+            "rest_fmt": _duur(seconden) if seconden and seconden > 0 else "",
+            "spoed": bool(seconden and 0 < seconden < ORDER_SPOED_UREN * 3600),
+            "rang": pos["rang"], "totaal": pos["totaal"],
+            "concurrenten": pos["concurrenten"],
+            "positie": pos["positie"],
+            "beste_fmt": fmt_isk_vol(pos["beste"]) if pos["beste"] else "",
+            "beste_plek": _label(pos["beste_locatie"]) if pos.get("beste_locatie") else "",
+            "elders": bool(beste_plek) and beste_plek != plek,
+            # Bij een verkooporder zit je bóven de beste prijs, bij een kooporder
+            # eronder. Het teken zegt dus welke kant je ernaast zit.
+            "verschil_teken": "−" if koop else "+",
+            "verschil_fmt": fmt_isk(abs(verschil)),
+            "verschil_pct": abs(verschil_pct),
+            "verschil_pct_fmt": _nl(f"{abs(verschil_pct):,.1f}"),
+            "char": mijn[o["_char"]], "kleur": kleuren[o["_char"]],
+        })
+
+    # Onderboden bovenaan: dat is waar je iets aan moet doen. Daarbinnen het
+    # grootste bedrag eerst, want daar hangt het meeste geld aan vast.
+    volgorde = {"onderboden": 0, "onbekend": 1, "beste": 2, "alleen": 3}
+    rijen.sort(key=lambda r: (volgorde.get(r["positie"], 9), -r["waarde"]))
+
+    onderboden = [r for r in rijen if r["positie"] == "onderboden"]
+    bijna_weg = sorted((r for r in rijen if r["spoed"]), key=lambda r: -r["waarde"])
+
+    # ── Per markt ─────────────────────────────────────────────────────────
+    per_markt = {}
+    for r in rijen:
+        vak = per_markt.setdefault(r["locatie"], {
+            "naam": r["locatie"], "kort": r["locatie_kort"] or r["locatie"],
+            "structuur": r["structuur"], "aantal": 0, "waarde": 0.0,
+            "onderboden": 0})
+        vak["aantal"] += 1
+        vak["waarde"] += r["waarde"]
+        if r["positie"] == "onderboden":
+            vak["onderboden"] += 1
+    markten = sorted(per_markt.values(), key=lambda m: -m["waarde"])
+    hoogste = max((m["waarde"] for m in markten), default=0) or 1
+    for m in markten:
+        m["waarde_fmt"] = fmt_isk(m["waarde"])
+        m["pct"] = round(m["waarde"] / hoogste * 100)
+
+    # ── Historie: wat er de laatste 90 dagen doorheen ging ────────────────
+    # Een volledig gevulde order krijgt state `expired` met volume_remain 0 —
+    # er bestaat geen status "verkocht". Alleen een order die met spullen erin
+    # afloopt is écht verlopen, en dat is precies het verschil dat je wil zien.
+    volledig = sum(1 for h in historie if not h.get("volume_remain"))
+    ingetrokken = sum(1 for h in historie if h.get("state") == "cancelled")
+    blijven_liggen = sum(1 for h in historie
+                         if h.get("state") == "expired" and h.get("volume_remain"))
+
+    per_type = {}
+    omzet = inkoop = 0.0
+    for h in historie:
+        gevuld = int(h.get("volume_total") or 0) - int(h.get("volume_remain") or 0)
+        if gevuld <= 0:
+            continue
+        isk = gevuld * float(h.get("price") or 0)
+        vak = per_type.setdefault(h["type_id"], {
+            "type_id": h["type_id"], "verkocht": 0, "gekocht": 0,
+            "omzet": 0.0, "inkoop": 0.0})
+        if h.get("is_buy_order"):
+            vak["gekocht"] += gevuld
+            vak["inkoop"] += isk
+            inkoop += isk
+        else:
+            vak["verkocht"] += gevuld
+            vak["omzet"] += isk
+            omzet += isk
+
+    items = []
+    for vak in per_type.values():
+        gem_verkoop = vak["omzet"] / vak["verkocht"] if vak["verkocht"] else 0.0
+        gem_inkoop = vak["inkoop"] / vak["gekocht"] if vak["gekocht"] else 0.0
+        # Resultaat alleen waar je het artikel écht allebei deed. Verkocht je
+        # spullen die je niet in deze periode kocht (loot, gemijnd erts), dan is
+        # de "winst" het hele verkoopbedrag en dat zegt niets over handelen.
+        beide = bool(vak["verkocht"] and vak["gekocht"])
+        stuks = min(vak["verkocht"], vak["gekocht"]) if beide else 0
+        resultaat = (gem_verkoop - gem_inkoop) * stuks
+        info = typen.get(vak["type_id"], {})
+        items.append({
+            **vak,
+            "naam": info.get("naam") or f"Type {vak['type_id']}",
+            "plaatje": info.get("plaatje") or "",
+            "verkocht_fmt": _getal(vak["verkocht"]), "gekocht_fmt": _getal(vak["gekocht"]),
+            "omzet_fmt": fmt_isk(vak["omzet"]), "inkoop_fmt": fmt_isk(vak["inkoop"]),
+            "gem_verkoop_fmt": fmt_isk(gem_verkoop), "gem_inkoop_fmt": fmt_isk(gem_inkoop),
+            "marge_pct": ((gem_verkoop - gem_inkoop) / gem_inkoop * 100) if beide and gem_inkoop else 0.0,
+            "beide": beide,
+            "resultaat": resultaat, "resultaat_fmt": fmt_isk(resultaat),
+            "stuks": stuks,
+        })
+    handelsitems = sorted((i for i in items if i["beide"]),
+                          key=lambda i: -i["resultaat"])[:MARKT_ITEMS]
+    for i in handelsitems:
+        i["marge_pct_fmt"] = _nl(f"{i['marge_pct']:,.1f}")
+    # Wat je verkocht zonder het gekocht te hebben: loot, erts, eigen productie.
+    eigen_waar = sorted((i for i in items if i["verkocht"] and not i["gekocht"]),
+                        key=lambda i: -i["omzet"])[:10]
+    handelsresultaat = sum(i["resultaat"] for i in items if i["beide"])
+
+    # ── Broker fee en sales tax ───────────────────────────────────────────
+    # Die staan niet in de orders maar in het journaal. Het journaal reikt maar
+    # zover als we ophalen, dus we zeggen erbij over hoeveel dagen het gaat —
+    # anders lijkt het bedrag over 90 dagen te gaan terwijl het er 20 zijn.
+    kosten, oudste_journaal = 0.0, None
+    for c in chars:
+        for e in esi.journal(c.character_id):
+            datum = _parse(e.get("date"))
+            if not datum:
+                continue
+            if oudste_journaal is None or datum < oudste_journaal:
+                oudste_journaal = datum
+            if e.get("ref_type") in (REF_BROKER, REF_TAX):
+                kosten += abs(float(e.get("amount") or 0))
+    kosten_dagen = (nu - oudste_journaal).days if oudste_journaal else 0
+
+    per_char = []
+    for cid, naam in mijn.items():
+        eigen_orders = [r for r in rijen if r["char"] == naam]
+        eigen_hist = [h for h in historie if h["_char"] == cid]
+        per_char.append({
+            "character_id": cid, "naam": naam, "kleur": kleuren[cid],
+            "aantal": len(eigen_orders),
+            "waarde_fmt": fmt_isk(sum(r["waarde"] for r in eigen_orders if not r["koop"])),
+            "onderboden": sum(1 for r in eigen_orders if r["positie"] == "onderboden"),
+            "historie": len(eigen_hist),
+            "gekoppeld": bool(tokens.get(cid)),
+        })
+    per_char.sort(key=lambda c: (-c["aantal"], -c["historie"]))
+
+    return {
+        "rijen": rijen,
+        "aantal_open": len(rijen),
+        "koop_aantal": sum(1 for r in rijen if r["koop"]),
+        "verkoop_aantal": sum(1 for r in rijen if not r["koop"]),
+        "verkoopwaarde_fmt": fmt_isk(verkoopwaarde),
+        "escrow_fmt": fmt_isk(escrow_totaal),
+        "onderboden": onderboden,
+        "onderboden_aantal": len(onderboden),
+        "onderboden_waarde_fmt": fmt_isk(sum(r["waarde"] for r in onderboden)),
+        "beste_aantal": sum(1 for r in rijen if r["positie"] == "beste"),
+        "bijna_weg": bijna_weg,
+        "markten": markten,
+        "historie_aantal": len(historie),
+        "historie_dagen": HISTORIE_DAGEN,
+        "volledig": volledig,
+        "volledig_pct": round(volledig / len(historie) * 100) if historie else 0,
+        "ingetrokken": ingetrokken,
+        "blijven_liggen": blijven_liggen,
+        "omzet_fmt": fmt_isk(omzet),
+        "inkoop_fmt": fmt_isk(inkoop),
+        "handelsitems": handelsitems,
+        "eigen_waar": eigen_waar,
+        "handelsresultaat": handelsresultaat,
+        "handelsresultaat_fmt": fmt_isk(handelsresultaat),
+        "kosten_fmt": fmt_isk(kosten),
+        "kosten_dagen": kosten_dagen,
+        "per_char": per_char,
+        "aantal_characters": len(chars),
+    }
+
+
+def _ontvangers_uit_tekst(tekst):
+    """'Jan, Piet; Klaas' → ['Jan', 'Piet', 'Klaas'].
+
+    Komma, puntkomma én regeleinde als scheiding: mensen plakken een lijstje uit
+    van alles, en een naam met een komma erin bestaat in EVE niet.
+    """
+    ruw = re.split(r"[,;\n]+", tekst or "")
+    return [n.strip() for n in ruw if n.strip()]
+
+
+def verstuur_mail(user, gegevens):
+    """Een mail versturen namens een van je characters.
+
+    Geeft {"ok", "fout", "formulier", "aantal"} terug in plaats van een
+    uitzondering: de aanroeper is een formulier en die wil een zin die je aan de
+    gebruiker kunt tonen, mét wat er ingevuld stond zodat je niet opnieuw hoeft
+    te typen.
+    """
+    from django.core.cache import cache
+
+    chars = esi.characters(user)
+    mijn = {c.character_id: c.character_name for c in chars}
+    formulier = {
+        "afzender": (gegevens.get("afzender") or "").strip(),
+        "aan": (gegevens.get("aan") or "").strip(),
+        "onderwerp": (gegevens.get("onderwerp") or "").strip(),
+        "tekst": gegevens.get("tekst") or "",
+    }
+
+    def _fout(bericht):
+        return {"ok": False, "fout": bericht, "formulier": formulier, "aantal": 0}
+
+    try:
+        afzender_id = int(formulier["afzender"])
+    except (TypeError, ValueError):
+        return _fout("Kies een character om mee te versturen.")
+    # Alleen je eigen characters: het id komt uit een formulier, dus het kan er
+    # ook eentje zijn die iemand er zelf in gezet heeft.
+    if afzender_id not in mijn:
+        return _fout("Dat character is niet van jou.")
+    if not esi.has_token([afzender_id], esi.SEND_MAIL_SCOPE):
+        return _fout(f"{mijn[afzender_id]} mag geen mail versturen. Koppel het "
+                     "character opnieuw, dan wordt die toestemming gevraagd.")
+
+    namen = _ontvangers_uit_tekst(formulier["aan"])
+    if not namen:
+        return _fout("Vul minstens één ontvanger in.")
+
+    # Eerst wat we zelf al weten: je eigen characters en je mailinglijsten. Die
+    # laatste kent /universe/ids niet eens, dus zonder dit kun je nooit naar een
+    # lijst mailen.
+    eigen = {naam.lower(): cid for cid, naam in mijn.items()}
+    lijsten = {}
+    for cid in mijn:
+        for lijst in esi.mail_lists(cid):
+            if lijst.get("name"):
+                lijsten[lijst["name"].lower()] = lijst.get("mailing_list_id")
+
+    ontvangers, rest, getoond = [], [], []
+    for naam in namen:
+        sleutel = naam.lower()
+        if sleutel in lijsten:
+            ontvangers.append(("mailing_list", lijsten[sleutel]))
+            getoond.append(naam)
+        elif sleutel in eigen:
+            ontvangers.append(("character", eigen[sleutel]))
+            getoond.append(mijn[eigen[sleutel]])
+        else:
+            rest.append(naam)
+
+    if rest:
+        gevonden = esi.zoek_ids(rest)
+        onbekend = []
+        for naam in rest:
+            vak = gevonden.get(naam.lower())
+            if vak and vak.get("id"):
+                ontvangers.append((vak["soort"], vak["id"]))
+                getoond.append(vak["naam"])
+            else:
+                onbekend.append(naam)
+        if onbekend:
+            # Niet half versturen: dan gaat de mail wél weg maar mist er iemand.
+            return _fout("Niet gevonden in EVE: " + ", ".join(onbekend)
+                         + ". Namen moeten precies kloppen (hoofdletters mogen "
+                           "wel schelen).")
+
+    # Dubbele ontvangers eruit, met behoud van volgorde: ESI weigert de mail als
+    # dezelfde ontvanger er twee keer in staat.
+    uniek, gezien = [], set()
+    for paar in ontvangers:
+        if paar not in gezien:
+            gezien.add(paar)
+            uniek.append(paar)
+
+    if not formulier["onderwerp"]:
+        return _fout("Vul een onderwerp in.")
+    if not formulier["tekst"].strip():
+        return _fout("De mail is leeg.")
+
+    # EVE's mailbody is opmaak, geen platte tekst: zonder deze omzetting komt
+    # alles als één lange regel aan. Escapen omdat een < in je tekst anders als
+    # opmaak gelezen wordt.
+    inhoud = escape(formulier["tekst"], quote=False).replace("\r\n", "\n").replace("\n", "<br>")
+
+    mail_id, fout = esi.stuur_mail(afzender_id, uniek, formulier["onderwerp"], inhoud)
+    if fout:
+        return _fout(fout)
+
+    # De koppen van de afzender opnieuw ophalen, anders staat de mail die je net
+    # verstuurde er tien minuten lang niet bij en lijkt het mislukt.
+    cache.delete(f"fin_mailkop_{afzender_id}")
+    return {"ok": True, "fout": "", "formulier": None, "aantal": len(uniek),
+            "ontvangers": getoond, "mail_id": mail_id,
+            "afzender": mijn[afzender_id]}

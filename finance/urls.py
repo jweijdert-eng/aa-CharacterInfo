@@ -13,5 +13,7 @@ urlpatterns = [
     path("ratting/", views.ratting, name="ratting"),
     path("mining/", views.mining, name="mining"),
     path("pi/", views.pi, name="pi"),
+    path("markt/", views.markt, name="markt"),
+    path("mail/", views.mail, name="mail"),
     path("koppelen/", views.koppelen, name="koppelen"),
 ]

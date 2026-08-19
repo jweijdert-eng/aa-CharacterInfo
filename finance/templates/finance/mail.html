@@ -1,0 +1,384 @@
+{% extends 'finance/base.html' %}
+{% load i18n %}
+
+{% block fin_icoon %}
+    {# Communications Logs: het dichtste dat EVE als voorwerp bij post heeft. #}
+    <img class="fin-hero-icon" alt=""
+         src="https://images.evetech.net/types/19730/icon?size=64">
+{% endblock %}
+
+{% block fin_title %}{% translate "Mail" %}{% endblock %}
+{% block fin_sub %}
+    {% if heeft_mail and totaal %}
+        {{ totaal }} {% translate "mails" %} — {{ aantal_characters }} {% translate "characters" %}
+    {% endif %}
+{% endblock %}
+
+{% block details %}
+    {% if not heeft_mail %}
+        <div class="fin-melding">
+            <p class="mb-2">{% translate "Om je mail te tonen hebben we leestoegang tot je EVE-mail nodig." %}</p>
+            <a href="{% url 'finance:koppelen' %}" class="fin-knop">{% translate "Character koppelen" %}</a>
+        </div>
+    {% elif not totaal %}
+        <div class="fin-melding">{% translate "Geen mail gevonden." %}</div>
+    {% else %}
+
+        {% if ongelezen %}
+            <div class="fin-advies is-let-op">
+                <span class="fin-advies-icoon">✉</span>
+                <div>
+                    <div class="fin-advies-kop">
+                        {% blocktranslate count n=ongelezen %}{{ n }} ongelezen mail{% plural %}{{ n }} ongelezen mails{% endblocktranslate %}
+                    </div>
+                    <div class="fin-advies-sub">
+                        {% translate "Ongelezen in het spel — hier openslaan verandert daar niets aan." %}
+                        <a href="?vak=ongelezen">{% translate "alleen die tonen" %}</a>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+
+        <div class="fin-stats">
+            <div class="fin-stat fin-stat-totaal">
+                <span class="l">{% translate "Mails" %}</span>
+                <span class="v">{{ totaal }}</span>
+                <span class="s">
+                    {% blocktranslate with k=koppen_totaal %}{{ k }} in de mailboxen samen{% endblocktranslate %}
+                </span>
+            </div>
+            <div class="fin-stat fin-stat-in">
+                <span class="l">{% translate "Ontvangen" %}</span>
+                <span class="v">{{ ontvangen }}</span>
+                <span class="s">{% translate "inbox, corp en alliance" %}</span>
+            </div>
+            <div class="fin-stat fin-stat-uit">
+                <span class="l">{% translate "Verzonden" %}</span>
+                <span class="v">{{ verzonden }}</span>
+                <span class="s">{% translate "door jou zelf" %}</span>
+            </div>
+            <div class="fin-stat {% if not ongelezen %}fin-stat-leeg{% endif %}">
+                <span class="l">{% translate "Ongelezen" %}</span>
+                <span class="v {% if ongelezen %}fin-neg{% endif %}">{{ ongelezen }}</span>
+                <span class="s">{% translate "over al je characters" %}</span>
+            </div>
+            <div class="fin-stat fin-stat-fit">
+                <span class="l">{% translate "Fits in je mail" %}</span>
+                <span class="v">{{ fits_totaal }}</span>
+                <span class="s">{% translate "uitgeschreven met slots en EFT" %}</span>
+            </div>
+            <div class="fin-stat">
+                <span class="l">{% translate "Periode" %}</span>
+                <span class="v" style="font-size:1.05rem;">{{ nieuwste|date:"d-m-Y" }}</span>
+                <span class="s">{% translate "oudste" %} {{ oudste|date:"d-m-Y" }}</span>
+            </div>
+        </div>
+
+        {% comment %}
+            Zoeken over de hele mailbox is de reden dat we alle bodies ophalen:
+            in het spel kun je alleen per mailbox en alleen op onderwerp zoeken.
+            Filter en zoekterm staan in de URL, dus een resultaat is te delen.
+        {% endcomment %}
+        <div class="fin-mail-balk">
+            <div class="fin-mail-vakken">
+                {% for v in vakken %}
+                    <a class="fin-mail-vak {% if v.actief %}is-actief{% endif %}"
+                       href="?vak={{ v.sleutel }}{% if zoek %}&amp;q={{ zoek|urlencode }}{% endif %}">
+                        {{ v.naam }} <i>{{ v.aantal }}</i>
+                    </a>
+                {% endfor %}
+            </div>
+            <form class="fin-mail-zoek" method="get" role="search">
+                <input type="hidden" name="vak" value="{{ vak }}">
+                <input type="search" name="q" value="{{ zoek }}"
+                       placeholder="{% translate 'Zoek in onderwerp, afzender en tekst…' %}">
+                <button class="fin-knop" type="submit">{% translate "Zoeken" %}</button>
+                {% if zoek %}
+                    <a class="fin-mail-wis" href="?vak={{ vak }}">{% translate "wissen" %}</a>
+                {% endif %}
+            </form>
+        </div>
+
+        {% comment %}
+            Opstellen. De ontvangers worden op naam opgezocht via /universe/ids,
+            want ESI wil een id + soort en niemand kent zijn eigen corp-id uit
+            z'n hoofd. Mislukt het versturen, dan komt dit blok open terug mét
+            wat er stond — opnieuw typen omdat één naam fout gespeld was is zonde.
+        {% endcomment %}
+        {% if kan_versturen %}
+            <details class="fin-opstel" id="opstellen" {% if formulier_open %}open{% endif %}>
+                <summary>✉ {% translate "Nieuwe mail" %}</summary>
+                <form method="post" action="{% url 'finance:mail' %}">
+                    {% csrf_token %}
+                    <div class="fin-opstel-rij">
+                        <label class="fin-opstel-van">
+                            <span>{% translate "Van" %}</span>
+                            <select name="afzender">
+                                {% for a in afzenders %}
+                                    <option value="{{ a.character_id }}"
+                                        {% if formulier.afzender == a.character_id|stringformat:"s" %}selected{% endif %}>
+                                        {{ a.naam }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </label>
+                        <label class="fin-opstel-aan">
+                            <span>{% translate "Aan" %}</span>
+                            <input type="text" name="aan" value="{{ formulier.aan|default:'' }}"
+                                   placeholder="{% translate 'Naam, naam — character, corporatie, alliantie of mailinglijst' %}">
+                        </label>
+                    </div>
+                    <label class="fin-opstel-onderwerp">
+                        <span>{% translate "Onderwerp" %}</span>
+                        <input type="text" name="onderwerp" value="{{ formulier.onderwerp|default:'' }}">
+                    </label>
+                    <textarea name="tekst" rows="8"
+                              placeholder="{% translate 'Je bericht…' %}">{{ formulier.tekst|default:'' }}</textarea>
+                    <div class="fin-opstel-voet">
+                        <button class="fin-knop" type="submit">{% translate "Versturen" %}</button>
+                        <span class="fin-dim">
+                            {% blocktranslate with n=max_body %}Maximaal {{ n }} tekens; een regeleinde telt in EVE voor vier.{% endblocktranslate %}
+                            {% translate "Namen moeten precies kloppen." %}
+                            {% if mailinglijsten %}
+                                {% translate "Mailinglijsten:" %} {{ mailinglijsten|join:", " }}.
+                            {% endif %}
+                        </span>
+                    </div>
+                </form>
+            </details>
+        {% else %}
+            <div class="fin-melding fin-opstel-uit">
+                {% translate "Geen van je characters mag mail versturen." %}
+                <a href="{% url 'finance:koppelen' %}">{% translate "Koppel er één opnieuw" %}</a>
+                {% translate "— dan wordt die toestemming meteen gevraagd." %}
+            </div>
+        {% endif %}
+
+        <h2 class="fin-kop">{% translate "Mailbox" %}
+            <span>—
+                {% if gefilterd %}
+                    {% blocktranslate with n=aantal t=totaal %}{{ n }} van {{ t }} mails{% endblocktranslate %}
+                {% else %}
+                    {% translate "klik een mail open om hem te lezen" %}
+                {% endif %}
+            </span></h2>
+
+        {% if mails %}
+            <div class="fin-mail-lijst">
+                {% for m in mails %}
+                    <details class="fin-mail-item is-{{ m.vak }} {% if m.ongelezen %}is-ongelezen{% endif %}">
+                        <summary>
+                            {% if m.afzender_plaatje %}
+                                <img class="fin-mail-portret" loading="lazy" alt=""
+                                     src="{{ m.afzender_plaatje }}">
+                            {% else %}
+                                <span class="fin-mail-portret fin-mail-geen">✉</span>
+                            {% endif %}
+                            <div class="fin-mail-kop">
+                                <div class="fin-mail-titel">
+                                    <span class="fin-mail-onderwerp">{{ m.onderwerp }}</span>
+                                    <span class="fin-badge fin-vak-{{ m.vak }}">{{ m.vak_naam }}</span>
+                                    {% if m.fits %}
+                                        <span class="fin-badge fin-badge-fit">
+                                            {% blocktranslate count n=m.fits|length %}{{ n }} fit{% plural %}{{ n }} fits{% endblocktranslate %}
+                                        </span>
+                                    {% endif %}
+                                    {% if m.ongelezen %}
+                                        <span class="fin-badge fin-badge-ongelezen">{% translate "ongelezen" %}</span>
+                                    {% endif %}
+                                </div>
+                                <div class="fin-mail-meta">
+                                    <b class="{% if m.eigen %}fin-ik{% endif %}">{{ m.afzender }}</b>
+                                    <span class="fin-con-pijl">→</span>
+                                    {{ m.ontvangers_kort|default:"—" }}{% if m.ontvangers_meer %}
+                                        <span class="fin-dim">+{{ m.ontvangers_meer }}</span>{% endif %}
+                                    · {{ m.datum|date:"d-m-Y H:i" }}
+                                </div>
+                                {% if m.kort %}<div class="fin-mail-kort">{{ m.kort }}</div>{% endif %}
+                                {% comment %}
+                                    Wie van je eigen characters hem kreeg. Bij een corp-mail zijn
+                                    dat er vijf, bij een persoonlijk berichtje precies één — en dat
+                                    verschil vertelt meteen hoe persoonlijk de mail was.
+                                {% endcomment %}
+                                <div class="fin-mail-voor">
+                                    {% for v in m.voor %}
+                                        <span class="fin-mail-chip {% if v.ongelezen %}is-ongelezen{% endif %}"
+                                              style="--kleur: {{ v.kleur }};">
+                                            <img loading="lazy" alt=""
+                                                 src="https://images.evetech.net/characters/{{ v.character_id }}/portrait?size=32">
+                                            {{ v.naam }}
+                                        </span>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </summary>
+
+                        <div class="fin-mail-inhoud">
+                            {% if kan_versturen and not m.eigen %}
+                                <div class="fin-mail-acties">
+                                    <a class="fin-knop fin-knop-klein"
+                                       href="?antwoord={{ m.id }}#opstellen">
+                                        ↩ {% blocktranslate with wie=m.afzender %}Antwoord {{ wie }}{% endblocktranslate %}
+                                    </a>
+                                </div>
+                            {% endif %}
+                            {% if m.leeg %}
+                                <div class="fin-leeg">{% translate "Deze mail heeft geen tekst." %}</div>
+                            {% else %}
+                                <div class="fin-mail-body">{{ m.html }}</div>
+                            {% endif %}
+
+                            {% if m.ontvangers|length > 3 %}
+                                <div class="fin-mail-ontvangers">
+                                    <span class="fin-dim">{% translate "Aan:" %}</span>
+                                    {% for o in m.ontvangers %}
+                                        <span class="fin-mail-ontvanger is-{{ o.soort }}">{{ o.naam }}</span>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+
+                            {% for f in m.fits %}
+                                {% comment %}
+                                    Een fitting-link draagt alleen type-ids mee. Namen, slots en
+                                    de EFT-volgorde komen uit eveuniverse, dus dit is te lezen
+                                    en te plakken zonder het spel open te hebben.
+                                {% endcomment %}
+                                <div class="fin-fit">
+                                    <div class="fin-fit-kop">
+                                        <img loading="lazy" alt=""
+                                             src="https://images.evetech.net/types/{{ f.schip_id }}/render?size=128">
+                                        <div>
+                                            <div class="fin-fit-naam">{{ f.naam }}</div>
+                                            <div class="fin-fit-schip">{{ f.schip }} ·
+                                                {{ f.aantal_modules }} {% translate "modules" %}{% if f.aantal_lading %}
+                                                · {{ f.aantal_lading }} {% translate "in de bays" %}{% endif %}</div>
+                                        </div>
+                                    </div>
+                                    <div class="fin-fit-slots">
+                                        {% for s in f.slots %}
+                                            <div class="fin-fit-slot">
+                                                <div class="fin-fit-slotnaam">{{ s.naam }}
+                                                    <i>{{ s.aantal }}</i></div>
+                                                {% for mod in s.modules %}
+                                                    <div class="fin-fit-mod" title="{{ mod.groep }}">
+                                                        <img loading="lazy" alt=""
+                                                             src="https://images.evetech.net/types/{{ mod.type_id }}/icon?size=32">
+                                                        <span>{{ mod.naam }}</span>
+                                                        {% if mod.aantal > 1 %}
+                                                            <span class="fin-fit-aantal">×{{ mod.aantal }}</span>
+                                                        {% endif %}
+                                                    </div>
+                                                {% endfor %}
+                                            </div>
+                                        {% endfor %}
+                                    </div>
+                                    <details class="fin-fit-eft">
+                                        <summary>{% translate "EFT — om in het spel te plakken" %}</summary>
+                                        <pre>{{ f.eft }}</pre>
+                                    </details>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </details>
+                {% endfor %}
+            </div>
+            <p class="fin-onderschrift">
+                {% translate "Kleuren uit de mail worden opgehelderd waar ze op deze achtergrond onder 4,5:1 contrast zouden zakken — de tint blijft, de leesbaarheid komt erbij. In-game links (character, corp, locatie) staan als gemarkeerde tekst: die kan een browser niet openen." %}
+            </p>
+        {% else %}
+            <div class="fin-melding">
+                {% if zoek %}
+                    {% blocktranslate with z=zoek %}Niets gevonden voor "{{ z }}".{% endblocktranslate %}
+                {% else %}
+                    {% translate "Geen mail in dit vak." %}
+                {% endif %}
+            </div>
+        {% endif %}
+
+        {% if afzenders_top %}
+            <h2 class="fin-kop">{% translate "Wie mailt jou" %}
+                <span>— {% translate "eigen post telt niet mee" %}</span></h2>
+            <div class="fin-tablewrap">
+                <table class="fin-table">
+                    <thead>
+                        <tr>
+                            <th>{% translate "Afzender" %}</th>
+                            <th></th>
+                            <th class="fin-getal">{% translate "Mails" %}</th>
+                            <th class="fin-getal">{% translate "Laatste" %}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for a in afzenders_top %}
+                            <tr>
+                                <td class="fin-nowrap" style="width: 1%;">
+                                    <span class="fin-mail-afzender">
+                                        {% if a.plaatje %}
+                                            <img loading="lazy" alt="" src="{{ a.plaatje }}">
+                                        {% endif %}
+                                        {{ a.naam }}
+                                    </span>
+                                </td>
+                                <td><div class="fin-bron-balk" style="width: {{ a.pct }}%;"></div></td>
+                                <td class="fin-getal" style="width: 1%;">{{ a.aantal }}</td>
+                                <td class="fin-getal fin-dim fin-nowrap" style="width: 1%;">
+                                    {{ a.laatste|date:"d-m-Y" }}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% endif %}
+
+        {% comment %}
+            Alleen maanden waarin er post was, hoogstens twaalf. Een vaste
+            jaarreeks zou hier tien lege kolommen tonen en de maanden waar het
+            wél gebeurde platdrukken — dezelfde afweging als bij de ratting- en
+            mining-grafiek. De tijdas is daardoor niet aaneengesloten, dus staat
+            eronder om hoeveel maanden het gaat.
+        {% endcomment %}
+        <h2 class="fin-kop">{% translate "Mail per maand" %}
+            <span>—
+                {% blocktranslate count n=maanden|length %}{{ n }} maand met mail{% plural %}{{ n }} maanden met mail{% endblocktranslate %}
+            </span></h2>
+        {# Weinig maanden: balken begrenzen, anders worden het muren van 300px. #}
+        <div class="fin-mail-maanden {% if maanden|length <= 6 %}is-smal{% endif %}">
+            {% for m in maanden %}
+                <div class="fin-mail-maand" title="{{ m.label }}: {{ m.aantal }}">
+                    <div class="fin-mail-maandbalk">
+                        <i style="height: {{ m.pct }}%;" class="{% if not m.aantal %}is-leeg{% endif %}"></i>
+                    </div>
+                    <div class="fin-mail-maandtal">{{ m.aantal }}</div>
+                    <div class="fin-mail-maandlabel">{{ m.label }}</div>
+                </div>
+            {% endfor %}
+        </div>
+
+        <h2 class="fin-kop">{% translate "Per character" %}
+            <span>— {% translate "wat er in welke mailbox binnenkomt" %}</span></h2>
+        <div class="fin-chars">
+            {% for c in per_char %}
+                <div class="fin-char" style="--kleur: {{ c.kleur }};">
+                    <img class="fin-char-portret" loading="lazy" alt=""
+                         src="https://images.evetech.net/characters/{{ c.character_id }}/portrait?size=64">
+                    <div class="fin-char-body">
+                        <div class="fin-char-naam">{{ c.naam }}</div>
+                        <div class="fin-char-saldo">{{ c.aantal }} {% translate "mails" %}</div>
+                        <div class="fin-char-pct">
+                            {% if not c.gekoppeld %}
+                                <span class="fin-neg">{% translate "niet gekoppeld" %}</span>
+                            {% elif c.ongelezen %}
+                                <span class="fin-neg">{{ c.ongelezen }} {% translate "ongelezen" %}</span>
+                            {% elif c.laatste %}
+                                {% translate "laatste" %} {{ c.laatste|date:"d-m-Y" }}
+                            {% else %}
+                                {% translate "lege mailbox" %}
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+{% endblock %}

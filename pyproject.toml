@@ -6,7 +6,7 @@ requires = [
 
 [project]
 name = "aa-finance"
-description = "Character Info voor Alliance Auth — je eigen wallet, contracten en ratting-inkomsten op één plek."
+description = "Mijn Dashboard voor Alliance Auth — je eigen wallet, contracten, ratting, mining, PI, markt en mail op één plek."
 readme = "README.md"
 keywords = [
     "allianceauth",

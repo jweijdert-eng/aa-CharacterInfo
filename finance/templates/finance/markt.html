@@ -1,0 +1,352 @@
+{% extends 'finance/base.html' %}
+{% load i18n %}
+
+{% block fin_icoon %}
+    {# Market Trading Data Interface — het handelsluik zelf. #}
+    <img class="fin-hero-icon" alt=""
+         src="https://images.evetech.net/types/3468/icon?size=64">
+{% endblock %}
+
+{% block fin_title %}{% translate "Market" %}{% endblock %}
+{% block fin_sub %}
+    {% if heeft_markt %}
+        {{ aantal_open }} {% translate "open orders" %} —
+        {{ verkoopwaarde_fmt }} ISK {% translate "in de verkoop" %}
+    {% endif %}
+{% endblock %}
+
+{% block details %}
+    {% if not heeft_markt %}
+        <div class="fin-melding">
+            <p class="mb-2">{% translate "Om je marktorders te tonen hebben we toegang tot je orders nodig." %}</p>
+            <a href="{% url 'finance:koppelen' %}" class="fin-knop">{% translate "Character koppelen" %}</a>
+        </div>
+    {% else %}
+
+        {% comment %}
+            Onderboden orders bovenaan: dát is het enige op deze pagina waar je
+            nú iets aan kunt doen. Een order die de goedkoopste is verkoopt
+            vanzelf; een order die onderboden is blijft liggen tot je 'm aanpast.
+        {% endcomment %}
+        {% if onderboden_aantal %}
+            <div class="fin-advies is-let-op">
+                <span class="fin-advies-icoon">⚠</span>
+                <div>
+                    <div class="fin-advies-kop">
+                        {% blocktranslate count n=onderboden_aantal %}{{ n }} order is onderboden{% plural %}{{ n }} orders zijn onderboden{% endblocktranslate %}
+                        — {{ onderboden_waarde_fmt }} ISK
+                    </div>
+                    <div class="fin-advies-sub">
+                        {% translate "Er ligt iets goedkopers op dezelfde markt. Zolang dat zo blijft verkoopt dit niet." %}
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+
+        {% if bijna_weg %}
+            <div class="fin-advies">
+                <span class="fin-advies-icoon">⏳</span>
+                <div>
+                    <div class="fin-advies-kop">
+                        {% blocktranslate count n=bijna_weg|length %}{{ n }} order loopt binnen drie dagen af{% plural %}{{ n }} orders lopen binnen drie dagen af{% endblocktranslate %}
+                    </div>
+                    <div class="fin-advies-sub">
+                        {% for r in bijna_weg|slice:":4" %}
+                            {{ r.naam }} <span class="fin-dim">({{ r.rest_fmt }})</span>{% if not forloop.last %} · {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+
+        <div class="fin-stats">
+            <div class="fin-stat fin-stat-totaal">
+                <span class="l">{% translate "In de verkoop" %}</span>
+                <span class="v">{{ verkoopwaarde_fmt }}</span>
+                <span class="s">{{ verkoop_aantal }} {% translate "verkooporders" %}</span>
+            </div>
+            <div class="fin-stat fin-stat-in">
+                <span class="l">{% translate "Vast in kooporders" %}</span>
+                <span class="v">{{ escrow_fmt }}</span>
+                <span class="s">{{ koop_aantal }} {% translate "kooporders (escrow)" %}</span>
+            </div>
+            <div class="fin-stat {% if onderboden_aantal %}fin-stat-uit{% endif %}">
+                <span class="l">{% translate "Onderboden" %}</span>
+                <span class="v {% if onderboden_aantal %}fin-neg{% endif %}">{{ onderboden_aantal }}</span>
+                <span class="s">{{ beste_aantal }} {% translate "orders zijn wél de beste" %}</span>
+            </div>
+            <div class="fin-stat">
+                <span class="l">{% translate "Omzet" %} {{ historie_dagen }}{% translate "d" %}</span>
+                <span class="v">{{ omzet_fmt }}</span>
+                <span class="s">{% translate "ingekocht voor" %} {{ inkoop_fmt }}</span>
+            </div>
+            <div class="fin-stat fin-stat-refine">
+                <span class="l">{% translate "Handelsresultaat" %}</span>
+                <span class="v {% if handelsresultaat > 0 %}fin-pos{% endif %}">{{ handelsresultaat_fmt }}</span>
+                <span class="s">{% translate "op wat je kocht én verkocht" %}</span>
+            </div>
+            <div class="fin-stat fin-stat-uit">
+                <span class="l">{% translate "Broker + tax" %}</span>
+                <span class="v fin-neg">{{ kosten_fmt }}</span>
+                <span class="s">
+                    {% blocktranslate with d=kosten_dagen %}in het journaal ({{ d }} dagen){% endblocktranslate %}
+                </span>
+            </div>
+        </div>
+
+        <h2 class="fin-kop">{% translate "Open orders" %}
+            <span>— {% translate "onderboden eerst; rang is je plek op die markt" %}</span></h2>
+        {% if rijen %}
+            <div class="fin-tablewrap">
+                <table class="fin-table">
+                    <thead>
+                        <tr>
+                            <th>{% translate "Artikel" %}</th>
+                            <th>{% translate "Kant" %}</th>
+                            <th class="fin-getal">{% translate "Prijs" %}</th>
+                            <th class="fin-getal">{% translate "Aantal" %}</th>
+                            <th>{% translate "Waar" %}</th>
+                            <th>{% translate "Marktpositie" %}</th>
+                            <th class="fin-getal">{% translate "Loopt af" %}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for r in rijen %}
+                            <tr class="{% if r.positie == 'onderboden' %}fin-uit{% elif r.positie == 'beste' %}fin-in{% endif %}">
+                                <td>
+                                    <span class="fin-erts">
+                                        {% if r.plaatje %}<img loading="lazy" alt="" src="{{ r.plaatje }}">{% endif %}
+                                        {{ r.naam }}
+                                    </span>
+                                    <div class="fin-rol fin-mkt-char" style="--kleur: {{ r.kleur }};">{{ r.char }}</div>
+                                </td>
+                                <td class="fin-nowrap">
+                                    {% if r.koop %}
+                                        <span class="fin-badge fin-kant-koop">{% translate "koop" %}</span>
+                                    {% else %}
+                                        <span class="fin-badge fin-kant-verkoop">{% translate "verkoop" %}</span>
+                                    {% endif %}
+                                </td>
+                                <td class="fin-getal fin-nowrap">{{ r.prijs_fmt }}</td>
+                                <td class="fin-getal fin-nowrap" style="width: 1%;">
+                                    {{ r.aantal_fmt }}
+                                    {% if r.gevuld_pct %}
+                                        {% comment %}
+                                            Alleen tonen als er al iets weg is: bij een order waar nog
+                                            niets van verkocht is zegt "0%" niets en staat het in de weg.
+                                        {% endcomment %}
+                                        <div class="fin-mkt-vul" title="{{ r.gevuld_pct }}% {% translate 'gevuld' %} ({{ r.totaal_fmt }})">
+                                            <i style="width: {{ r.gevuld_pct }}%;"></i>
+                                        </div>
+                                    {% endif %}
+                                </td>
+                                <td class="fin-nowrap" title="{{ r.locatie }}">
+                                    {{ r.locatie_kort }}
+                                    {% if r.structuur %}
+                                        <span class="fin-dim" title="{% translate 'Spelersstructuur' %}">⌂</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if r.positie == "onderboden" %}
+                                        <span class="fin-mkt-pos is-slecht">
+                                            {% blocktranslate with n=r.rang t=r.totaal %}rang {{ n }} van {{ t }}{% endblocktranslate %}
+                                        </span>
+                                        <div class="fin-mkt-sub">
+                                            {% translate "beste" %} {{ r.beste_fmt }}
+                                            <span class="fin-neg">({% translate "jij" %} {{ r.verschil_teken }}{{ r.verschil_pct_fmt }}%)</span>
+                                            {% if r.elders %}
+                                                <span class="fin-dim">· {{ r.beste_plek }}</span>
+                                            {% endif %}
+                                        </div>
+                                    {% elif r.positie == "beste" %}
+                                        <span class="fin-mkt-pos is-goed">
+                                            {% if r.koop %}{% translate "hoogste bod" %}{% else %}{% translate "goedkoopste" %}{% endif %}
+                                        </span>
+                                        <div class="fin-mkt-sub fin-dim">
+                                            {% blocktranslate with t=r.totaal %}van {{ t }} orders{% endblocktranslate %}
+                                        </div>
+                                    {% elif r.positie == "alleen" %}
+                                        <span class="fin-mkt-pos is-goed">{% translate "enige aanbieder" %}</span>
+                                    {% else %}
+                                        <span class="fin-leeg">{% translate "boek onbekend" %}</span>
+                                    {% endif %}
+                                </td>
+                                <td class="fin-getal fin-nowrap {% if r.spoed %}fin-neg{% else %}fin-dim{% endif %}">
+                                    {{ r.rest_fmt|default:"—" }}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <p class="fin-onderschrift">
+                {% translate "Vergeleken wordt binnen hetzelfde systeem (of dezelfde structuur), want kopen kan alleen waar de order ligt. Staat de goedkoopste in een ander station van dat systeem, dan staat dat erbij. Structuurmarkten kunnen we alleen lezen waar een van je characters mag docken." %}
+            </p>
+        {% else %}
+            <div class="fin-melding">{% translate "Geen openstaande orders." %}</div>
+        {% endif %}
+
+        {% if markten %}
+            <h2 class="fin-kop">{% translate "Waar je handelt" %}
+                <span>— {% translate "waarde van je openstaande orders per markt" %}</span></h2>
+            <div class="fin-tablewrap">
+                <table class="fin-table">
+                    <thead>
+                        <tr>
+                            <th>{% translate "Markt" %}</th>
+                            <th></th>
+                            <th class="fin-getal">{% translate "Orders" %}</th>
+                            <th class="fin-getal">{% translate "Onderboden" %}</th>
+                            <th class="fin-getal">{% translate "Waarde" %}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for m in markten %}
+                            <tr>
+                                {# width 1%: anders eist deze cel de ruimte op en wordt de balk plat. #}
+                                <td class="fin-nowrap" style="width: 1%;" title="{{ m.naam }}">
+                                    {{ m.kort }}
+                                    {% if m.structuur %}<span class="fin-dim">⌂</span>{% endif %}
+                                </td>
+                                <td><div class="fin-bron-balk fin-balk-waarde" style="width: {{ m.pct }}%;"></div></td>
+                                <td class="fin-getal fin-dim" style="width: 1%;">{{ m.aantal }}</td>
+                                <td class="fin-getal {% if m.onderboden %}fin-neg{% else %}fin-leeg{% endif %}"
+                                    style="width: 1%;">
+                                    {% if m.onderboden %}{{ m.onderboden }}{% else %}—{% endif %}
+                                </td>
+                                <td class="fin-getal fin-nowrap" style="width: 1%;">{{ m.waarde_fmt }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% endif %}
+
+        <h2 class="fin-kop">{% translate "Afgelopen orders" %}
+            <span>— {% blocktranslate with n=historie_aantal d=historie_dagen %}{{ n }} orders in de laatste {{ d }} dagen{% endblocktranslate %}</span></h2>
+        {% comment %}
+            ESI kent geen status "verkocht": een order die helemaal gevuld is
+            krijgt `expired` met niets meer erin. Alleen een order die met
+            spullen erin afloopt is écht blijven liggen — dat onderscheid is de
+            enige reden dat deze cijfers iets zeggen.
+        {% endcomment %}
+        <div class="fin-stats">
+            <div class="fin-stat fin-stat-in">
+                <span class="l">{% translate "Helemaal gevuld" %}</span>
+                <span class="v fin-pos">{{ volledig }}</span>
+                <span class="s">{{ volledig_pct }}% {% translate "van alle orders" %}</span>
+            </div>
+            <div class="fin-stat">
+                <span class="l">{% translate "Blijven liggen" %}</span>
+                <span class="v">{{ blijven_liggen }}</span>
+                <span class="s">{% translate "verlopen met spullen erin" %}</span>
+            </div>
+            <div class="fin-stat">
+                <span class="l">{% translate "Ingetrokken" %}</span>
+                <span class="v">{{ ingetrokken }}</span>
+                <span class="s">{% translate "zelf weggehaald" %}</span>
+            </div>
+        </div>
+
+        {% if handelsitems %}
+            <h2 class="fin-kop">{% translate "Waar je aan verdient" %}
+                <span>— {% translate "artikelen die je in deze periode kocht én verkocht" %}</span></h2>
+            <div class="fin-tablewrap">
+                <table class="fin-table">
+                    <thead>
+                        <tr>
+                            <th>{% translate "Artikel" %}</th>
+                            <th class="fin-getal">{% translate "Gekocht" %}</th>
+                            <th class="fin-getal">{% translate "Verkocht" %}</th>
+                            <th class="fin-getal">⌀ {% translate "in" %}</th>
+                            <th class="fin-getal">⌀ {% translate "uit" %}</th>
+                            <th class="fin-getal">{% translate "Marge" %}</th>
+                            <th class="fin-getal">{% translate "Resultaat" %}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for i in handelsitems %}
+                            <tr>
+                                <td>
+                                    <span class="fin-erts">
+                                        {% if i.plaatje %}<img loading="lazy" alt="" src="{{ i.plaatje }}">{% endif %}
+                                        {{ i.naam }}
+                                    </span>
+                                </td>
+                                <td class="fin-getal fin-dim" style="width: 1%;">{{ i.gekocht_fmt }}</td>
+                                <td class="fin-getal fin-dim" style="width: 1%;">{{ i.verkocht_fmt }}</td>
+                                <td class="fin-getal fin-nowrap" style="width: 1%;">{{ i.gem_inkoop_fmt }}</td>
+                                <td class="fin-getal fin-nowrap" style="width: 1%;">{{ i.gem_verkoop_fmt }}</td>
+                                <td class="fin-getal fin-nowrap {% if i.marge_pct > 0 %}fin-pos{% else %}fin-neg{% endif %}"
+                                    style="width: 1%;">{{ i.marge_pct_fmt }}%</td>
+                                <td class="fin-getal fin-nowrap {% if i.resultaat > 0 %}fin-pos{% else %}fin-neg{% endif %}"
+                                    style="width: 1%;">{{ i.resultaat_fmt }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <p class="fin-onderschrift">
+                {% translate "Resultaat = (gemiddelde verkoopprijs − gemiddelde inkoopprijs) × het aantal dat je allebei deed. Broker fee en sales tax zitten er niet in; die staan als aparte tegel bovenaan. Artikelen die je alleen verkocht (loot, erts, eigen productie) staan hieronder apart — daar is geen inkoopprijs voor en dus geen marge." %}
+            </p>
+        {% endif %}
+
+        {% if eigen_waar %}
+            <h2 class="fin-kop">{% translate "Verkocht zonder in te kopen" %}
+                <span>— {% translate "loot, erts of eigen productie: hier is geen marge van te maken" %}</span></h2>
+            <div class="fin-tablewrap">
+                <table class="fin-table">
+                    <thead>
+                        <tr>
+                            <th>{% translate "Artikel" %}</th>
+                            <th class="fin-getal">{% translate "Verkocht" %}</th>
+                            <th class="fin-getal">⌀ {% translate "prijs" %}</th>
+                            <th class="fin-getal">{% translate "Omzet" %}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for i in eigen_waar %}
+                            <tr>
+                                <td>
+                                    <span class="fin-erts">
+                                        {% if i.plaatje %}<img loading="lazy" alt="" src="{{ i.plaatje }}">{% endif %}
+                                        {{ i.naam }}
+                                    </span>
+                                </td>
+                                <td class="fin-getal fin-dim" style="width: 1%;">{{ i.verkocht_fmt }}</td>
+                                <td class="fin-getal fin-nowrap" style="width: 1%;">{{ i.gem_verkoop_fmt }}</td>
+                                <td class="fin-getal fin-nowrap fin-pos" style="width: 1%;">{{ i.omzet_fmt }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% endif %}
+
+        <h2 class="fin-kop">{% translate "Per character" %}
+            <span>— {% translate "wie er handelt" %}</span></h2>
+        <div class="fin-chars">
+            {% for c in per_char %}
+                <div class="fin-char" style="--kleur: {{ c.kleur }};">
+                    <img class="fin-char-portret" loading="lazy" alt=""
+                         src="https://images.evetech.net/characters/{{ c.character_id }}/portrait?size=64">
+                    <div class="fin-char-body">
+                        <div class="fin-char-naam">{{ c.naam }}</div>
+                        <div class="fin-char-saldo">{{ c.aantal }} {% translate "orders" %}</div>
+                        <div class="fin-char-pct">
+                            {% if not c.gekoppeld %}
+                                <span class="fin-neg">{% translate "niet gekoppeld" %}</span>
+                            {% elif c.onderboden %}
+                                <span class="fin-neg">{{ c.onderboden }} {% translate "onderboden" %}</span>
+                            {% elif c.aantal %}
+                                {{ c.waarde_fmt }} {% translate "in de verkoop" %}
+                            {% else %}
+                                {{ c.historie }} {% translate "afgelopen orders" %}
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+{% endblock %}

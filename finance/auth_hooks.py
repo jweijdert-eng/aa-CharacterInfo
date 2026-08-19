@@ -1,9 +1,14 @@
-"""Hook into Alliance Auth — Character Info.
+"""Hook into Alliance Auth — Mijn Dashboard.
 
-Eén menu-item. De drie onderdelen (Wallet, Contracts, Ratting) zitten als
-tabbladen in de pagina zelf, dus drie losse menu-items zouden hetzelfde werk
-dubbel doen. `navactive` staat op de hele namespace, zodat het menu-item
-opgelicht blijft welk tabblad je ook open hebt.
+Eén menu-item. De onderdelen (Wallet, Contracts, Ratting, Mining, PI, Market,
+Mail) zitten als tabbladen in de pagina zelf, dus losse menu-items zouden
+hetzelfde werk dubbel doen. `navactive` staat op de hele namespace, zodat het
+menu-item opgelicht blijft welk tabblad je ook open hebt.
+
+De klassenaam blijft `CharacterInfoMenuItem`: AA identificeert een menu-item met
+`sha256(module.KlasseNaam)`, dus hernoemen zou een nieuw item aanmaken en de
+volgorde en de instellingen van het oude kwijtraken. Alleen de tekst verandert,
+en die werkt de sync vanzelf bij.
 """
 
 from django.utils.translation import gettext_lazy as _
@@ -27,7 +32,7 @@ class CharacterInfoMenuItem(MenuItemHook):
     def __init__(self):
         MenuItemHook.__init__(
             self,
-            _("Character Info"),
+            _("Mijn Dashboard"),
             "fas fa-id-card fa-fw",
             "finance:index",
             order=1010,

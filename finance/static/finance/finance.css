@@ -733,3 +733,313 @@
     border: 1px solid #4e8a63;
 }
 .fin-app .fin-hero-isk img { width: 72%; height: 72%; }
+
+
+/* ── Mail ─────────────────────────────────────────────────────────────── */
+/* Filterbalk: de vakken links, zoeken rechts. Op smalle schermen onder
+   elkaar, want een zoekveld van 90px is geen zoekveld. */
+.fin-app .fin-mail-balk {
+    display: flex; gap: .75rem; flex-wrap: wrap; align-items: center;
+    justify-content: space-between; margin: 1rem 0 .75rem;
+}
+.fin-app .fin-mail-vakken { display: flex; gap: .3rem; flex-wrap: wrap; }
+.fin-app .fin-mail-vak {
+    padding: .3rem .7rem; border-radius: 999px; font-size: .8rem; font-weight: 600;
+    color: var(--fin-dim); background: var(--fin-surface);
+    border: 1px solid var(--fin-border);
+}
+.fin-app .fin-mail-vak:hover { color: var(--fin-text); text-decoration: none; border-color: #2a2a4a; }
+.fin-app .fin-mail-vak i {
+    font-style: normal; font-size: .74rem; color: var(--fin-dim);
+    margin-left: .3rem; font-variant-numeric: tabular-nums;
+}
+.fin-app .fin-mail-vak.is-actief {
+    color: var(--fin-gold); border-color: rgba(240, 192, 64, .45);
+    background: rgba(240, 192, 64, .10);
+}
+.fin-app .fin-mail-vak.is-actief i { color: var(--fin-gold); }
+
+.fin-app .fin-mail-zoek { display: flex; gap: .4rem; align-items: center; flex: 1 1 280px; max-width: 460px; }
+.fin-app .fin-mail-zoek input[type="search"] {
+    flex: 1 1 auto; min-width: 0;
+    padding: .35rem .7rem; border-radius: 8px; font-size: .84rem;
+    color: var(--fin-text); background: var(--fin-surface);
+    border: 1px solid var(--fin-border);
+}
+.fin-app .fin-mail-zoek input[type="search"]:focus {
+    outline: none; border-color: var(--fin-blue);
+}
+.fin-app .fin-mail-wis { font-size: .78rem; color: var(--fin-dim); white-space: nowrap; }
+
+/* ── De mails zelf ────────────────────────────────────────────────────── */
+.fin-app .fin-mail-lijst { display: flex; flex-direction: column; gap: .5rem; }
+.fin-app .fin-mail-item {
+    border-radius: 8px; background: var(--fin-surface);
+    border: 1px solid var(--fin-border);
+    /* De linkerrand zegt uit welk vak de mail komt; de badge zegt het voluit,
+       dus de kleur hoeft het niet in z'n eentje te dragen. */
+    border-left: 3px solid var(--fin-border);
+}
+.fin-app .fin-mail-item.is-corp { border-left-color: var(--fin-blue); }
+.fin-app .fin-mail-item.is-alliance { border-left-color: #9085e9; }
+.fin-app .fin-mail-item.is-verzonden { border-left-color: var(--fin-dim); }
+.fin-app .fin-mail-item.is-inbox { border-left-color: var(--fin-green); }
+.fin-app .fin-mail-item.is-ongelezen { border-left-color: var(--fin-gold); background: rgba(240, 192, 64, .05); }
+.fin-app .fin-mail-item[open] { border-color: #2a2a4a; }
+
+.fin-app .fin-mail-item > summary {
+    display: flex; gap: .7rem; padding: .6rem .8rem; cursor: pointer;
+    list-style: none; align-items: flex-start;
+}
+.fin-app .fin-mail-item > summary::-webkit-details-marker { display: none; }
+.fin-app .fin-mail-item > summary:hover { background: var(--fin-surface-2); }
+.fin-app .fin-mail-item[open] > summary { border-bottom: 1px solid var(--fin-border); }
+.fin-app .fin-mail-portret {
+    width: 40px; height: 40px; border-radius: 6px; flex: none;
+    border: 1px solid var(--fin-border);
+}
+.fin-app .fin-mail-geen {
+    display: flex; align-items: center; justify-content: center;
+    background: var(--fin-surface-2); color: var(--fin-dim); font-size: 1.1rem;
+}
+.fin-app .fin-mail-kop { min-width: 0; flex: 1 1 auto; }
+.fin-app .fin-mail-titel { display: flex; gap: .4rem; align-items: center; flex-wrap: wrap; }
+.fin-app .fin-mail-onderwerp { font-weight: 600; font-size: .92rem; }
+.fin-app .fin-mail-item.is-ongelezen .fin-mail-onderwerp { color: var(--fin-gold); }
+.fin-app .fin-mail-meta { font-size: .78rem; color: var(--fin-dim); margin-top: .1rem; }
+.fin-app .fin-mail-meta b { color: var(--fin-text); font-weight: 600; }
+/* Twee regels van het voorproefje: genoeg om te zien waar het over gaat,
+   weinig genoeg om de lijst een lijst te laten blijven. */
+.fin-app .fin-mail-kort {
+    font-size: .8rem; color: var(--fin-dim); margin-top: .25rem;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+.fin-app .fin-mail-voor { display: flex; gap: .3rem; flex-wrap: wrap; margin-top: .35rem; }
+.fin-app .fin-mail-chip {
+    display: inline-flex; align-items: center; gap: .25rem;
+    padding: .1rem .4rem .1rem .15rem; border-radius: 999px;
+    font-size: .7rem; color: var(--fin-dim);
+    background: var(--fin-surface-2); border: 1px solid var(--fin-border);
+    border-left: 2px solid var(--kleur, var(--fin-border));
+}
+.fin-app .fin-mail-chip img { width: 16px; height: 16px; border-radius: 50%; }
+.fin-app .fin-mail-chip.is-ongelezen { color: var(--fin-gold); border-color: rgba(240, 192, 64, .4); }
+
+.fin-app .fin-badge-fit { background: rgba(0, 180, 216, .16); color: var(--fin-blue); }
+.fin-app .fin-badge-ongelezen { background: rgba(240, 192, 64, .16); color: var(--fin-gold); }
+.fin-app .fin-vak-corp { background: rgba(0, 180, 216, .14); color: var(--fin-blue); }
+.fin-app .fin-vak-alliance { background: rgba(144, 133, 233, .16); color: #9085e9; }
+.fin-app .fin-vak-inbox { background: rgba(62, 207, 110, .14); color: var(--fin-green); }
+.fin-app .fin-vak-verzonden { background: rgba(138, 144, 176, .16); color: var(--fin-dim); }
+
+/* ── De mail opengeslagen ─────────────────────────────────────────────── */
+.fin-app .fin-mail-inhoud { padding: .8rem 1rem 1rem; background: var(--fin-surface-2); border-radius: 0 0 6px 6px; }
+/* De body komt van de afzender: kleuren en groottes staan in de tekst zelf
+   (opgehelderd waar nodig, zie mailtekst.py). Hier alleen de bak eromheen —
+   leesbare regelbreedte en woordafbreking, zodat één lange URL of een tabel
+   van gelijktekens de kaart niet openbreekt. */
+.fin-app .fin-mail-body {
+    font-size: .88rem; line-height: 1.55; max-width: 78ch;
+    overflow-wrap: anywhere;
+}
+.fin-app .fin-mail-body img { max-width: 100%; }
+/* In-game links kan een browser niet volgen (showinfo: bestaat alleen in de
+   client), dus ze zien eruit als een verwijzing maar gedragen zich als tekst. */
+.fin-app .fin-mail-link {
+    border-bottom: 1px dotted currentColor; cursor: help;
+}
+.fin-app .fin-mail-link.is-char { color: #5cc8ff; }
+.fin-app .fin-mail-link.is-corp,
+.fin-app .fin-mail-link.is-alliance { color: #9085e9; }
+.fin-app .fin-mail-link.is-plek { color: var(--fin-green); }
+.fin-app .fin-mail-link.is-kill { color: var(--fin-red); }
+.fin-app .fin-mail-url { color: var(--fin-blue); }
+.fin-app .fin-mail-fit-chip {
+    display: inline-flex; align-items: center; gap: .3rem; vertical-align: middle;
+    padding: .05rem .45rem .05rem .1rem; border-radius: 999px;
+    background: rgba(0, 180, 216, .12); border: 1px solid rgba(0, 180, 216, .35);
+    color: var(--fin-blue); font-size: .84rem;
+}
+.fin-app .fin-mail-fit-chip img { width: 18px; height: 18px; }
+.fin-app .fin-mail-fit-chip i { font-style: normal; color: var(--fin-dim); font-size: .74rem; }
+
+.fin-app .fin-mail-ontvangers {
+    margin-top: .8rem; padding-top: .6rem; border-top: 1px solid var(--fin-border);
+    display: flex; gap: .3rem; flex-wrap: wrap; align-items: center; font-size: .76rem;
+}
+.fin-app .fin-mail-ontvanger {
+    padding: .1rem .45rem; border-radius: 4px;
+    background: var(--fin-surface); border: 1px solid var(--fin-border); color: var(--fin-dim);
+}
+.fin-app .fin-mail-ontvanger.is-corporation { color: var(--fin-blue); }
+.fin-app .fin-mail-ontvanger.is-alliance { color: #9085e9; }
+
+/* ── Fit uit een mail ─────────────────────────────────────────────────── */
+.fin-app .fin-fit {
+    margin-top: .8rem; border-radius: 8px; overflow: hidden;
+    background: var(--fin-surface); border: 1px solid var(--fin-border);
+}
+.fin-app .fin-fit-kop {
+    display: flex; gap: .7rem; align-items: center; padding: .6rem .8rem;
+    background: linear-gradient(90deg, rgba(0, 180, 216, .10), var(--fin-surface) 60%);
+    border-bottom: 1px solid var(--fin-border);
+}
+.fin-app .fin-fit-kop img { width: 56px; height: 56px; border-radius: 6px; flex: none; }
+.fin-app .fin-fit-naam { font-weight: 700; font-size: .95rem; }
+.fin-app .fin-fit-schip { font-size: .78rem; color: var(--fin-dim); }
+/* Slotkolommen naast elkaar zolang het past: zo lees je een fit zoals je hem
+   in het spel ziet, en niet als één lange lijst waar de slots door elkaar lopen. */
+.fin-app .fin-fit-slots {
+    display: grid; gap: .6rem; padding: .7rem .8rem;
+    grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+}
+.fin-app .fin-fit-slotnaam {
+    font-size: .68rem; letter-spacing: .06em; text-transform: uppercase;
+    color: var(--fin-dim); margin-bottom: .25rem;
+}
+.fin-app .fin-fit-slotnaam i { font-style: normal; opacity: .6; }
+.fin-app .fin-fit-mod {
+    display: flex; align-items: center; gap: .35rem; font-size: .8rem;
+    padding: .1rem 0; min-width: 0;
+}
+.fin-app .fin-fit-mod img { width: 22px; height: 22px; flex: none; }
+.fin-app .fin-fit-mod span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fin-app .fin-fit-aantal { color: var(--fin-dim); flex: none; }
+.fin-app .fin-fit-eft > summary {
+    padding: .4rem .8rem; font-size: .76rem; color: var(--fin-dim);
+    cursor: pointer; border-top: 1px solid var(--fin-border);
+}
+.fin-app .fin-fit-eft > summary:hover { color: var(--fin-text); }
+.fin-app .fin-fit-eft pre {
+    margin: 0; padding: .6rem .8rem; font-size: .76rem; line-height: 1.4;
+    background: var(--fin-surface-2); color: var(--fin-text);
+    max-height: 340px; overflow: auto;
+}
+
+/* ── Mail per maand ───────────────────────────────────────────────────── */
+/* Vaste hoogte voor de balkenrij: anders bepaalt de hoogste balk de rijhoogte
+   en verspringt de nullijn zodra er een maand bij komt. */
+.fin-app .fin-mail-maanden {
+    display: flex; gap: .4rem; align-items: flex-end;
+    padding: .8rem; border-radius: 8px;
+    background: var(--fin-surface); border: 1px solid var(--fin-border);
+}
+.fin-app .fin-mail-maand { flex: 1 1 auto; min-width: 0; text-align: center; }
+/* Bij een paar maanden zou flex-grow er balken van 300px van maken; dan leest
+   de grafiek als een muur in plaats van als een verloop. */
+.fin-app .fin-mail-maanden.is-smal { justify-content: center; }
+.fin-app .fin-mail-maanden.is-smal .fin-mail-maand { max-width: 110px; }
+.fin-app .fin-mail-maandbalk { height: 90px; display: flex; align-items: flex-end; }
+.fin-app .fin-mail-maandbalk > i {
+    display: block; width: 100%; border-radius: 3px 3px 0 0;
+    background: var(--fin-ess); min-height: 2px;
+}
+/* Een maand zonder mail krijgt een streepje op de nullijn: leeg is ook een
+   uitkomst, en zonder streepje lijkt de maand er niet te zijn. */
+.fin-app .fin-mail-maandbalk > i.is-leeg { background: var(--fin-border); height: 2px; }
+.fin-app .fin-mail-maandtal { font-size: .74rem; font-variant-numeric: tabular-nums; margin-top: .2rem; }
+.fin-app .fin-mail-maandlabel { font-size: .66rem; color: var(--fin-dim); }
+
+.fin-app .fin-mail-afzender { display: inline-flex; align-items: center; gap: .4rem; }
+.fin-app .fin-mail-afzender img { width: 24px; height: 24px; border-radius: 4px; }
+
+
+/* ── Markt ────────────────────────────────────────────────────────────── */
+.fin-app .fin-kant-koop { background: rgba(0, 180, 216, .14); color: var(--fin-blue); }
+.fin-app .fin-kant-verkoop { background: rgba(240, 192, 64, .14); color: var(--fin-gold); }
+
+/* Hoe vol een order al is. Alleen een balkje: het aantal staat er als getal
+   naast, en twee getallen naast elkaar (3 van 21) leest trager dan een balk. */
+.fin-app .fin-mkt-vul {
+    height: 3px; border-radius: 2px; margin-top: .25rem;
+    background: var(--fin-border); overflow: hidden;
+}
+.fin-app .fin-mkt-vul > i { display: block; height: 100%; background: var(--fin-gold); }
+
+/* Wie de order plaatste, met dezelfde kleurstip als op de wallet-tegels. */
+.fin-app .fin-mkt-char::before {
+    content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 2px;
+    background: var(--kleur, var(--fin-dim)); margin-right: .35rem;
+}
+
+.fin-app .fin-mkt-pos { font-size: .8rem; font-weight: 600; white-space: nowrap; }
+.fin-app .fin-mkt-pos.is-goed { color: var(--fin-green); }
+.fin-app .fin-mkt-pos.is-slecht { color: var(--fin-red); }
+.fin-app .fin-mkt-sub { font-size: .72rem; color: var(--fin-dim); white-space: nowrap; }
+
+
+/* ── Mail opstellen ───────────────────────────────────────────────────── */
+.fin-app .fin-opstel {
+    margin-bottom: .75rem; border-radius: 8px;
+    background: var(--fin-surface); border: 1px solid var(--fin-border);
+    border-left: 3px solid var(--fin-gold);
+}
+.fin-app .fin-opstel > summary {
+    padding: .5rem .8rem; cursor: pointer; font-weight: 600; font-size: .88rem;
+    color: var(--fin-gold); list-style: none;
+}
+.fin-app .fin-opstel > summary::-webkit-details-marker { display: none; }
+.fin-app .fin-opstel > summary:hover { background: var(--fin-surface-2); }
+.fin-app .fin-opstel[open] > summary { border-bottom: 1px solid var(--fin-border); }
+.fin-app .fin-opstel form { padding: .8rem; display: flex; flex-direction: column; gap: .6rem; }
+/* Van en Aan naast elkaar zolang het past: de afzender is een korte keuze en
+   de ontvangers hebben juist alle ruimte nodig. */
+.fin-app .fin-opstel-rij { display: flex; gap: .6rem; flex-wrap: wrap; }
+.fin-app .fin-opstel-van { flex: 0 1 220px; }
+.fin-app .fin-opstel-aan { flex: 1 1 320px; }
+.fin-app .fin-opstel label { display: flex; flex-direction: column; gap: .2rem; min-width: 0; }
+.fin-app .fin-opstel label > span {
+    font-size: .68rem; letter-spacing: .06em; text-transform: uppercase; color: var(--fin-dim);
+}
+.fin-app .fin-opstel input,
+.fin-app .fin-opstel select,
+.fin-app .fin-opstel textarea {
+    width: 100%; padding: .35rem .6rem; border-radius: 6px; font-size: .86rem;
+    color: var(--fin-text); background: var(--fin-surface-2);
+    border: 1px solid var(--fin-border);
+}
+.fin-app .fin-opstel textarea { resize: vertical; line-height: 1.5; font-family: inherit; }
+.fin-app .fin-opstel input:focus,
+.fin-app .fin-opstel select:focus,
+.fin-app .fin-opstel textarea:focus { outline: none; border-color: var(--fin-blue); }
+.fin-app .fin-opstel-voet {
+    display: flex; gap: .7rem; align-items: center; flex-wrap: wrap; font-size: .74rem;
+}
+.fin-app .fin-opstel-uit { margin-bottom: .75rem; font-size: .84rem; }
+
+.fin-app .fin-mail-acties { margin-bottom: .6rem; }
+.fin-app .fin-knop-klein { padding: .2rem .6rem; font-size: .76rem; }
+
+
+/* ── Mining: refine-rendement ─────────────────────────────────────────── */
+.fin-app .fin-min-rendement {
+    display: flex; gap: .35rem; align-items: center; flex-wrap: wrap;
+    margin: .75rem 0; font-size: .78rem;
+}
+.fin-app .fin-min-rendement .l {
+    font-size: .68rem; letter-spacing: .06em; text-transform: uppercase;
+    color: var(--fin-dim); margin-right: .2rem;
+}
+.fin-app .fin-min-keuze {
+    padding: .18rem .6rem; border-radius: 999px; font-weight: 600;
+    color: var(--fin-dim); background: var(--fin-surface);
+    border: 1px solid var(--fin-border);
+}
+.fin-app .fin-min-keuze:hover { color: var(--fin-text); text-decoration: none; border-color: #2a2a4a; }
+.fin-app .fin-min-keuze.is-actief {
+    color: var(--fin-gold); border-color: rgba(240, 192, 64, .45);
+    background: rgba(240, 192, 64, .10);
+}
+/* ISK/m³ hoort bij het volume ernaast, maar mag wel opvallen: het is het getal
+   waarop je kiest wat je mijnt en wat je meeneemt. */
+.fin-app .fin-min-perm3 { color: var(--fin-gold); }
+
+
+/* ── Mining: per dag wat er gemijnd is ────────────────────────────────── */
+.fin-app .fin-min-dag { font-weight: 600; }
+.fin-app .fin-min-dagwie { font-size: .72rem; color: var(--fin-dim); margin-top: .15rem; }
+.fin-app .fin-min-dagwaar { font-size: .7rem; color: var(--fin-dim); opacity: .75; }
+/* De chips staan in een tabelcel die met de inhoud meegroeit; laat ze afbreken
+   in plaats van de tabel breder maken dan het scherm. */
+.fin-app .fin-table .fin-pi-voorraad { flex-wrap: wrap; margin-bottom: .3rem; }

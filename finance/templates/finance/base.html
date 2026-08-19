@@ -2,8 +2,8 @@
 {% load i18n %}
 {% load static %}
 
-{% block page_title %}{% translate "Character Info" %}{% endblock %}
-{% block header_nav_brand %}{% translate "Character Info" %}{% endblock header_nav_brand %}
+{% block page_title %}{% translate "Mijn Dashboard" %}{% endblock %}
+{% block header_nav_brand %}{% translate "Mijn Dashboard" %}{% endblock header_nav_brand %}
 
 {% block extra_css %}
     {# ?v=versie: anders serveert de browser na een update z'n oude gecachte CSS. #}
@@ -23,7 +23,7 @@
                      src="https://images.evetech.net/types/29668/icon?size=64">
             {% endblock %}
             <div>
-                <h1 class="fin-hero-title">{% block fin_title %}{% translate "Character Info" %}{% endblock %}</h1>
+                <h1 class="fin-hero-title">{% block fin_title %}{% translate "Mijn Dashboard" %}{% endblock %}</h1>
                 <div class="fin-hero-sub">{% block fin_sub %}{% endblock %}</div>
             </div>
         </div>
@@ -40,6 +40,10 @@
                href="{% url 'finance:mining' %}">{% translate "Mining" %}</a>
             <a class="fin-tab {% if actief == 'pi' %}is-actief{% endif %}"
                href="{% url 'finance:pi' %}">{% translate "PI" %}</a>
+            <a class="fin-tab {% if actief == 'markt' %}is-actief{% endif %}"
+               href="{% url 'finance:markt' %}">{% translate "Market" %}</a>
+            <a class="fin-tab {% if actief == 'mail' %}is-actief{% endif %}"
+               href="{% url 'finance:mail' %}">{% translate "Mail" %}</a>
         </div>
 
         {% block details %}{% endblock %}

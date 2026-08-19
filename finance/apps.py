@@ -8,4 +8,4 @@ from finance import __version__
 class FinanceConfig(AppConfig):
     name = "finance"
     label = "finance"
-    verbose_name = f"Character Info v{__version__}"
+    verbose_name = f"Mijn Dashboard v{__version__}"
