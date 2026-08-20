@@ -1044,10 +1044,14 @@
 
     function pasMaatAan() {
       if (!deel.canvas || !deel.kaartVak) return;
-      // Staand, want de cluster is hoger (z) dan breed (x). Liggend zou je
-      // links en rechts leegte krijgen en boven en onder afsnijden.
-      W = Math.min(760, deel.kaartVak.clientWidth || 700);
-      H = Math.round(W * 1.15);
+      // De kaart pakt de volle breedte; de hoogte komt uit het scherm, want
+      // daar zit de beperking. Op een breed scherm stond hij anders als een
+      // postzegel in het midden. De cluster is hoger dan breed, dus de
+      // projectie past zich op de hoogte aan en er blijft links en rechts
+      // ruimte over — die gebruiken we voor de labels.
+      W = deel.kaartVak.clientWidth || 900;
+      var maxH = Math.round((window.innerHeight || 900) * 0.82);
+      H = Math.max(420, Math.min(maxH, Math.round(W * 0.72)));
       deel.canvas.style.width = W + 'px';
       deel.canvas.style.height = H + 'px';
       maakBasis();
