@@ -5,6 +5,7 @@ ref_types, dezelfde totalen en dezelfde groepering per dag, zodat beide plekken
 hetzelfde getal laten zien.
 """
 
+import json
 import math
 import re
 from collections import Counter, defaultdict
@@ -4502,6 +4503,11 @@ def fleet_roam(user):
     uit["verspreid"] = sum(len(s["leden"]) for s in uit["systemen"] if not s["bij_fc"])
     uit["samen"] = len(leden) - uit["verspreid"]
 
+    # Voor de kaart: per systeem hoeveel man er staat, en of de FC erbij is.
+    uit["kaart_fleet"] = json.dumps({
+        str(sid): {"aantal": len(blok["leden"]), "fc": blok["bij_fc"]}
+        for sid, blok in per_systeem.items()})
+
     # Samenstelling: per rol, en daarbinnen per scheepstype.
     labels = {s: l for s, l, _g in ROLGROEPEN}
     per_rol = {}
@@ -4600,3 +4606,58 @@ def roam_schop(user, character_id):
     if int(character_id) == char.character_id:
         return False, "Jezelf eruit schoppen kan hier niet."
     return esi.schop_lid(fleet["fleet_id"], int(character_id), schrijftoken)
+
+
+# --------------------------------------------------------------------------
+# De kaart van New Eden
+# --------------------------------------------------------------------------
+#
+# Alle systemen staan lokaal in eveuniverse, mét coördinaten, dus de kaart kost
+# geen enkele ESI-call. Wat er **niet** staat zijn de stargates (nul rijen), dus
+# er worden geen sprongverbindingen getekend — alleen de sterren zelf, op hun
+# echte plek. Voor "waar zit die intel ten opzichte van ons" is dat genoeg; voor
+# "hoeveel jumps is dat" niet, en dat beweren we dus ook niet.
+#
+# De y-as laten we vallen: New Eden is een platte schijf, en de kaart in het spel
+# kijkt er ook van boven op. x en z zijn de twee assen die je dan overhoudt.
+
+TTL_KAART = 7 * 86400       # systemen verhuizen niet
+
+
+def kaart_json():
+    """{"s": [[id, x, z, sec, naam, regio_id], ...], "r": {regio_id: naam}}.
+
+    Kort gehouden op sleutelnaam en decimalen: dit gaat als één bestand naar de
+    browser en wordt daar gecached, maar hoeft niet groter te zijn dan nodig.
+    """
+    from django.core.cache import cache
+
+    hit = cache.get("fin_kaart")
+    if hit is not None:
+        return hit
+    try:
+        from eveuniverse.models import EveSolarSystem
+    except ImportError:
+        return {"s": [], "r": {}}
+
+    rijen = (EveSolarSystem.objects
+             .select_related("eve_constellation")
+             .values_list("id", "name", "position_x", "position_z",
+                          "security_status", "eve_constellation__eve_region_id",
+                          "eve_constellation__eve_region__name"))
+
+    # Schalen naar een handzaam bereik: de echte getallen zijn ~1e17 meter en
+    # daar kan JSON niets mee dat een browser prettig vindt.
+    schaal = 1e15
+    systemen, regios = [], {}
+    for sid, naam, x, z, sec, regio_id, regio_naam in rijen:
+        if x is None or z is None:
+            continue
+        systemen.append([sid, round(x / schaal, 2), round(z / schaal, 2),
+                         round(float(sec or 0), 1), naam, regio_id])
+        if regio_id and regio_id not in regios:
+            regios[regio_id] = regio_naam
+
+    uit = {"s": systemen, "r": regios}
+    cache.set("fin_kaart", uit, TTL_KAART)
+    return uit

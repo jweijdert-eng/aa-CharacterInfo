@@ -162,8 +162,29 @@ Leest de fleet live uit EVE en beantwoordt de vragen die een FC tijdens een roam
 - **Fleet-beheer** (alleen de fleet boss) — MOTD zetten, mensen uitnodigen (eventueel meteen in een squad)
   en iemand uit de fleet zetten.
 
-De **clusterkaart met intel** van het dashboard zit hier bewust niet in: die leest je EVE-chatlogs van je
-eigen schijf en hoort daarom thuis waar hij nu staat.
+- **Kaart met intel** — waar de fleet staat en wat er in het intel-kanaal gemeld wordt, op één kaart.
+
+#### De intel-kaart
+
+De sterren komen van de server: alle 8490 systemen staan lokaal in django-eveuniverse mét coördinaten, dus de
+kaart kost geen enkele ESI-call. Ze worden als één bestand opgehaald (`fleet/kaart.json`, 412 kB) en daarna
+door de browser gecached.
+
+De **intel** komt niet van de server maar uit je eigen EVE-chatlogs, in de browser gelezen via de File System
+Access API — dezelfde mapkoppeling die het Local-tabblad gebruikt, dus wie die daar al gekoppeld heeft hoeft
+hier niets te doen. Standaard wordt het kanaal `Insidious.Intel` gevolgd; een ander kanaal zet je in
+`local.py`:
+
+```python
+MIJNDASHBOARD_INTEL_KANAAL = "Jouw.Intel"
+```
+
+Meldingen worden gekoppeld aan systeemnamen die erin voorkomen, en gekleurd op leeftijd: rood onder de vijf
+minuten, oranje onder het kwartier, daarna grijs; ouder dan een uur valt weg. `clr`/`clear` maakt een systeem
+groen, `spike` geeft een dikke ring.
+
+**Afstanden op deze kaart zijn hemelsbreed, niet in jumps.** De stargate-tabel van eveuniverse is leeg (nul
+rijen), dus sprongverbindingen en routes worden niet getekend. Beter geen getal dan een verkeerd getal.
 
 ### De fleet zelf: uitnodigen vanuit Auth
 

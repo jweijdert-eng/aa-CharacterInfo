@@ -2,6 +2,7 @@
 
 import json
 
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
 from django.core.cache import cache
@@ -220,6 +221,10 @@ def fleet_roam(request: WSGIRequest) -> HttpResponse:
 
     ctx = _basis(request, "fleet")
     ctx["sub"] = "roam"
+    # Het intel-kanaal staat in local.py als je een ander gebruikt; de chatlogs
+    # worden in de browser gelezen, dus de server hoeft alleen de naam te weten.
+    ctx["intel_kanaal"] = getattr(settings, "MIJNDASHBOARD_INTEL_KANAAL",
+                                  "Insidious.Intel")
     ctx.update(data.fleet_roam(request.user))
     return render(request, "mijndashboard/fleet_roam.html", ctx)
 
@@ -301,6 +306,20 @@ def _fleet_post(request):
         return None
     messages.success(request, _("Sessie gestart — veel succes."))
     return redirect("mijndashboard:fleet_sessie", sessie_id=sessie.id)
+
+
+@login_required
+@permission_required("mijndashboard.basic_access")
+def fleet_kaart(request: WSGIRequest) -> JsonResponse:
+    """Alle systemen van New Eden met hun plek — één keer ophalen, dan cachen.
+
+    Staat los van de pagina zelf omdat het 400 kB is: in de pagina zou het bij
+    elke verversing opnieuw over de lijn gaan, als los bestand houdt de browser
+    het vast.
+    """
+    antwoord = JsonResponse(data.kaart_json())
+    antwoord["Cache-Control"] = "private, max-age=86400"
+    return antwoord
 
 
 @login_required

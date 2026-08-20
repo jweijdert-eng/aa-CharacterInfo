@@ -1,5 +1,5 @@
 {% extends 'mijndashboard/base.html' %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block fin_icoon %}
     {# Fleet Command Burst — het ding waar een boost mee de fleet in gaat. #}
@@ -17,6 +17,10 @@
     {% else %}
         {% translate "De fleet zoals hij nu vliegt" %}
     {% endif %}
+{% endblock %}
+
+{% block extra_javascript %}
+    <script src="{% static 'mijndashboard/intelkaart.js' %}?v={{ versie }}"></script>
 {% endblock %}
 
 {% block details %}
@@ -43,7 +47,7 @@
             groot ben ik, hoeveel logi heb ik, staat iedereen bij elkaar, en mag
             er vrij verplaatst worden.
         {% endcomment %}
-        <div class="fin-stats">
+        <div class="fin-stats fin-roam-stats">
             <div class="fin-stat">
                 <span class="l">{% translate "In de fleet" %}</span>
                 <span class="v">{{ aantal }}</span>
@@ -96,6 +100,38 @@
                 </div>
             </div>
         {% endif %}
+
+        {% comment %}
+            Kaart en intel. De intel komt niet van de server maar uit je eigen
+            EVE-chatlogs, hier in de browser gelezen — dezelfde mapkoppeling als
+            het Local-tabblad gebruikt.
+        {% endcomment %}
+        <div class="fin-fleet-blok fin-intelkaart" data-intelkaart
+             data-kanaal="{{ intel_kanaal }}"
+             data-kaart-url="{% url 'mijndashboard:fleet_kaart' %}"
+             data-fleet="{{ kaart_fleet }}">
+            <div class="fin-intel-kop">
+                <h2 class="fin-kop">{% translate "Kaart" %}</h2>
+                <span class="fin-intel-status is-dim" data-intel-status></span>
+                <button type="button" class="fin-knop fin-knop-klein" data-kaart-terug>
+                    {% translate "Terug naar de fleet" %}</button>
+                <button type="button" class="fin-knop fin-knop-klein" data-intel-koppel>
+                    {% translate "Chatlogs-map" %}</button>
+            </div>
+            <div class="fin-intel-vlak">
+                <canvas data-kaart></canvas>
+                <div class="fin-intel-legenda">
+                    <span><i class="fin-legenda-fleet"></i> {% translate "fleet" %}</span>
+                    <span><i class="fin-legenda-vers"></i> &lt; 5 {% translate "min" %}</span>
+                    <span><i class="fin-legenda-recent"></i> &lt; 15 {% translate "min" %}</span>
+                    <span><i class="fin-legenda-clear"></i> {% translate "clear" %}</span>
+                </div>
+            </div>
+            <div class="fin-intel-lijst" data-intel-lijst></div>
+            <p class="fin-onderschrift">
+                {% translate "Afstanden op deze kaart zijn hemelsbreed, niet in jumps: de stargate-tabel zit niet in deze installatie." %}
+            </p>
+        </div>
 
         <div class="fin-roam-kolommen">
 

@@ -31,6 +31,7 @@ urlpatterns = [
     # verdeling over meerdere mensen, niet om je eigen opbrengst.
     path("fleet/", views.fleet, name="fleet"),
     path("fleet/roam/", views.fleet_roam, name="fleet_roam"),
+    path("fleet/kaart.json", views.fleet_kaart, name="fleet_kaart"),
     path("fleet/fc/", views.fleet_koppelen, name="fleet_koppelen"),
     path("fleet/<int:sessie_id>/", views.fleet_sessie, name="fleet_sessie"),
     path("markt/", views.markt, name="markt"),

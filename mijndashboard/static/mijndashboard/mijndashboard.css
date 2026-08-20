@@ -1953,3 +1953,79 @@
 .fin-app .fin-roam-squad > span {
     font-size: .72rem; letter-spacing: .04em; text-transform: uppercase; color: var(--fin-dim);
 }
+
+/* ── Intel-kaart ────────────────────────────────────────────────────────── */
+.fin-app .fin-intelkaart { margin-bottom: 1rem; padding: 0; overflow: hidden; }
+.fin-app .fin-intel-kop {
+    display: flex; align-items: center; gap: .6rem; flex-wrap: wrap;
+    padding: .7rem .9rem .6rem;
+}
+.fin-app .fin-intel-kop .fin-kop { margin: 0; }
+.fin-app .fin-intel-kop .fin-knop { margin-left: 0; }
+.fin-app .fin-intel-kop .fin-knop:first-of-type { margin-left: auto; }
+.fin-app .fin-intel-status { font-size: .74rem; }
+.fin-app .fin-intel-status.is-dim { color: var(--fin-dim); }
+.fin-app .fin-intel-status.is-aan { color: var(--fin-green); }
+.fin-app .fin-intel-status.is-let-op { color: var(--fin-gold); }
+
+.fin-app .fin-intel-vlak { position: relative; background: #07070f; }
+.fin-app .fin-intel-vlak canvas {
+    display: block; width: 100%; cursor: grab;
+}
+.fin-app .fin-intel-vlak canvas:active { cursor: grabbing; }
+.fin-app .fin-intel-legenda {
+    position: absolute; left: .6rem; bottom: .5rem;
+    display: flex; gap: .7rem; font-size: .66rem; color: var(--fin-dim);
+    background: rgba(7, 7, 15, .75); padding: .2rem .5rem; border-radius: 4px;
+}
+.fin-app .fin-intel-legenda span { display: flex; align-items: center; gap: .25rem; }
+.fin-app .fin-intel-legenda i {
+    width: 8px; height: 8px; border-radius: 50%; display: inline-block;
+}
+.fin-app .fin-legenda-fleet { background: #3ecf6e; }
+.fin-app .fin-legenda-vers { background: #ef4444; }
+.fin-app .fin-legenda-recent { background: #f0932b; }
+.fin-app .fin-legenda-clear { background: rgba(62, 207, 110, .4); border: 1px solid #3ecf6e; }
+
+/* De meldingen zelf: één regel per melding, nieuwste bovenaan. Meer dan een
+   paar regels hoef je niet te zien — daarvoor kijk je in het spel. */
+.fin-app .fin-intel-lijst {
+    max-height: 12rem; overflow-y: auto; padding: .4rem .9rem .6rem;
+}
+.fin-app .fin-intel-regel {
+    display: flex; align-items: baseline; gap: .5rem; font-size: .78rem;
+    padding: .12rem 0; border-bottom: 1px solid rgba(255, 255, 255, .04);
+}
+.fin-app .fin-intel-regel:last-child { border-bottom: 0; }
+.fin-app .fin-intel-tijd {
+    flex: 0 0 2.2rem; text-align: right; font-size: .68rem;
+    color: var(--fin-dim); font-variant-numeric: tabular-nums;
+}
+.fin-app .fin-intel-sys {
+    flex: 0 0 auto; font-weight: 600; padding: 0 .3rem; border-radius: 3px;
+}
+.fin-app .fin-intel-tekst {
+    flex: 1 1 auto; min-width: 0; overflow: hidden;
+    text-overflow: ellipsis; white-space: nowrap; color: var(--fin-text);
+}
+.fin-app .fin-intel-wie { flex: 0 0 auto; font-size: .68rem; color: var(--fin-dim); }
+.fin-app .fin-intel-regel.is-vers .fin-intel-sys { color: #ef4444; background: rgba(239, 68, 68, .12); }
+.fin-app .fin-intel-regel.is-recent .fin-intel-sys { color: #f0932b; background: rgba(240, 147, 43, .12); }
+.fin-app .fin-intel-regel.is-oud { opacity: .55; }
+.fin-app .fin-intel-regel.is-clear .fin-intel-sys { color: #3ecf6e; background: rgba(62, 207, 110, .12); }
+.fin-app .fin-intelkaart .fin-onderschrift { padding: 0 .9rem .7rem; margin: 0; }
+
+/* ── Strakker: minder lijnen, rustiger koppen, meer lucht ───────────────── */
+.fin-app .fin-fleet-blok { padding: .75rem .9rem; }
+.fin-app .fin-fleet-blok > .fin-kop:first-child { margin-top: 0; margin-bottom: .6rem; }
+.fin-app .fin-roam-kolommen .fin-kop,
+.fin-app .fin-intel-kop .fin-kop {
+    font-size: .72rem; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--fin-dim); font-weight: 700;
+}
+.fin-app .fin-roam-beheer > .fin-kop { font-size: .72rem; letter-spacing: .1em; text-transform: uppercase; }
+/* De statkaarten stonden met een rand om elk vakje; één doorlopende balk met
+   scheidingslijntjes leest rustiger. Alleen hier: .fin-stats staat ook op
+   Wallet, Ratting en Mining en die hoeven niet mee te veranderen. */
+.fin-app .fin-roam-stats { gap: 0; }
+.fin-app .fin-roam-stats > .fin-stat + .fin-stat { border-left: 1px solid var(--fin-border); }
