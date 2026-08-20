@@ -115,8 +115,9 @@
                 <span class="fin-intel-status is-dim" data-intel-status></span>
                 <button type="button" class="fin-knop fin-knop-klein" data-kaart-terug>
                     {% translate "Terug naar de fleet" %}</button>
-                <button type="button" class="fin-knop fin-knop-klein" data-intel-koppel>
-                    {% translate "Chatlogs-map" %}</button>
+                <button type="button" class="fin-knop fin-knop-klein" data-intel-koppel
+                        title="{% translate 'Kies de map EVE/logs/Chatlogs — niet Gamelogs en niet de map erboven' %}">
+                    {% translate "Kies Chatlogs-map" %}</button>
             </div>
             <div class="fin-intel-vlak">
                 <canvas data-kaart></canvas>
@@ -129,6 +130,7 @@
             </div>
             <div class="fin-intel-lijst" data-intel-lijst></div>
             <p class="fin-onderschrift">
+                {% blocktranslate with kanaal=intel_kanaal %}Intel komt uit het kanaal {{ kanaal }} in je eigen chatlogs — kies de map <b>EVE/logs/Chatlogs</b>, niet Gamelogs. Alle logbestanden van dat kanaal worden gelezen, dus ook die van je andere accounts.{% endblocktranslate %}
                 {% translate "Afstanden op deze kaart zijn hemelsbreed, niet in jumps: de stargate-tabel zit niet in deze installatie." %}
             </p>
         </div>

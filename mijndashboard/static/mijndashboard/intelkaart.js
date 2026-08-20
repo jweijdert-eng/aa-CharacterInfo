@@ -4,9 +4,10 @@
  * en wat er in het intel-kanaal gemeld wordt (uit je eigen EVE-chatlogs, hier in
  * de browser gelezen).
  *
- * De chatlogs komen via dezelfde mapverwijzing als het Local-tabblad — zelfde
- * IndexedDB-sleutel — dus wie die map daar al gekoppeld heeft, hoeft hier niets
- * te doen.
+ * De map wordt hier **apart** gekozen, net als op dutchlegionsdashboard.eu/fleet.
+ * Eerst hergebruikte deze pagina de mapverwijzing van het Local-tabblad, maar dat
+ * hoeft niet dezelfde map te zijn — en dan zoekt hij in de verkeerde. Je kiest
+ * hier dus bewust je Chatlogs-map, en die wordt onder een eigen sleutel bewaard.
  *
  * Wat de kaart NIET doet: sprongen tekenen. De stargate-tabel is in deze
  * installatie leeg, dus afstanden op deze kaart zijn hemelsbreed en niet in
@@ -15,15 +16,16 @@
 (function () {
   'use strict';
 
-  var IDB_NAAM = 'mijndashboard', IDB_STORE = 'fs-handles', IDB_SLEUTEL = 'chatlogs-dir';
+  var IDB_NAAM = 'mijndashboard', IDB_STORE = 'fs-handles', IDB_SLEUTEL = 'intel-dir';
   var POLL_MS = 5000;              // even vaak als het spel z'n log wegschrijft
+  var STAART_BYTES = 512 * 1024;   // recente meldingen staan achteraan
   var INTEL_MAX_MIN = 60;          // ouder dan een uur is geen intel meer
   var VERS_MIN = 5, RECENT_MIN = 15;
   var MSG_RE = /^\[\s*(\d{4}\.\d{2}\.\d{2}\s+\d{2}:\d{2}:\d{2})\s*\]\s*([^>]+)>\s*(.*)$/;
   var CLEAR_RE = /\b(clr|clear|clr\.|nv|no vis|niks|leeg)\b/i;
   var SPIKE_RE = /\b(spike|spiked|blob)\b/i;
 
-  /* ── IndexedDB — dezelfde sleutel als localchat.js ─────────────────────── */
+  /* ── IndexedDB — eigen sleutel, los van localchat.js ──────────────────── */
   function idb() {
     return new Promise(function (resolve, reject) {
       var req = indexedDB.open(IDB_NAAM, 1);
@@ -99,6 +101,8 @@
       if (nu && nu - tijd > INTEL_MAX_MIN * 60000) continue;
       var bericht = m[3].trim();
       if (!bericht) continue;
+      // "EVE System > Channel changed to Local" enzovoort is geen intel.
+      if (m[2].trim() === 'EVE System') continue;
       var systemen = zoekSystemen(bericht, index);
       uit.push({
         tijd: tijd, zender: m[2].trim(), bericht: bericht,
@@ -108,6 +112,33 @@
       });
     }
     return uit;
+  }
+
+  /* Welke bestanden in een map bij dit kanaal horen, en welke kanalen er verder
+   * in staan. Los van de File System API gehouden zodat het te testen is: dit is
+   * precies het stuk dat "verkeerde map" zichtbaar moet maken.
+   *
+   * EVE noemt een chatlog "<Kanaal>_YYYYMMDD_HHMMSS_<charid>.txt" en maakt er één
+   * per client-sessie. Met drie accounts open staan er dus drie actuele bestanden
+   * van hetzelfde kanaal; alleen het nieuwste pakken laat meldingen liggen.
+   */
+  var LOGNAAM_RE = /^(.*)_\d{8}_\d{6}_\d+\.txt$/;
+
+  function filterLogs(namen, kanaal) {
+    var prefixen = String(kanaal || '').split(/\s*[|,]\s*/).filter(Boolean)
+      .map(function (k) { return k.toLowerCase() + '_'; });
+    var bestanden = [], kanalen = {};
+    for (var i = 0; i < namen.length; i++) {
+      var naam = namen[i];
+      if (!/\.txt$/i.test(naam)) continue;
+      var m = LOGNAAM_RE.exec(naam);
+      if (m) kanalen[m[1]] = 1;
+      var laag = naam.toLowerCase();
+      for (var j = 0; j < prefixen.length; j++) {
+        if (laag.indexOf(prefixen[j]) === 0) { bestanden.push(naam); break; }
+      }
+    }
+    return { bestanden: bestanden, kanalen: Object.keys(kanalen).sort() };
   }
 
   /* Per systeem de laatste stand: gemeld of vrijgegeven. */
@@ -132,7 +163,8 @@
   // Voor de test in node.
   if (typeof module !== 'undefined' && module.exports) {
     module.exports = { parseIntel: parseIntel, perSysteem: perSysteem,
-                       zoekSystemen: zoekSystemen, tijdVan: tijdVan };
+                       zoekSystemen: zoekSystemen, tijdVan: tijdVan,
+                       filterLogs: filterLogs };
   }
   if (typeof window === 'undefined') return;
 
@@ -264,6 +296,7 @@
 
     var kaart = null, index = {}, naamIndex = {};
     var dirHandle = null, toestand = 'geen-map', meldingen = [], bezig = false;
+    var kanalenInMap = [];
 
     function zetStatus(tekst, soort) {
       if (!status) return;
@@ -317,19 +350,28 @@
       canvas.height = Math.min(400, Math.max(240, Math.round(breed * 0.30)));
     }
 
-    /* Het intel-logbestand zoeken: EVE noemt het "<Kanaal>_datum_tijd_charid.txt"
-     * en maakt per sessie een nieuw bestand. We pakken de nieuwste. */
-    function zoekLogbestand() {
-      if (!dirHandle) return Promise.resolve(null);
-      var prefix = kanaal.toLowerCase() + '_';
-      var beste = null, besteNaam = '';
+    /* De logbestanden zoeken. EVE noemt ze "<Kanaal>_YYYYMMDD_HHMMSS_<id>.txt"
+     * en maakt er één per client-sessie. Met meerdere accounts open staan er dus
+     * meerdere actuele bestanden van hetzelfde kanaal; alleen het nieuwste pakken
+     * laat de meldingen van je andere characters liggen. We nemen ze allemaal.
+     *
+     * Onderweg noteren we ook wélke kanalen er in de map zitten. Dat is het enige
+     * dat "je hebt de verkeerde map gekozen" zichtbaar maakt: staat je kanaal er
+     * niet bij, dan zie je meteen wat er wél is. */
+    function zoekLogbestanden() {
+      if (!dirHandle) return Promise.resolve({ bestanden: [], kanalen: [] });
+      var namen = [], handles = {};
       var it = dirHandle.values();
       function volgende() {
         return it.next().then(function (r) {
-          if (r.done) return beste;
-          var e = r.value;
-          if (e.kind === 'file' && e.name.toLowerCase().indexOf(prefix) === 0) {
-            if (e.name > besteNaam) { besteNaam = e.name; beste = e; }
+          if (r.done) {
+            var uitslag = filterLogs(namen, kanaal);
+            return { bestanden: uitslag.bestanden.map(function (n) { return handles[n]; }),
+                     kanalen: uitslag.kanalen };
+          }
+          if (r.value.kind === 'file') {
+            namen.push(r.value.name);
+            handles[r.value.name] = r.value;
           }
           return volgende();
         });
@@ -337,28 +379,77 @@
       return volgende();
     }
 
+    /* Alleen de staart lezen: een chatlog van een lange avond wordt megabytes
+     * groot, en de recente meldingen staan achteraan. Bij UTF-16 moet de knip op
+     * een even byte vallen, anders schuift elk teken een halve positie op. */
+    function leesStaart(file) {
+      var start = file.size > STAART_BYTES ? file.size - STAART_BYTES : 0;
+      return file.slice(0, 2).arrayBuffer().then(function (kop) {
+        var b = new Uint8Array(kop);
+        var utf16 = (b[0] === 0xff && b[1] === 0xfe) || (b[0] === 0xfe && b[1] === 0xff);
+        if (utf16 && start % 2 !== 0) start++;
+        return file.slice(start).arrayBuffer().then(function (buf) {
+          // Zonder de BOM van het begin herkent decodeer() UTF-16 aan de
+          // NUL-bytes; dat is precies waar die telling voor is.
+          return start === 0 ? decodeer(buf) : decodeer(buf);
+        });
+      });
+    }
+
     function lees() {
       if (bezig || !dirHandle) return;
       bezig = true;
-      zoekLogbestand().then(function (handle) {
-        if (!handle) {
+      zoekLogbestanden().then(function (r) {
+        kanalenInMap = r.kanalen;
+        if (!r.bestanden.length) {
           toestand = 'geen-bestand';
-          zetStatus('Geen logbestand van ' + kanaal + ' gevonden — staat het kanaal open in het spel?', 'let-op');
+          zetStatus(geenBestandTekst(), 'let-op');
+          tekenLijst();
           return null;
         }
-        return handle.getFile().then(function (f) { return f.arrayBuffer(); }).then(function (buf) {
-          meldingen = parseIntel(decodeer(buf), naamIndex, Date.now());
+        var nu = Date.now();
+        return Promise.all(r.bestanden.map(function (h) {
+          return h.getFile()
+            .then(leesStaart)
+            .then(function (tekst) { return parseIntel(tekst, naamIndex, nu); })
+            .catch(function () { return []; });
+        })).then(function (lijsten) {
+          // Meerdere clients loggen hetzelfde kanaal, dus dezelfde melding komt
+          // in meerdere bestanden voor. Ontdubbelen op zender + tijd + tekst.
+          var gezien = {}, samen = [];
+          lijsten.forEach(function (lijst) {
+            lijst.forEach(function (m) {
+              var sleutel = m.zender + '|' + m.tijd + '|' + m.bericht;
+              if (gezien[sleutel]) return;
+              gezien[sleutel] = 1;
+              samen.push(m);
+            });
+          });
+          meldingen = samen;
           toestand = 'volgt';
-          zetStatus(kanaal + ' — ' + meldingen.length + ' meldingen in het laatste uur', 'aan');
+          zetStatus(kanaal + ' — ' + meldingen.length + ' meldingen in het laatste uur (' +
+                    r.bestanden.length + ' logbestand' + (r.bestanden.length === 1 ? '' : 'en') + ')', 'aan');
           tekenLijst();
           tekenKaart();
         });
       }).catch(function (err) {
         if (err && err.name === 'NotAllowedError') {
           toestand = 'toestemming';
-          zetStatus('Klik op de knop om de Chatlogs-map opnieuw vrij te geven', 'let-op');
+          zetStatus('Klik op de knop om je Chatlogs-map opnieuw vrij te geven', 'let-op');
         }
       }).then(function () { bezig = false; });
+    }
+
+    /* De belangrijkste melding van deze pagina: als het kanaal er niet bij zit,
+     * zeggen wélke kanalen er dan wel in de gekozen map staan. Anders blijf je
+     * raden of je de verkeerde map hebt of dat het kanaal dicht staat. */
+    function geenBestandTekst() {
+      if (!kanalenInMap.length) {
+        return 'Geen chatlogs in deze map. Kies de map EVE/logs/Chatlogs.';
+      }
+      var lijst = kanalenInMap.slice(0, 8).join(', ');
+      if (kanalenInMap.length > 8) lijst += ', …';
+      return 'Geen ' + kanaal + ' in deze map. Wel gevonden: ' + lijst;
     }
 
     function volgMap(handle) {
@@ -399,9 +490,11 @@
           return;
         }
         if (typeof window.showDirectoryPicker !== 'function') {
-          window.alert('Deze browser kan geen map volgen.');
+          window.alert('Deze browser kan geen map volgen; gebruik Chrome of Edge.');
           return;
         }
+        // Altijd de kiezer openen, ook als er al een map staat: zo kun je een
+        // verkeerd gekozen map corrigeren zonder eerst iets te wissen.
         window.showDirectoryPicker({ id: 'eve-chatlogs', mode: 'read' })
           .then(volgMap).catch(function () {});
       });
@@ -445,7 +538,7 @@
 
     idbGet().then(function (handle) {
       if (!handle) {
-        zetStatus('Koppel je EVE-map met chatlogs om intel op de kaart te krijgen', 'dim');
+        zetStatus('Kies je map EVE/logs/Chatlogs om intel op de kaart te krijgen', 'dim');
         return;
       }
       handle.queryPermission({ mode: 'read' }).then(function (p) {
