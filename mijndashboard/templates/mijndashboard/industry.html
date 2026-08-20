@@ -195,18 +195,22 @@
              data-aantal="{{ aantal }}" data-me="{{ me }}" data-koop="{{ koop_param }}"
              data-plek="{{ plek|default:'' }}">
         <div class="fin-bouwtop">
+            <span class="fin-bouwtop-label">{% translate "Projecten" %}</span>
             <div class="fin-bouwbalk" data-rol="projecten"></div>
             {% if doel %}
-                <button type="button" class="fin-knop fin-knop-klein" data-rol="bewaren">
-                    {% translate "Bewaren" %}</button>
+                <button type="button" class="fin-knop fin-knop-klein fin-bouwtop-actie" data-rol="bewaren">
+                    ★ {% translate "Dit project bewaren" %}</button>
             {% endif %}
         </div>
 
         <form class="fin-bouwzoek" method="get">
-            <label>
+            <label class="is-zoek">
                 <span>{% translate "Wat wil je bouwen?" %}</span>
-                <input type="search" name="q" value="{{ zoek }}"
-                       placeholder="{% translate 'Naam van schip, module of onderdeel…' %}">
+                <span class="fin-zoekveld">
+                    <span class="fin-zoekicoon" aria-hidden="true">⌕</span>
+                    <input type="search" name="q" value="{{ zoek }}"
+                           placeholder="{% translate 'Naam van schip, module of onderdeel…' %}">
+                </span>
             </label>
             <label class="is-smal">
                 <span>{% translate "Aantal" %}</span>

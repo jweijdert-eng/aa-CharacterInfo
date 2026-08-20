@@ -1513,3 +1513,45 @@
 }
 .fin-app .fin-bouwproject-balk > i { display: block; height: 100%; background: var(--fin-gold); }
 .fin-app .fin-bouwproject-balk > i.is-af { background: var(--fin-green); }
+
+/* ── Bouwproject: kop van de pagina netter ────────────────────────────── */
+/* Was: een klein kaartje met een kruisje, een losse knop ernaast, en daaronder
+   een zoekveld over de volle breedte terwijl de andere velden rechts hingen.
+   Nu één balk met een label, en één kaart met alle velden bij elkaar. */
+.fin-app .fin-bouwtop {
+    display: flex; align-items: center; gap: .6rem; flex-wrap: wrap;
+    margin-bottom: .6rem; min-height: 2.4rem;
+}
+.fin-app .fin-bouwtop-label {
+    font-size: .64rem; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--fin-dim); flex: none;
+}
+.fin-app .fin-bouwtop-actie { margin-left: auto; flex: none; }
+.fin-app .fin-bouwbalk { margin-bottom: 0; flex: 1 1 auto; min-width: 0; }
+
+/* Projectkaartje: vaste hoogte en het kruisje netjes rechts, in plaats van
+   ingeklemd tussen de tekst. */
+.fin-app .fin-bouwproject {
+    padding: .25rem .25rem .25rem .65rem; border-radius: 8px; min-height: 2.4rem;
+}
+.fin-app .fin-bouwproject-weg {
+    align-self: stretch; width: 1.5rem; border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+}
+.fin-app .fin-bouwproject-weg:hover { background: rgba(224, 85, 85, .12); }
+
+/* De vier velden in één kaart; het zoekveld begrensd zodat het niet over de
+   hele breedte uitrekt en de rest niet naar de rand duwt. */
+.fin-app .fin-bouwzoek {
+    align-items: flex-end; gap: .7rem; padding: .7rem .8rem; border-radius: 10px;
+    background: var(--fin-surface); border: 1px solid var(--fin-border);
+}
+.fin-app .fin-bouwzoek label.is-zoek { flex: 1 1 300px; max-width: 460px; }
+.fin-app .fin-bouwzoek label:not(.is-zoek):not(.is-smal) { flex: 0 1 280px; }
+.fin-app .fin-zoekveld { position: relative; display: block; }
+.fin-app .fin-zoekveld input { padding-left: 1.9rem; }
+.fin-app .fin-zoekicoon {
+    position: absolute; left: .6rem; top: 50%; transform: translateY(-50%);
+    color: var(--fin-dim); font-size: .95rem; pointer-events: none;
+}
+.fin-app .fin-bouwzoek .fin-knop { margin-left: auto; }
