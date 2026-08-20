@@ -51,11 +51,6 @@ class Fleetsessie(models.Model):
     deelnemers = models.JSONField(default=list, blank=True,
                                   verbose_name=_("Deelnemers"),
                                   help_text=_("character-ids van iedereen die meedoet"))
-    boosters = models.JSONField(default=list, blank=True, verbose_name=_("Boosters"),
-                                help_text=_("wie een extra aandeel krijgt"))
-    booster_pct = models.PositiveSmallIntegerField(
-        default=10, verbose_name=_("Aandeel booster"),
-        help_text=_("procent van de pot dat vooraf naar de boosters gaat"))
 
     # {character_id: {sleutel: aantal}} bij de start en bij het eind.
     begin = models.JSONField(default=dict, blank=True, verbose_name=_("Beginstand"))

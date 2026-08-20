@@ -51,7 +51,7 @@
                         <span>{% translate "Naam" %}</span>
                         <input type="text" name="naam" maxlength="100" required
                                class="fin-zoekveld"
-                               placeholder="{% translate 'Rorqual-nacht in 1DQ1-A' %}">
+                               placeholder="{% translate 'Maandagavond in Q-02UL' %}">
                     </label>
 
                     <div class="fin-veld">
@@ -72,7 +72,7 @@
 
                     <div class="fin-veld">
                         <span>{% translate "Deelnemers" %}
-                            <i>— {% translate "vink aan wie meedoet; ⚡ = booster" %}</i></span>
+                            <i>— {% translate "vink aan wie meedoet" %}</i></span>
                         <div class="fin-fleet-lijst">
                             {% comment %}
                                 Het vinkje staat náást het label met een for=, niet
@@ -91,24 +91,10 @@
                                         <span>{{ k.naam }}</span>
                                         {% if k.corp %}<i>{{ k.corp }}</i>{% endif %}
                                     </label>
-                                    <input type="checkbox" class="fin-fleet-bstvink"
-                                           id="fin-bst-{{ k.character_id }}"
-                                           name="boosters" value="{{ k.character_id }}">
-                                    <label class="fin-fleet-boost" for="fin-bst-{{ k.character_id }}"
-                                           title="{% translate 'Booster: krijgt een extra aandeel' %}">⚡</label>
                                 </div>
                             {% endfor %}
                         </div>
                     </div>
-
-                    <label class="fin-veld">
-                        <span>{% translate "Aandeel booster" %}</span>
-                        <span class="fin-fleet-pct">
-                            <input type="number" name="booster_pct" value="10"
-                                   min="0" max="{{ booster_max }}" class="fin-zoekveld">
-                            <i>{% translate "% van de pot, vooraf verdeeld over de boosters" %}</i>
-                        </span>
-                    </label>
 
                     <button type="submit" class="fin-knop">{% translate "Sessie starten" %}</button>
                 </form>

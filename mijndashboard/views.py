@@ -195,8 +195,6 @@ def fleet(request: WSGIRequest) -> HttpResponse:
             request.POST.get("naam", ""),
             request.POST.get("soort", ""),
             request.POST.getlist("deelnemers"),
-            request.POST.getlist("boosters"),
-            request.POST.get("booster_pct", 10),
         )
         if fout:
             messages.error(request, fout)
@@ -205,7 +203,6 @@ def fleet(request: WSGIRequest) -> HttpResponse:
             return redirect("mijndashboard:fleet_sessie", sessie_id=sessie.id)
     ctx["sessies"] = data.fleet_lijst(request.user)
     ctx["kandidaten"] = data.fleet_kandidaten()
-    ctx["booster_max"] = data.BOOSTER_MAX
     return render(request, "mijndashboard/fleet.html", ctx)
 
 

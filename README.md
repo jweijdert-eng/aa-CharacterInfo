@@ -132,9 +132,8 @@ Zo werkt het:
 1. Start de sessie **voordat** je begint, geef hem een naam en vink de deelnemers aan. Deelnemers komen uit
    Alliance Auth zelf — iedereen met een gekoppeld character staat in de lijst, dus niemand hoeft zich apart
    aan te melden en de fleet-scope is niet nodig.
-2. Vink eventueel boosters aan. Die krijgen een vast percentage van de pot vooraf, en delen daarna gewoon
-   mee in de rest.
-3. Stop de sessie als je klaar bent. De laatste kolom laat zien wat er van wie naar wie moet.
+2. Stop de sessie als je klaar bent. De opbrengst gaat gelijk over alle deelnemers; de laatste kolom laat
+   zien wat er van wie naar wie moet.
 
 **Mining** meet met momentopnames: de ledger bij de start, de ledger bij het eind, en het verschil is van
 deze sessie. Dat moet zo, want de mining-ledger van EVE telt per **dag** — daar is achteraf geen uur uit te

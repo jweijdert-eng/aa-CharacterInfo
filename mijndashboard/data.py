@@ -3970,7 +3970,6 @@ def bouwproject(user, type_id=None, aantal=1, me=10, zoek="", koop=None, plek=No
 #   momentopname: het wallet-journaal heeft een tijdstempel per regel. Bij mining
 #   kan dat niet — die ledger vat per dag samen — dus daar nemen we standen op.
 
-BOOSTER_MAX = 50            # meer dan de helft vooraf weggeven slaat nergens op
 SESSIE_MAX = 60             # hoeveel sessies de lijst toont
 
 
@@ -4060,14 +4059,13 @@ def fleet_kandidaten():
             .filter(character_id__in=met_token).order_by("character_name")]
 
 
-def fleet_start(user, naam, soort, deelnemers, boosters, booster_pct):
+def fleet_start(user, naam, soort, deelnemers):
     """Een sessie beginnen en meteen de beginstand vastleggen."""
     from .models import Fleetsessie
 
     soort = Fleetsessie.RATTING if soort == Fleetsessie.RATTING else Fleetsessie.MINING
     try:
         deelnemers = sorted({int(d) for d in deelnemers})[:100]
-        boosters = {int(b) for b in boosters}
     except (TypeError, ValueError):
         return None, "Ongeldige deelnemer."
     if not (naam or "").strip():
@@ -4081,10 +4079,7 @@ def fleet_start(user, naam, soort, deelnemers, boosters, booster_pct):
 
     sessie = Fleetsessie.objects.create(
         naam=naam.strip()[:100], soort=soort, door=user,
-        deelnemers=deelnemers,
-        boosters=sorted(boosters & set(deelnemers)),
-        booster_pct=max(0, min(int(booster_pct or 0), BOOSTER_MAX)),
-        begin=begin,
+        deelnemers=deelnemers, begin=begin,
     )
     return sessie, ""
 
@@ -4154,7 +4149,6 @@ def fleet_detail(user, sessie):
             pot += isk
             rijen.append({
                 "character_id": cid, "naam": namen.get(cid, str(cid)),
-                "booster": cid in (sessie.boosters or []),
                 "isk": isk, "isk_fmt": fmt_isk(isk),
                 "m3_fmt": _getal(m3),
                 "details": sorted(
@@ -4172,21 +4166,16 @@ def fleet_detail(user, sessie):
             pot += isk
             rijen.append({
                 "character_id": cid, "naam": namen.get(cid, str(cid)),
-                "booster": cid in (sessie.boosters or []),
                 "isk": isk, "isk_fmt": fmt_isk(isk),
                 "bounty_fmt": fmt_isk(bounty), "ess_fmt": fmt_isk(ess),
                 "details": [],
             })
 
     # ── Verdelen ──────────────────────────────────────────────────────────
-    # Eerst het boosteraandeel van de pot af, dan de rest gelijk over iedereen.
-    # Boosters delen dus in beide mee: ze doen ook gewoon mee.
-    boosters = [r for r in rijen if r["booster"]]
-    booster_pot = pot * (sessie.booster_pct / 100) if boosters else 0.0
-    per_hoofd = (pot - booster_pot) / len(rijen) if rijen else 0.0
-    per_booster = booster_pot / len(boosters) if boosters else 0.0
+    # De pot gaat gelijk over alle deelnemers.
+    per_hoofd = pot / len(rijen) if rijen else 0.0
     for r in rijen:
-        r["krijgt"] = per_hoofd + (per_booster if r["booster"] else 0.0)
+        r["krijgt"] = per_hoofd
         r["krijgt_fmt"] = fmt_isk(r["krijgt"])
         # Wie meer bijdroeg dan hij terugkrijgt, betaalt in feite mee aan de rest.
         # Dat verschil is precies wat er overgemaakt moet worden.
@@ -4202,9 +4191,6 @@ def fleet_detail(user, sessie):
         "rijen": rijen,
         "pot_fmt": fmt_isk(pot), "heeft_pot": pot > 0,
         "per_hoofd_fmt": fmt_isk(per_hoofd),
-        "booster_pot_fmt": fmt_isk(booster_pot),
-        "per_booster_fmt": fmt_isk(per_booster),
-        "aantal_boosters": len(boosters),
         "duur_fmt": _duur((tot - sessie.gestart).total_seconds()),
         "loopt": sessie.loopt,
         "mag_beheren": sessie.door_id == user.id,

@@ -22,11 +22,7 @@
                 <b class="fin-pos">{{ pot_fmt }}</b>
             </div>
             <div class="fin-projectkop-sub">
-                {% blocktranslate %}Ieder krijgt {{ per_hoofd_fmt }}{% endblocktranslate %}
-                {% if aantal_boosters %}
-                    · {% blocktranslate count n=aantal_boosters %}booster {{ per_booster_fmt }} extra{% plural %}{{ n }} boosters, elk {{ per_booster_fmt }} extra{% endblocktranslate %}
-                    ({{ sessie.booster_pct }}% = {{ booster_pot_fmt }})
-                {% endif %}
+                {% blocktranslate %}Gelijk verdeeld: ieder krijgt {{ per_hoofd_fmt }}{% endblocktranslate %}
             </div>
         </div>
         <div class="fin-projectkop-rechts">
@@ -90,10 +86,6 @@
                                 <img loading="lazy" alt=""
                                      src="https://images.evetech.net/characters/{{ r.character_id }}/portrait?size=32">
                                 <span>{{ r.naam }}</span>
-                                {% if r.booster %}
-                                    <i class="fin-fleet-boostchip"
-                                       title="{% translate 'Booster' %}">⚡</i>
-                                {% endif %}
                             </span>
                         </td>
                         {% if is_mining %}
