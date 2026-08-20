@@ -3837,7 +3837,11 @@ def bouwproject(user, type_id=None, aantal=1, me=10, zoek="", koop=None, plek=No
     kosten = sum(r["isk"] for r in inkooplijst)
 
     doel_info = typen.get(type_id) or {}
-    opbrengst = ((prijzen.get(type_id) or {}).get("verkoop") or 0.0) * aantal
+    # Niet alles is op de markt te koop: een supercapital of titan heeft geen
+    # Jita-prijs. Dan is "kopen is goedkoper" geen advies maar een verkeerde
+    # conclusie uit een ontbrekend getal.
+    stukprijs = (prijzen.get(type_id) or {}).get("verkoop") or 0.0
+    opbrengst = stukprijs * aantal
 
     return {
         **basis,
@@ -3853,7 +3857,8 @@ def bouwproject(user, type_id=None, aantal=1, me=10, zoek="", koop=None, plek=No
         "kosten": kosten, "kosten_fmt": fmt_isk(kosten),
         "opbrengst_fmt": fmt_isk(opbrengst),
         "winst_fmt": fmt_isk(opbrengst - kosten),
-        "loont": opbrengst > kosten,
+        "loont": bool(stukprijs) and opbrengst > kosten,
+        "geen_marktprijs": not stukprijs,
         # Om in het multibuy-venster van het spel te plakken.
         "multibuy": "\n".join(f"{r['naam']} {r['aantal']}" for r in inkooplijst),
         "uit_voorraad": sum(1 for k in knopen if k["voorraad"]),

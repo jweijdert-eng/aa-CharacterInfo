@@ -278,11 +278,22 @@
                 </div>
                 <div class="fin-stat fin-stat-refine">
                     <span class="l">{% translate "Verkoop (Jita)" %}</span>
-                    <span class="v {% if loont %}fin-pos{% endif %}">{{ opbrengst_fmt }}</span>
-                    <span class="s">
-                        {% if loont %}+{{ winst_fmt }} {% translate "tegenover inkoop" %}
-                        {% else %}{% translate "kopen is goedkoper" %}{% endif %}
-                    </span>
+                    {% if geen_marktprijs %}
+                        {% comment %}
+                            Supercapitals en titans staan niet op de markt. Dan is
+                            er geen prijs, en dus ook geen vergelijking — dat zeggen
+                            we, in plaats van "kopen is goedkoper" te concluderen
+                            uit een nul.
+                        {% endcomment %}
+                        <span class="v fin-dim" style="font-size: 1.05rem;">{% translate "geen prijs" %}</span>
+                        <span class="s">{% translate "dit staat niet op de markt in Jita" %}</span>
+                    {% else %}
+                        <span class="v {% if loont %}fin-pos{% endif %}">{{ opbrengst_fmt }}</span>
+                        <span class="s">
+                            {% if loont %}+{{ winst_fmt }} {% translate "tegenover inkoop" %}
+                            {% else %}{% translate "kopen is goedkoper dan bouwen" %}{% endif %}
+                        </span>
+                    {% endif %}
                 </div>
             </div>
 
