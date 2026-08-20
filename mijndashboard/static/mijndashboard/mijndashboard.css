@@ -1092,7 +1092,8 @@
 }
 .fin-app .fin-dl .dl-banner-org img { width: 16px; height: 16px; }
 .fin-app .fin-dl .dl-ticker { color: var(--dl-gold); font-weight: 700; }
-.fin-app .fin-dl .dl-corp { color: var(--dl-text); }
+/* Corp oranje, alliance blauw: dan zie je in één blik welke regel welke is. */
+.fin-app .fin-dl .dl-corp { color: #f97316; }
 .fin-app .fin-dl .dl-alli { color: var(--dl-blue); }
 .fin-app .fin-dl .dl-banner-plek {
     display: flex; align-items: center; gap: .25rem; flex-wrap: wrap;
