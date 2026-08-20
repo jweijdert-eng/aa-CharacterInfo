@@ -48,30 +48,6 @@
             </div>
         {% endif %}
 
-        {% comment %}
-            Het rendement stond hier tot v2.13 vast op een volledige refine, en
-            die bestaat in EVE niet: wat je terugkrijgt hangt af van je skills,
-            het station en z'n rigs. Zo'n te hoog getal maakt van "refinen loont"
-            een advies dat niet uitkomt. De opbrengst schaalt lineair, dus een
-            andere stand is één klik — en hij staat in de URL, dus deelbaar.
-        {% endcomment %}
-        {% if heeft_prijzen %}
-            <div class="fin-min-rendement">
-                <span class="l">{% translate "Refine-rendement" %}</span>
-                {% comment %}
-                    De uitleg dat 100% in het spel niet bestaat stond hier als
-                    losse zin naast de knoppen. Dat leest als een berisping elke
-                    keer dat je hem kiest; het staat nu in de tooltip van die ene
-                    knop, waar het thuishoort.
-                {% endcomment %}
-                {% for k in refine_keuzes %}
-                    <a class="fin-min-keuze {% if k.actief %}is-actief{% endif %}"
-                       href="?refine={{ k.waarde }}"
-                       {% if k.waarde == 100 %}title="{% translate 'De bovengrens van de formule; met skills en rigs haal je in het spel niet meer dan ongeveer 90%.' %}"{% endif %}>{{ k.waarde }}%</a>
-                {% endfor %}
-            </div>
-        {% endif %}
-
         <div class="fin-stats">
             <div class="fin-stat fin-stat-totaal">
                 <span class="l">{% translate "Gemijnd" %}</span>

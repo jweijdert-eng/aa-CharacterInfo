@@ -50,9 +50,9 @@ Negen tabbladen:
   eraf ging (het journaal boekt netto weg) en welke rats je precies afgeschoten hebt — dat laatste staat in het
   `reason`-veld van elke bounty-regel
 - **Mining** — per erts een kaart (varianten als Pyroxeres II/III-Grade staan bij elkaar) met volume,
-  **ISK per m³**, wat het ruw opbrengt tegenover refinen, en welke mineralen eruit komen. Het
-  **refine-rendement is instelbaar** (50–100%, standaard 80): een volledige refine bestaat in het spel niet, en
-  bij een realistisch rendement kantelt het advies voor sommige ertsen. Bovenaan het verschil tussen ruw
+  **ISK per m³**, wat het ruw opbrengt tegenover refinen, en welke mineralen eruit komen. Er wordt met een
+  **rendement van 80%** gerekend — een volledige refine bestaat in het spel niet, en bij een realistisch
+  rendement kantelt het advies voor sommige ertsen. Een andere stand kan met `?refine=` in de URL. Bovenaan het verschil tussen ruw
   verkopen en refinen, en wat refinen met je vrachtvolume doet; daaronder wat je hele voorraad zou opleveren,
   plus per character, per systeem en de ledger zelf
 - **Market** — je openstaande orders met bij elke order je **plek op die markt**: rang, de beste prijs en
