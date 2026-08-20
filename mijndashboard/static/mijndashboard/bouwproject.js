@@ -98,22 +98,35 @@
         var link = document.createElement('a');
         link.href = basisUrl + '?type=' + p.doel + '&aantal=' + p.aantal + '&me=' + p.me +
                     (p.koop ? '&koop=' + p.koop : '') + (p.plek ? '&plek=' + p.plek : '');
+
+        // Het plaatje van wat je bouwt: sneller te herkennen dan de naam, zeker
+        // met een paar projecten naast elkaar.
+        var icoon = document.createElement('img');
+        icoon.className = 'fin-bouwproject-icoon';
+        icoon.loading = 'lazy';
+        icoon.alt = '';
+        icoon.src = 'https://images.evetech.net/types/' + p.doel + '/icon?size=64';
+        link.appendChild(icoon);
+
+        var tekst = document.createElement('span');
+        tekst.className = 'fin-bouwproject-tekst';
         var titel = document.createElement('span');
         titel.className = 'fin-bouwproject-naam';
         titel.textContent = (p.naam || p.doelnaam || 'project') + ' ×' + p.aantal;
-        link.appendChild(titel);
+        tekst.appendChild(titel);
         var sub = document.createElement('span');
         sub.className = 'fin-bouwproject-sub';
         // Klaar tegenover totaal zegt meer dan alleen "3 klaar".
         sub.textContent = totaal ? af + ' van ' + totaal + ' klaar' : 'nog niets afgevinkt';
-        link.appendChild(sub);
+        tekst.appendChild(sub);
         var voortgangsbalk = document.createElement('span');
         voortgangsbalk.className = 'fin-bouwproject-balk';
         var vulling = document.createElement('i');
         vulling.style.width = pct + '%';
         if (pct === 100) vulling.classList.add('is-af');
         voortgangsbalk.appendChild(vulling);
-        link.appendChild(voortgangsbalk);
+        tekst.appendChild(voortgangsbalk);
+        link.appendChild(tekst);
         chip.appendChild(link);
 
         var weg = document.createElement('button');

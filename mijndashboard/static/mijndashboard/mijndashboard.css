@@ -1599,3 +1599,8 @@
 .fin-app .fin-advieschip { font-weight: 600; }
 .fin-app .fin-advieschip.is-bouwen { color: var(--fin-gold); }
 .fin-app .fin-advieschip.is-kopen { color: var(--fin-blue); }
+
+/* Projectkaart met plaatje: icoon links, tekst en balk rechts ernaast. */
+.fin-app .fin-bouwproject a { flex-direction: row; align-items: center; gap: .5rem; }
+.fin-app .fin-bouwproject-icoon { width: 30px; height: 30px; border-radius: 5px; flex: none; }
+.fin-app .fin-bouwproject-tekst { display: flex; flex-direction: column; gap: .1rem; min-width: 110px; }
