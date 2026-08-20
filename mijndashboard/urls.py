@@ -18,6 +18,12 @@ urlpatterns = [
     path("ratting/", views.ratting, name="ratting"),
     path("mining/", views.mining, name="mining"),
     path("pi/", views.pi, name="pi"),
+    # Industry heeft z'n eigen tabbalk; de sub-pagina staat in de URL zodat
+    # elke sub-tab te delen en te bookmarken is.
+    path("industry/", views.industry, name="industry"),
+    path("industry/blueprints/", views.industry, {"sub": "blueprints"}, name="industry_blueprints"),
+    path("industry/bouwwinst/", views.industry, {"sub": "bouwwinst"}, name="industry_bouwwinst"),
+    path("industry/bouwen-of-kopen/", views.industry, {"sub": "bouwenkopen"}, name="industry_bouwenkopen"),
     path("markt/", views.markt, name="markt"),
     path("mail/", views.mail, name="mail"),
     path("koppelen/", views.koppelen, name="koppelen"),

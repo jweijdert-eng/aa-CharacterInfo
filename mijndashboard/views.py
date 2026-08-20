@@ -146,6 +146,17 @@ def pi(request: WSGIRequest) -> HttpResponse:
 
 @login_required
 @permission_required("mijndashboard.basic_access")
+def industry(request: WSGIRequest, sub: str = "jobs") -> HttpResponse:
+    """Industrie, met vier sub-tabbladen in de pagina zelf."""
+    ctx = _basis(request, "industry")
+    ctx["heeft_jobs"] = esi.has_token(_character_ids(request.user), esi.JOBS_SCOPE)
+    ctx["heeft_bp"] = esi.has_token(_character_ids(request.user), esi.BLUEPRINTS_SCOPE)
+    ctx.update(data.industrie(request.user, sub))
+    return render(request, "mijndashboard/industry.html", ctx)
+
+
+@login_required
+@permission_required("mijndashboard.basic_access")
 def markt(request: WSGIRequest) -> HttpResponse:
     """Je marktorders en hoe ze tegenover de concurrentie staan."""
     ctx = _basis(request, "markt")

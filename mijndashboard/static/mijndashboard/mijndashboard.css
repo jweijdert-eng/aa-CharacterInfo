@@ -1350,3 +1350,20 @@
 }
 .lc-menu-item { padding: .45rem .65rem; font-size: .72rem; cursor: pointer; }
 .lc-menu-item:hover { background: rgba(255, 255, 255, .04); }
+
+/* ── Sub-tabbalk (Industry) ───────────────────────────────────────────── */
+/* Tweede niveau, dus rustiger dan de hoofdtabs: pillen in plaats van
+   mappen, zodat je in één blik ziet wat hoofd- en wat subnavigatie is. */
+.fin-app .fin-subtabs {
+    display: flex; gap: .3rem; flex-wrap: wrap; margin: 0 0 1rem;
+}
+.fin-app .fin-subtab {
+    padding: .3rem .8rem; border-radius: 999px; font-size: .8rem; font-weight: 600;
+    color: var(--fin-dim); background: var(--fin-surface);
+    border: 1px solid var(--fin-border);
+}
+.fin-app .fin-subtab:hover { color: var(--fin-text); text-decoration: none; border-color: #2a2a4a; }
+.fin-app .fin-subtab.is-actief {
+    color: var(--fin-gold); border-color: rgba(240, 192, 64, .45);
+    background: rgba(240, 192, 64, .10);
+}

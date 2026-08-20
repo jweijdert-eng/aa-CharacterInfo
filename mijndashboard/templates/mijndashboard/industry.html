@@ -1,0 +1,310 @@
+{% extends 'mijndashboard/base.html' %}
+{% load i18n %}
+
+{% comment %}
+    Industry heeft z'n eigen tabbalk binnen de pagina. Die staat in de URL en
+    niet in JavaScript, zodat elke sub-tab te delen en te bookmarken is en de
+    terugknop gewoon werkt — dezelfde afweging als bij de filters op Mail.
+{% endcomment %}
+
+{% block fin_icoon %}
+    {# Manufacturing-icoon: de Station Container die het spel voor industrie gebruikt. #}
+    <img class="fin-hero-icon" alt=""
+         src="https://images.evetech.net/types/17366/icon?size=64">
+{% endblock %}
+{% block fin_title %}{% translate "Industry" %}{% endblock %}
+{% block fin_sub %}
+    {% if sub == "jobs" %}{{ jobs_totaal }} {% translate "jobs" %}
+    {% elif sub == "blueprints" %}{{ bp_totaal }} {% translate "blueprints" %}
+    {% else %}{{ bouw_totaal }} {% translate "blueprints doorgerekend" %}{% endif %}
+{% endblock %}
+
+{% block details %}
+
+    <div class="fin-subtabs">
+        <a class="fin-subtab {% if sub == 'jobs' %}is-actief{% endif %}"
+           href="{% url 'mijndashboard:industry' %}">{% translate "Jobs" %}</a>
+        <a class="fin-subtab {% if sub == 'blueprints' %}is-actief{% endif %}"
+           href="{% url 'mijndashboard:industry_blueprints' %}">{% translate "Blueprints" %}</a>
+        <a class="fin-subtab {% if sub == 'bouwwinst' %}is-actief{% endif %}"
+           href="{% url 'mijndashboard:industry_bouwwinst' %}">{% translate "Bouwwinst" %}</a>
+        <a class="fin-subtab {% if sub == 'bouwenkopen' %}is-actief{% endif %}"
+           href="{% url 'mijndashboard:industry_bouwenkopen' %}">{% translate "Bouwen of kopen" %}</a>
+    </div>
+
+    {# ── Jobs ────────────────────────────────────────────────────────── #}
+    {% if sub == "jobs" %}
+        {% if not heeft_jobs %}
+            <div class="fin-melding">
+                <p class="mb-2">{% translate "Om je industry jobs te tonen hebben we daar toegang voor nodig." %}</p>
+                <a href="{% url 'mijndashboard:koppelen' %}" class="fin-knop">{% translate "Character koppelen" %}</a>
+            </div>
+        {% else %}
+            <div class="fin-stats">
+                <div class="fin-stat fin-stat-totaal">
+                    <span class="l">{% translate "Jobs" %}</span>
+                    <span class="v">{{ jobs_totaal }}</span>
+                    <span class="s">{% translate "lopend en afgerond" %}</span>
+                </div>
+                <div class="fin-stat fin-stat-ess">
+                    <span class="l">{% translate "Loopt nu" %}</span>
+                    <span class="v">{{ jobs_lopend }}</span>
+                    <span class="s">
+                        {% if eerst_klaar %}{% translate "eerste klaar" %} {{ eerst_klaar|date:"d-m H:i" }}
+                        {% else %}{% translate "niets in de oven" %}{% endif %}
+                    </span>
+                </div>
+                <div class="fin-stat {% if jobs_klaar %}fin-stat-in{% endif %}">
+                    <span class="l">{% translate "Op te halen" %}</span>
+                    <span class="v {% if jobs_klaar %}fin-pos{% endif %}">{{ jobs_klaar }}</span>
+                    <span class="s">{% translate "klaar in de fabriek" %}</span>
+                </div>
+                <div class="fin-stat fin-stat-uit">
+                    <span class="l">{% translate "Installatiekosten" %}</span>
+                    <span class="v fin-neg">{{ jobs_kosten_fmt }}</span>
+                    <span class="s">{% translate "over al deze jobs" %}</span>
+                </div>
+            </div>
+
+            {% if jobs %}
+                <div class="fin-tablewrap">
+                    <table class="fin-table">
+                        <thead>
+                            <tr>
+                                <th>{% translate "Wat" %}</th>
+                                <th>{% translate "Soort" %}</th>
+                                <th class="fin-getal">{% translate "Runs" %}</th>
+                                <th>{% translate "Waar" %}</th>
+                                <th>{% translate "Status" %}</th>
+                                <th class="fin-getal">{% translate "Kosten" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for j in jobs %}
+                                <tr class="{% if j.klaar %}fin-in{% endif %}">
+                                    <td>
+                                        <span class="fin-erts">
+                                            {% if j.plaatje %}<img loading="lazy" alt="" src="{{ j.plaatje }}">{% endif %}
+                                            {{ j.naam }}
+                                        </span>
+                                        <div class="fin-rol fin-mkt-char" style="--kleur: {{ j.kleur }};">{{ j.char }}</div>
+                                    </td>
+                                    <td class="fin-nowrap">{{ j.activiteit }}</td>
+                                    <td class="fin-getal" style="width: 1%;">{{ j.runs }}</td>
+                                    <td class="fin-nowrap fin-dim">{{ j.plek|default:"—" }}</td>
+                                    <td class="fin-nowrap" style="width: 1%;">
+                                        {% if j.klaar %}
+                                            <span class="fin-badge fin-badge-klaar">{% translate "klaar" %}</span>
+                                        {% elif j.loopt %}
+                                            <span class="fin-badge fin-badge-bezig">{{ j.rest_fmt }}</span>
+                                            <div class="fin-mkt-vul"><i style="width: {{ j.pct }}%;"></i></div>
+                                        {% else %}
+                                            <span class="fin-badge fin-badge-rest">{{ j.status }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="fin-getal fin-dim" style="width: 1%;">{{ j.kosten_fmt }}</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="fin-melding">{% translate "Geen jobs gevonden. ESI bewaart afgeronde jobs ongeveer 90 dagen." %}</div>
+            {% endif %}
+        {% endif %}
+
+    {# ── Blueprints ──────────────────────────────────────────────────── #}
+    {% elif sub == "blueprints" %}
+        {% if not heeft_bp %}
+            <div class="fin-melding">
+                <p class="mb-2">{% translate "Om je blueprints te tonen hebben we daar toegang voor nodig." %}</p>
+                <a href="{% url 'mijndashboard:koppelen' %}" class="fin-knop">{% translate "Character koppelen" %}</a>
+            </div>
+        {% else %}
+            <div class="fin-stats">
+                <div class="fin-stat fin-stat-totaal">
+                    <span class="l">{% translate "Blueprints" %}</span>
+                    <span class="v">{{ bp_totaal }}</span>
+                    <span class="s">{{ bp_soorten }} {% translate "verschillende" %}</span>
+                </div>
+                <div class="fin-stat fin-stat-in">
+                    <span class="l">{% translate "Originelen" %}</span>
+                    <span class="v">{{ bp_originelen }}</span>
+                    <span class="s">{{ bp_perfect }} {% translate "met ME 10 of hoger" %}</span>
+                </div>
+                <div class="fin-stat">
+                    <span class="l">{% translate "Kopieën" %}</span>
+                    <span class="v">{{ bp_kopieen }}</span>
+                    <span class="s">{% translate "met een beperkt aantal runs" %}</span>
+                </div>
+                <div class="fin-stat">
+                    <span class="l">{% translate "Waar ze liggen" %}</span>
+                    <span class="v" style="font-size: 1.05rem;">
+                        {% if bp_plekken %}{{ bp_plekken.0.naam }}{% else %}—{% endif %}
+                    </span>
+                    <span class="s">
+                        {% for p in bp_plekken|slice:":3" %}{{ p.naam }} {{ p.aantal }}{% if not forloop.last %} · {% endif %}{% endfor %}
+                    </span>
+                </div>
+            </div>
+
+            <div class="fin-tablewrap">
+                <table class="fin-table">
+                    <thead>
+                        <tr>
+                            <th>{% translate "Blueprint" %}</th>
+                            <th>{% translate "Soort" %}</th>
+                            <th class="fin-getal">ME</th>
+                            <th class="fin-getal">TE</th>
+                            <th class="fin-getal">{% translate "Runs" %}</th>
+                            <th>{% translate "Waar" %}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for b in blueprints %}
+                            <tr class="{% if b.origineel %}fin-in{% endif %}">
+                                <td>
+                                    <span class="fin-erts">
+                                        {% if b.plaatje %}<img loading="lazy" alt="" src="{{ b.plaatje }}">{% endif %}
+                                        {{ b.naam }}
+                                    </span>
+                                    <div class="fin-rol fin-mkt-char" style="--kleur: {{ b.kleur }};">{{ b.char }}</div>
+                                </td>
+                                <td class="fin-nowrap" style="width: 1%;">
+                                    {% if b.origineel %}
+                                        <span class="fin-badge fin-badge-klaar">BPO</span>
+                                    {% else %}
+                                        <span class="fin-badge fin-badge-rest">BPC</span>
+                                    {% endif %}
+                                </td>
+                                <td class="fin-getal" style="width: 1%;">{{ b.me }}</td>
+                                <td class="fin-getal fin-dim" style="width: 1%;">{{ b.te }}</td>
+                                <td class="fin-getal fin-dim" style="width: 1%;">{{ b.runs_fmt }}</td>
+                                <td class="fin-nowrap fin-dim" title="{{ b.plek_vol }}">{{ b.plek|default:"—" }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% endif %}
+
+    {# ── Bouwwinst en Bouwen of kopen ────────────────────────────────── #}
+    {% else %}
+        {% if geen_data %}
+            <div class="fin-melding">
+                {% translate "Geen blueprintgegevens. ESI kent geen recepten; die komen uit de SDE en worden per blueprint opgehaald zodra je deze pagina opent." %}
+            </div>
+        {% else %}
+            <div class="fin-stats">
+                <div class="fin-stat fin-stat-totaal">
+                    <span class="l">{% translate "Doorgerekend" %}</span>
+                    <span class="v">{{ bouw_totaal }}</span>
+                    <span class="s">{% translate "blueprints die je bezit" %}</span>
+                </div>
+                {% if sub == "bouwwinst" %}
+                    <div class="fin-stat fin-stat-in">
+                        <span class="l">{% translate "Winstgevend" %}</span>
+                        <span class="v fin-pos">{{ bouw_winstgevend }}</span>
+                        <span class="s">{% translate "bouwen en op Jita verkopen" %}</span>
+                    </div>
+                    <div class="fin-stat fin-stat-refine">
+                        <span class="l">{% translate "Beste" %}</span>
+                        <span class="v fin-pos">{{ bouw_beste_fmt }}</span>
+                        <span class="s">{{ bouw_beste_naam|default:"—" }}</span>
+                    </div>
+                {% else %}
+                    <div class="fin-stat fin-stat-in">
+                        <span class="l">{% translate "Zelf goedkoper" %}</span>
+                        <span class="v fin-pos">{{ bouw_zelf }}</span>
+                        <span class="s">{% translate "van de doorgerekende blueprints" %}</span>
+                    </div>
+                {% endif %}
+                <div class="fin-stat">
+                    <span class="l">{% translate "Gerekend met" %}</span>
+                    <span class="v" style="font-size: 1.05rem;">EIV × {{ jobkosten_pct }}%</span>
+                    <span class="s">{% translate "installatie" %} · {{ verkoopkosten_pct }}% {% translate "verkoopkosten" %}</span>
+                </div>
+            </div>
+
+            <div class="fin-tablewrap">
+                <table class="fin-table">
+                    <thead>
+                        <tr>
+                            <th>{% translate "Product" %}</th>
+                            <th class="fin-getal">ME</th>
+                            <th class="fin-getal">{% translate "Bouwkosten" %}</th>
+                            {% if sub == "bouwwinst" %}
+                                <th class="fin-getal">{% translate "Verkoop (Jita)" %}</th>
+                                <th class="fin-getal">{% translate "Winst" %}</th>
+                                <th class="fin-getal">{% translate "Marge" %}</th>
+                            {% else %}
+                                <th class="fin-getal">{% translate "Kopen (Jita)" %}</th>
+                                <th class="fin-getal">{% translate "Verschil" %}</th>
+                                <th>{% translate "Advies" %}</th>
+                            {% endif %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for r in bouw %}
+                            <tr class="{% if sub == 'bouwwinst' %}{% if r.loont %}fin-in{% endif %}{% else %}{% if r.zelf_goedkoper %}fin-in{% else %}fin-uit{% endif %}{% endif %}">
+                                <td>
+                                    <span class="fin-erts">
+                                        {% if r.plaatje %}<img loading="lazy" alt="" src="{{ r.plaatje }}">{% endif %}
+                                        {{ r.product }}{% if r.per_run > 1 %} <span class="fin-dim">×{{ r.per_run }}</span>{% endif %}
+                                    </span>
+                                    {% comment %}
+                                        De materialen uitklappen in plaats van een tweede pagina: het
+                                        is de onderbouwing van het bedrag ernaast, niet los verhaal.
+                                    {% endcomment %}
+                                    <details class="fin-inhoud">
+                                        <summary>{{ r.materialen|length }} {% translate "materialen" %} ·
+                                            {{ r.materiaal_fmt }} + {{ r.job_fmt }} {% translate "job" %}</summary>
+                                        <div class="fin-inhoud-lijst">
+                                            {% for m in r.materialen %}
+                                                <div class="fin-inhoud-item">
+                                                    <img loading="lazy" alt=""
+                                                         src="https://images.evetech.net/types/{{ m.type_id }}/icon?size=32">
+                                                    <span>{{ m.naam }}</span>
+                                                    <span class="fin-inhoud-aantal">×{{ m.aantal_fmt }}</span>
+                                                    <span class="fin-dim">{{ m.isk_fmt }}</span>
+                                                </div>
+                                            {% endfor %}
+                                        </div>
+                                    </details>
+                                </td>
+                                <td class="fin-getal" style="width: 1%;">{{ r.me }}</td>
+                                <td class="fin-getal fin-nowrap" style="width: 1%;">
+                                    {{ r.kosten_fmt }}
+                                    {% if r.onvolledig %}
+                                        <span class="fin-neg" title="{% translate 'Van minstens één materiaal is geen Jita-prijs bekend' %}">*</span>
+                                    {% endif %}
+                                </td>
+                                {% if sub == "bouwwinst" %}
+                                    <td class="fin-getal fin-nowrap" style="width: 1%;">{{ r.opbrengst_fmt }}</td>
+                                    <td class="fin-getal fin-nowrap {% if r.loont %}fin-pos{% else %}fin-neg{% endif %}"
+                                        style="width: 1%;">{% if not r.loont %}−{% endif %}{{ r.winst_fmt }}</td>
+                                    <td class="fin-getal fin-nowrap {% if r.loont %}fin-pos{% else %}fin-neg{% endif %}"
+                                        style="width: 1%;">{{ r.marge_fmt }}%</td>
+                                {% else %}
+                                    <td class="fin-getal fin-nowrap" style="width: 1%;">{{ r.koopprijs_fmt }}</td>
+                                    <td class="fin-getal fin-nowrap {% if r.zelf_goedkoper %}fin-pos{% else %}fin-neg{% endif %}"
+                                        style="width: 1%;">{{ r.verschil_fmt }}</td>
+                                    <td class="fin-nowrap" style="width: 1%;">
+                                        {% if r.zelf_goedkoper %}
+                                            <span class="fin-badge fin-badge-klaar">{% translate "zelf bouwen" %}</span>
+                                        {% else %}
+                                            <span class="fin-badge fin-badge-rest">{% translate "kopen" %}</span>
+                                        {% endif %}
+                                    </td>
+                                {% endif %}
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <p class="fin-onderschrift">
+                {% blocktranslate with j=jobkosten_pct v=verkoopkosten_pct %}Bouwkosten = de materialen tegen de Jita-vraagprijs met de ME van jouw eigen blueprint, plus geschatte installatiekosten (EIV × {{ j }}%). Verkoop = de Jita-vraagprijs van het product minus {{ v }}% verkoopkosten. Het is een indicatie: de uitkomst hangt ook af van je TE, het bouwsysteem en de rigs van de structuur, en bij lage volumes verschuift één dure order de prijs al. Een * betekent dat van minstens één materiaal geen Jita-prijs bekend is.{% endblocktranslate %}
+            </p>
+        {% endif %}
+    {% endif %}
+{% endblock %}

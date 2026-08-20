@@ -1089,3 +1089,100 @@ def contacten(character_ids, corporation_id=None, alliance_id=None):
             break
     cache.set(key, uit, TTL_CONTACTEN)
     return uit
+
+
+# --------------------------------------------------------------------------
+# Industrie
+# --------------------------------------------------------------------------
+
+BLUEPRINTS_SCOPE = "esi-characters.read_blueprints.v1"
+TTL_BLUEPRINTS = 1800
+TTL_MARKTPRIJZEN = 3600
+
+
+def blueprints(character_id):
+    """De blueprints van dit character (gepagineerd, gecached)."""
+    key = f"fin_bp_{character_id}"
+    hit = cache.get(key)
+    if hit is not None:
+        return hit
+    token = token_for(character_id, BLUEPRINTS_SCOPE)
+    rijen = _paged(f"/characters/{character_id}/blueprints/", token) if token else []
+    cache.set(key, rijen, TTL_BLUEPRINTS)
+    return rijen
+
+
+def industry_jobs_compleet(character_id):
+    """Industry jobs inclusief de afgeronde.
+
+    Aparte cachesleutel: de lijst met afgeronde jobs is veel langer en wordt
+    alleen op het Industry-tabblad gebruikt, niet in het dashboardblokje.
+    """
+    key = f"fin_jobsall_{character_id}"
+    hit = cache.get(key)
+    if hit is not None:
+        return hit
+    token = token_for(character_id, JOBS_SCOPE)
+    rijen = _paged(f"/characters/{character_id}/industry/jobs/", token,
+                   {"include_completed": "true"}) if token else []
+    cache.set(key, rijen, TTL_QUEUE)
+    return rijen
+
+
+def markt_prijzen():
+    """{type_id: adjusted_price} — CCP's eigen waardering, publiek.
+
+    Hier rekent het spel de installatiekosten van een job mee uit (de EIV), dus
+    dit is de enige juiste bron voor die schatting; een marktprijs is het niet.
+    """
+    key = "fin_marktprijzen"
+    hit = cache.get(key)
+    if hit is not None:
+        return hit
+    uit = {}
+    for rij in _request("/markets/prices/") or []:
+        if rij.get("adjusted_price"):
+            uit[rij["type_id"]] = float(rij["adjusted_price"])
+    if uit:
+        cache.set(key, uit, TTL_MARKTPRIJZEN)
+    return uit
+
+
+def jita_prijzen(type_ids):
+    """{type_id: {"koop": hoogste bod, "verkoop": laagste vraag}} via Fuzzwork.
+
+    `jita_buy()` geeft alleen de biedprijs; voor bouwen heb je juist de
+    vraagprijs nodig — dát betaal je als je de materialen nu koopt.
+    """
+    ids = sorted({int(i) for i in type_ids if i})
+    uit, missend = {}, []
+    for i in ids:
+        hit = cache.get(f"fin_prijs2_{i}")
+        if hit is not None:
+            uit[i] = hit
+        else:
+            missend.append(i)
+
+    for i in range(0, len(missend), 200):
+        blok = missend[i:i + 200]
+        try:
+            r = _session.get(FUZZWORK, headers=UA, timeout=25,
+                             params={"region": JITA_REGIO, "types": ",".join(map(str, blok))})
+        except requests.RequestException as exc:
+            logger.info("Finance: Fuzzwork onbereikbaar: %s", exc)
+            continue
+        if r.status_code != 200:
+            continue
+        try:
+            data = r.json()
+        except ValueError:
+            continue
+        for sleutel, waarde in data.items():
+            try:
+                vak = {"koop": float(waarde["buy"]["max"]),
+                       "verkoop": float(waarde["sell"]["min"])}
+            except (KeyError, TypeError, ValueError):
+                continue
+            uit[int(sleutel)] = vak
+            cache.set(f"fin_prijs2_{int(sleutel)}", vak, TTL_PRIJZEN)
+    return uit

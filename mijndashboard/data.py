@@ -5,6 +5,7 @@ ref_types, dezelfde totalen en dezelfde groepering per dag, zodat beide plekken
 hetzelfde getal laten zien.
 """
 
+import math
 import re
 from collections import Counter, defaultdict
 from html import escape
@@ -3337,3 +3338,323 @@ def standings(user, namen):
         else:
             uit[naam] = STANDING_ONBEKEND
     return uit
+
+
+# --------------------------------------------------------------------------
+# Industrie
+# --------------------------------------------------------------------------
+#
+# Vier sub-tabbladen: jobs, blueprints, bouwwinst en bouwen-of-kopen. De laatste
+# twee rekenen met dezelfde cijfers en verschillen alleen in de vraag die ze
+# beantwoorden: "waar valt geld mee te verdienen" tegenover "moet ik dit zelf
+# maken of kopen".
+#
+# De rekenwijze is overgenomen van /build-profit op dutchlegionsdashboard.eu:
+# materialen tegen de Jita-vráágprijs (dat betaal je als je ze nu koopt), plus
+# geschatte installatiekosten van EIV × 8%, en de opbrengst tegen de Jita-
+# vraagprijs minus 3,6% verkoopkosten (broker fee + sales tax). Eén verschil:
+# de site laat je een ME kiezen, wij kennen de **echte ME van jouw blueprint**.
+
+MANUFACTURING = 1               # activity_id van bouwen
+JOBKOSTEN_PCT = 0.08            # installatiekosten ≈ 8% van de EIV
+VERKOOPKOSTEN_PCT = 0.036       # broker fee + sales tax bij verkopen op Jita
+BP_ORIGINEEL = -1               # quantity -1 = een BPO, -2 = een BPC
+
+# Waar een blueprint ligt is niet altijd een station: ligt hij in een container,
+# dan wijst location_id naar dat kistje en kent /universe/names hem niet. De
+# location_flag weet het dan nog wel, en dat is beter dan een streepje.
+BP_PLEK = {"Hangar": "Persoonlijke hangar", "AssetSafety": "Asset safety",
+           "Deliveries": "Deliveries", "Unlocked": "In een container",
+           "Locked": "In een container (locked)", "CorpSAG1": "Corp-hangar 1",
+           "CorpSAG2": "Corp-hangar 2", "CorpSAG3": "Corp-hangar 3",
+           "CorpSAG4": "Corp-hangar 4", "CorpSAG5": "Corp-hangar 5",
+           "CorpSAG6": "Corp-hangar 6", "CorpSAG7": "Corp-hangar 7"}
+
+JOB_STATUS = {"active": "Loopt", "paused": "Gepauzeerd", "ready": "Klaar",
+              "delivered": "Afgeleverd", "cancelled": "Geannuleerd",
+              "reverted": "Teruggedraaid"}
+
+
+def _bp_namen_en_plekken(rijen, character_ids):
+    """Namen van blueprints en van de plekken waar ze liggen."""
+    type_ids = {r["type_id"] for r in rijen}
+    locaties = {r["location_id"] for r in rijen if r.get("location_id")}
+    stations = {i for i in locaties if i < 100_000_000}
+    structuren = locaties - stations
+    namen = esi.names(stations) if stations else {}
+    if structuren:
+        namen.update(esi.structure_names(structuren, character_ids))
+    return _type_info(type_ids), namen
+
+
+def industrie_jobs(user):
+    """Lopende en afgeronde industry jobs van al je characters."""
+    chars = esi.characters(user)
+    mijn = {c.character_id: c.character_name for c in chars}
+    kleuren = _kleur_per_character([{"character_id": cid} for cid in mijn])
+    nu = datetime.now(timezone.utc)
+
+    with ThreadPoolExecutor(max_workers=6) as pool:
+        per_char = dict(zip(mijn, pool.map(esi.industry_jobs_compleet, list(mijn))))
+
+    ruw = [{**j, "_char": cid} for cid, lijst in per_char.items() for j in lijst]
+    typen, plekken = _bp_namen_en_plekken(
+        [{"type_id": j.get("product_type_id") or j.get("blueprint_type_id"),
+          "location_id": j.get("station_id") or j.get("output_location_id")} for j in ruw],
+        list(mijn))
+
+    rijen = []
+    for j in ruw:
+        eind = _parse(j.get("end_date"))
+        start = _parse(j.get("start_date"))
+        rest = (eind - nu).total_seconds() if eind else 0
+        status = j.get("status") or ""
+        product_id = j.get("product_type_id") or j.get("blueprint_type_id")
+        plek = j.get("station_id") or j.get("output_location_id")
+        rijen.append({
+            "activiteit": ACTIVITEIT.get(j.get("activity_id"), "Job"),
+            "activiteit_id": j.get("activity_id"),
+            "naam": (typen.get(product_id) or {}).get("naam") or f"Type {product_id}",
+            "plaatje": (typen.get(product_id) or {}).get("plaatje") or "",
+            "runs": j.get("runs") or 0,
+            "status": JOB_STATUS.get(status, status),
+            "loopt": status == "active",
+            "klaar": status == "ready",
+            "afgerond": status in ("delivered", "cancelled", "reverted"),
+            "rest_fmt": _over(rest) if rest > 0 else "",
+            "pct": _voortgang(start, eind, nu) if status == "active" else 100,
+            "eind": eind,
+            "plek": _kort_plek(plekken.get(plek, "")),
+            "kosten_fmt": fmt_isk(float(j.get("cost") or 0)),
+            "char": mijn[j["_char"]], "kleur": kleuren[j["_char"]],
+        })
+
+    # Wat nu speelt eerst: klaar om op te halen, dan lopend, dan de rest.
+    volgorde = {True: 0, False: 1}
+    rijen.sort(key=lambda r: (volgorde[not r["klaar"]], volgorde[not r["loopt"]],
+                              r["eind"] or nu), reverse=False)
+    lopend = [r for r in rijen if r["loopt"]]
+    return {
+        "sub": "jobs",
+        "jobs": rijen[:200],
+        "jobs_totaal": len(rijen),
+        "jobs_lopend": len(lopend),
+        "jobs_klaar": sum(1 for r in rijen if r["klaar"]),
+        "jobs_kosten_fmt": fmt_isk(sum(float(j.get("cost") or 0) for j in ruw)),
+        "eerst_klaar": min((r["eind"] for r in lopend if r["eind"]), default=None),
+    }
+
+
+def _kort_plek(naam):
+    """'Jita IV - Moon 4 - Caldari Navy…' → 'Jita IV'."""
+    return naam.split(" - ")[0] if naam else ""
+
+
+def industrie_blueprints(user):
+    """Alle blueprints van je characters bij elkaar."""
+    chars = esi.characters(user)
+    mijn = {c.character_id: c.character_name for c in chars}
+    kleuren = _kleur_per_character([{"character_id": cid} for cid in mijn])
+
+    with ThreadPoolExecutor(max_workers=6) as pool:
+        per_char = dict(zip(mijn, pool.map(esi.blueprints, list(mijn))))
+
+    ruw = [{**b, "_char": cid} for cid, lijst in per_char.items() for b in lijst]
+    typen, plekken = _bp_namen_en_plekken(ruw, list(mijn))
+
+    rijen = []
+    for b in ruw:
+        origineel = int(b.get("quantity") or 0) == BP_ORIGINEEL
+        rijen.append({
+            "type_id": b["type_id"],
+            "naam": (typen.get(b["type_id"]) or {}).get("naam") or f"Type {b['type_id']}",
+            "plaatje": (typen.get(b["type_id"]) or {}).get("plaatje") or "",
+            "origineel": origineel,
+            "me": int(b.get("material_efficiency") or 0),
+            "te": int(b.get("time_efficiency") or 0),
+            # Een BPO heeft oneindig runs (-1); een kopie telt ze af.
+            "runs": int(b.get("runs") or 0),
+            "runs_fmt": "∞" if int(b.get("runs") or 0) < 0 else _getal(b.get("runs") or 0),
+            "plek": (_kort_plek(plekken.get(b.get("location_id"), ""))
+                     or BP_PLEK.get(b.get("location_flag"), b.get("location_flag") or "")),
+            "plek_vol": (plekken.get(b.get("location_id"), "")
+                         or BP_PLEK.get(b.get("location_flag"), "")),
+            "char": mijn[b["_char"]], "kleur": kleuren[b["_char"]],
+        })
+    # Originelen eerst, en daarbinnen de best onderzochte: dat is de blueprint
+    # waar je mee zou bouwen.
+    rijen.sort(key=lambda r: (not r["origineel"], -r["me"], r["naam"]))
+
+    per_plek = Counter(r["plek"] for r in rijen if r["plek"])
+    return {
+        "sub": "blueprints",
+        "blueprints": rijen[:400],
+        "bp_totaal": len(rijen),
+        "bp_originelen": sum(1 for r in rijen if r["origineel"]),
+        "bp_kopieen": sum(1 for r in rijen if not r["origineel"]),
+        "bp_soorten": len({r["type_id"] for r in rijen}),
+        "bp_perfect": sum(1 for r in rijen if r["origineel"] and r["me"] >= 10),
+        "bp_plekken": [{"naam": n, "aantal": a} for n, a in per_plek.most_common(8)],
+    }
+
+
+def _industrie_materialen(type_ids):
+    """Materialen en product per blueprint, uit de SDE via eveuniverse.
+
+    ESI kent geen blueprints, dus dit komt uit de SDE-tabellen die eveuniverse
+    **per type** ophaalt. Dat is de eerste keer een seconde per blueprint, dus
+    parallel; daarna staat het in de database en is het gratis. Bewust geen
+    massale load van alle types in het spel — dat was ooit goed voor een
+    wachtrij van 700.000 taken.
+    """
+    try:
+        from eveuniverse.models import (EveIndustryActivityMaterial,
+                                        EveIndustryActivityProduct, EveType)
+    except ImportError:
+        return {}, {}
+
+    ids = [int(i) for i in type_ids if i]
+    if not ids:
+        return {}, {}
+
+    from django.db import connections
+
+    def _laad(tid):
+        try:
+            EveType.objects.get_or_create_esi(
+                id=tid, enabled_sections=[EveType.Section.INDUSTRY_ACTIVITIES])
+        except Exception:                   # noqa: BLE001 — één rot type mag de rest niet slopen
+            pass
+        finally:
+            connections.close_all()         # elke thread ruimt z'n eigen verbinding op
+
+    ontbreekt = [t for t in ids
+                 if not EveIndustryActivityProduct.objects.filter(eve_type_id=t).exists()]
+    if ontbreekt:
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            list(pool.map(_laad, ontbreekt))
+
+    materialen = defaultdict(list)
+    for m in (EveIndustryActivityMaterial.objects
+              .filter(eve_type_id__in=ids, activity_id=MANUFACTURING)
+              .values_list("eve_type_id", "material_eve_type_id", "quantity")):
+        materialen[m[0]].append((m[1], int(m[2])))
+    producten = {}
+    for p in (EveIndustryActivityProduct.objects
+              .filter(eve_type_id__in=ids, activity_id=MANUFACTURING)
+              .values_list("eve_type_id", "product_eve_type_id", "quantity")):
+        producten[p[0]] = (p[1], int(p[2]))
+    return materialen, producten
+
+
+def industrie_bouwen(user, sub="bouwwinst"):
+    """Wat het kost om je blueprints te bouwen, en wat het oplevert."""
+    chars = esi.characters(user)
+    mijn = {c.character_id: c.character_name for c in chars}
+
+    with ThreadPoolExecutor(max_workers=6) as pool:
+        per_char = dict(zip(mijn, pool.map(esi.blueprints, list(mijn))))
+    ruw = [b for lijst in per_char.values() for b in lijst]
+
+    # Per blueprint-soort de beste ME die je bezit: dáármee zou je bouwen.
+    beste_me = {}
+    for b in ruw:
+        tid = b["type_id"]
+        me = int(b.get("material_efficiency") or 0)
+        if tid not in beste_me or me > beste_me[tid]:
+            beste_me[tid] = me
+
+    materialen, producten = _industrie_materialen(beste_me)
+    if not producten:
+        return {"sub": sub, "bouw": [], "geen_data": True}
+
+    # Alles wat we moeten prijzen: de materialen en de producten.
+    prijs_ids = {p[0] for p in producten.values()}
+    for mats in materialen.values():
+        prijs_ids.update(m[0] for m in mats)
+    prijzen = esi.jita_prijzen(prijs_ids)
+    aangepast = esi.markt_prijzen()
+    typen = _type_info(prijs_ids | set(beste_me))
+
+    rijen = []
+    for bp_id, me in beste_me.items():
+        mats = materialen.get(bp_id)
+        product = producten.get(bp_id)
+        if not mats or not product:
+            continue
+        product_id, per_run = product
+
+        kosten, eiv, ontbrekend = 0.0, 0.0, False
+        materiaallijst = []
+        for mat_id, basis in mats:
+            # ME verlaagt het materiaalverbruik; afronden naar boven, en nooit
+            # onder één stuk per run — zo rekent het spel het ook.
+            nodig = max(1, math.ceil(basis * (1 - me / 100)))
+            prijs = (prijzen.get(mat_id) or {}).get("verkoop") or 0.0
+            if not prijs:
+                ontbrekend = True
+            kosten += nodig * prijs
+            eiv += basis * aangepast.get(mat_id, 0.0)
+            materiaallijst.append({
+                "type_id": mat_id,
+                "naam": (typen.get(mat_id) or {}).get("naam") or f"Type {mat_id}",
+                "aantal": nodig, "aantal_fmt": _getal(nodig),
+                "isk_fmt": fmt_isk(nodig * prijs),
+            })
+
+        jobkosten = eiv * JOBKOSTEN_PCT
+        verkoopprijs = (prijzen.get(product_id) or {}).get("verkoop") or 0.0
+        opbrengst = verkoopprijs * per_run * (1 - VERKOOPKOSTEN_PCT)
+        totaal_kosten = kosten + jobkosten
+        winst = opbrengst - totaal_kosten
+        marge = (winst / totaal_kosten * 100) if totaal_kosten else 0.0
+
+        rijen.append({
+            "bp_id": bp_id,
+            "bp_naam": (typen.get(bp_id) or {}).get("naam") or f"Type {bp_id}",
+            "product_id": product_id,
+            "product": (typen.get(product_id) or {}).get("naam") or f"Type {product_id}",
+            "plaatje": (typen.get(product_id) or {}).get("plaatje") or "",
+            "me": me, "per_run": per_run,
+            "materialen": sorted(materiaallijst, key=lambda m: -m["aantal"])[:12],
+            "kosten": totaal_kosten, "kosten_fmt": fmt_isk(totaal_kosten),
+            "materiaal_fmt": fmt_isk(kosten), "job_fmt": fmt_isk(jobkosten),
+            "opbrengst": opbrengst, "opbrengst_fmt": fmt_isk(opbrengst),
+            "koopprijs": verkoopprijs * per_run,
+            "koopprijs_fmt": fmt_isk(verkoopprijs * per_run),
+            "winst": winst, "winst_fmt": fmt_isk(abs(winst)), "loont": winst > 0,
+            "marge": marge, "marge_fmt": _nl(f"{marge:,.1f}"),
+            # Zonder marktprijs voor een materiaal is de uitkomst een gok; dat
+            # zeggen we erbij in plaats van een mooi getal te tonen.
+            "onvolledig": ontbrekend,
+            # Voor "bouwen of kopen": goedkoper zelf maken dan kant-en-klaar kopen?
+            "zelf_goedkoper": totaal_kosten < verkoopprijs * per_run,
+            "verschil_fmt": fmt_isk(abs(verkoopprijs * per_run - totaal_kosten)),
+        })
+
+    if sub == "bouwenkopen":
+        rijen.sort(key=lambda r: -(r["koopprijs"] - r["kosten"]))
+    else:
+        rijen.sort(key=lambda r: -r["winst"])
+
+    winstgevend = [r for r in rijen if r["loont"]]
+    return {
+        "sub": sub,
+        "bouw": rijen[:100],
+        "bouw_totaal": len(rijen),
+        "bouw_winstgevend": len(winstgevend),
+        "bouw_beste_fmt": fmt_isk(winstgevend[0]["winst"]) if winstgevend else "0",
+        "bouw_beste_naam": winstgevend[0]["product"] if winstgevend else "",
+        "bouw_zelf": sum(1 for r in rijen if r["zelf_goedkoper"]),
+        "jobkosten_pct": round(JOBKOSTEN_PCT * 100),
+        "verkoopkosten_pct": _nl(f"{VERKOOPKOSTEN_PCT * 100:,.1f}"),
+    }
+
+
+def industrie(user, sub="jobs"):
+    """Het Industry-tabblad; `sub` kiest welk sub-tabblad."""
+    if sub == "blueprints":
+        return industrie_blueprints(user)
+    if sub in ("bouwwinst", "bouwenkopen"):
+        return industrie_bouwen(user, sub)
+    return industrie_jobs(user)

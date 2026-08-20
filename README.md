@@ -32,7 +32,7 @@ Let op: de URL verandert van `/finance/` naar `/mijndashboard/`, dus oude bladwi
 Wie de rechten per groep heeft ingesteld hoeft niets te doen; de permissie heet nu
 `mijndashboard.basic_access` en houdt dezelfde toewijzingen.
 
-Negen tabbladen:
+Tien tabbladen:
 
 - **Dashboard** — de voorpagina, **nagebouwd naar de startpagina van**
   [dutchlegionsdashboard.eu](https://dutchlegionsdashboard.eu/): dezelfde banner (waar je main is, waarin,
@@ -59,6 +59,15 @@ Negen tabbladen:
   welke fabrieken draaien en wat ze per dag opleveren, hoe vol de opslag zit en wat erin ligt. Bovenaan staat
   wat aandacht vraagt (stilstaande extractor, volle opslag, grondstof die opraakt), en onderaan wat je account
   netto per dag maakt — eigen verbruik telt niet mee, zodat een halffabrikaat niet dubbel geteld wordt.
+- **Industry** — met **vier sub-tabs** in de pagina zelf (elk met een eigen URL, dus deelbaar):
+  **Jobs** (lopend en afgerond, met voortgang, locatie en installatiekosten), **Blueprints** (alles bij
+  elkaar, BPO of BPC, ME/TE, resterende runs en waar ze liggen), **Bouwwinst** (per blueprint die je bezit:
+  materiaalkosten tegenover de opbrengst op Jita) en **Bouwen of kopen** (zelf maken of kant-en-klaar kopen).
+  De laatste twee rekenen zoals `/build-profit` op het dashboard — materialen tegen de Jita-vraagprijs plus
+  installatiekosten van EIV × 8%, opbrengst minus 3,6% verkoopkosten — maar dan met de **echte ME van jouw
+  blueprint** in plaats van een schuifje. De recepten komen uit de SDE via django-eveuniverse en worden
+  **per blueprint** opgehaald zodra je ze nodig hebt (eerste keer ~10s voor een hangar vol, daarna staan ze
+  in de database).
 - **Market** — je openstaande orders met bij elke order je **plek op die markt**: rang, de beste prijs en
   hoeveel je ernaast zit. Vergeleken binnen hetzelfde systeem (of dezelfde structuur), want kopen kan alleen
   waar de order ligt. Verder wat er per markt uitstaat, en uit de orderhistorie van 90 dagen: hoeveel orders
@@ -104,6 +113,7 @@ niets in de admin in te richten.
 - `esi-mail.send_mail.v1` — mail versturen; alleen characters die deze toestemming hebben staan in het
   opstelvenster als afzender
 - `esi-markets.read_character_orders.v1` — je marktorders
+- `esi-characters.read_blueprints.v1` — je blueprints (Industry)
 
 Ze worden in één keer gevraagd bij het koppelen.
 
