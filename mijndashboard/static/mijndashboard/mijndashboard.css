@@ -36,16 +36,33 @@
 .fin-app .fin-hero-sub { font-size: .85rem; color: var(--fin-dim); }
 
 /* ── Tabbladen ────────────────────────────────────────────────────────── */
-.fin-app .fin-tabs { display: flex; gap: .3rem; margin-bottom: 1rem; border-bottom: 1px solid var(--fin-border); }
+/* De balk was zo vlak dat je moest zoeken waar je stond. Nu draagt de rand de
+   rij, staat het actieve tabblad op een gouden streep en zijn de andere goed
+   leesbaar in plaats van halfweg weggedimd. */
+.fin-app .fin-tabs {
+    display: flex; gap: .25rem; margin-bottom: 1rem; flex-wrap: wrap;
+    padding: .3rem .35rem 0; border-radius: 10px 10px 0 0;
+    background: var(--fin-surface); border: 1px solid var(--fin-border);
+    border-bottom: 2px solid var(--fin-gold);
+}
 .fin-app .fin-tab {
-    padding: .45rem .95rem; border-radius: 8px 8px 0 0; font-size: .88rem; font-weight: 600;
-    color: var(--fin-dim); border: 1px solid transparent; border-bottom: 0;
+    position: relative; padding: .55rem 1.05rem; border-radius: 8px 8px 0 0;
+    font-size: .92rem; font-weight: 600; color: #9aa0c0;
+    border: 1px solid transparent; border-bottom: 0; margin-bottom: -2px;
+    transition: color .12s, background .12s;
 }
-.fin-app .fin-tab:hover { color: var(--fin-text); background: var(--fin-surface); text-decoration: none; }
+.fin-app .fin-tab:hover {
+    color: var(--fin-text); background: rgba(255, 255, 255, .04); text-decoration: none;
+}
 .fin-app .fin-tab.is-actief {
-    color: var(--fin-gold); background: var(--fin-surface);
-    border-color: var(--fin-border); margin-bottom: -1px;
+    color: #0f0f22; font-weight: 700;
+    background: linear-gradient(180deg, var(--fin-gold), #d9a92f);
+    border-color: transparent; border-radius: 8px 8px 0 0;
+    box-shadow: 0 -6px 16px -8px rgba(240, 192, 64, .8);
 }
+/* Gouden streep bovenop het actieve tabblad: dat leest sneller dan alleen een
+   kleurverschil in de tekst. */
+.fin-app .fin-tab.is-actief::before { content: none; }
 
 /* ── Stat-tegels ──────────────────────────────────────────────────────── */
 .fin-app .fin-stats { display: flex; gap: .75rem; flex-wrap: wrap; }
