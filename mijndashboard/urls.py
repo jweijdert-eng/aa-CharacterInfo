@@ -17,11 +17,14 @@ urlpatterns = [
     path("contracts/", views.contracts, name="contracts"),
     path("ratting/", views.ratting, name="ratting"),
     path("mining/", views.mining, name="mining"),
+    # PI hoort onder Industry; het oude pad blijft werken voor bladwijzers.
+    path("industry/pi/", views.pi, name="industry_pi"),
     path("pi/", views.pi, name="pi"),
     # Industry heeft z'n eigen tabbalk; de sub-pagina staat in de URL zodat
     # elke sub-tab te delen en te bookmarken is.
     path("industry/", views.industry, name="industry"),
     path("industry/blueprints/", views.industry, {"sub": "blueprints"}, name="industry_blueprints"),
+    path("industry/bouwproject/", views.industry, {"sub": "bouwproject"}, name="industry_bouwproject"),
     path("industry/bouwwinst/", views.industry, {"sub": "bouwwinst"}, name="industry_bouwwinst"),
     path("industry/bouwen-of-kopen/", views.industry, {"sub": "bouwenkopen"}, name="industry_bouwenkopen"),
     path("markt/", views.markt, name="markt"),

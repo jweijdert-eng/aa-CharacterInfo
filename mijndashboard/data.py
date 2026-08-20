@@ -3651,10 +3651,162 @@ def industrie_bouwen(user, sub="bouwwinst"):
     }
 
 
-def industrie(user, sub="jobs"):
+def industrie(user, sub="jobs", **kwargs):
     """Het Industry-tabblad; `sub` kiest welk sub-tabblad."""
+    if sub == "pi":
+        return {"sub": "pi", **pi(user)}
+    if sub == "bouwproject":
+        return bouwproject(user, **kwargs)
     if sub == "blueprints":
         return industrie_blueprints(user)
     if sub in ("bouwwinst", "bouwenkopen"):
         return industrie_bouwen(user, sub)
     return industrie_jobs(user)
+
+
+# --------------------------------------------------------------------------
+# Bouwproject
+# --------------------------------------------------------------------------
+#
+# Overgenomen van /build op dutchlegionsdashboard.eu: je kiest wat je wil maken
+# en hoeveel, en de pagina rekent de hele boom uit — het schip vraagt om
+# onderdelen, die onderdelen vragen weer om andere. Wat je al in je hangars hebt
+# wordt afgetrokken, en wat overblijft is je inkooplijst.
+#
+# Verschil met de site: die bewaart projecten en vinkjes in de browser. Hier
+# staat het project in de URL (?type=&aantal=&me=), dus deelbaar en zonder
+# opslag — vinkjes voor "job draait" zitten er (nog) niet in.
+
+BOUW_MAX_DIEPTE = 6             # ruim genoeg voor schip → onderdeel → grondstof
+BOUW_MAX_KNOPEN = 400           # een boom die groter is leest niemand meer
+
+
+def _voorraad(user):
+    """{type_id: aantal} over al je characters, uit je assets."""
+    chars = esi.characters(user)
+    uit = defaultdict(int)
+    with ThreadPoolExecutor(max_workers=6) as pool:
+        for rijen in pool.map(esi.assets, [c.character_id for c in chars]):
+            for a in rijen:
+                if a.get("type_id"):
+                    uit[a["type_id"]] += int(a.get("quantity") or 0)
+    return uit
+
+
+def bouwproject(user, type_id=None, aantal=1, me=10, zoek=""):
+    """De bouwboom voor een doel, met voorraad, tekorten en een inkooplijst."""
+    recepten = esi.sde_recepten()
+    basis = {"sub": "bouwproject", "zoek": zoek, "aantal": aantal, "me": me,
+             "me_keuzes": [0, 5, 10], "heeft_recepten": bool(recepten)}
+
+    # ── Zoeken naar het doel ──────────────────────────────────────────────
+    if zoek and not type_id:
+        treffers = []
+        try:
+            from eveuniverse.models import EveType
+
+            qs = (EveType.objects.filter(name__icontains=zoek, published=True)
+                  .order_by("name")[:40])
+            treffers = [{"type_id": t.id, "naam": t.name}
+                        for t in qs if t.id in recepten]
+        except ImportError:
+            pass
+        return {**basis, "treffers": treffers, "boom": [], "doel": None}
+
+    if not type_id or type_id not in recepten:
+        return {**basis, "treffers": [], "boom": [], "doel": None}
+
+    voorraad = _voorraad(user)
+    eigen_bps = set()
+    for c in esi.characters(user):
+        for b in esi.blueprints(c.character_id):
+            eigen_bps.add(b["type_id"])
+
+    # ── De boom aflopen ───────────────────────────────────────────────────
+    # Voorraad wordt onderweg opgesoupeerd: heb je 100 van iets en vraagt de
+    # boom er twee keer 60, dan is de tweede keer maar 40 gedekt. Zonder dat
+    # zou dezelfde voorraad twee keer meetellen.
+    rest_voorraad = dict(voorraad)
+    knopen, inkoop = [], defaultdict(int)
+
+    def _loop(tid, nodig, diepte):
+        if len(knopen) >= BOUW_MAX_KNOPEN:
+            return
+        beschikbaar = min(rest_voorraad.get(tid, 0), nodig)
+        rest_voorraad[tid] = rest_voorraad.get(tid, 0) - beschikbaar
+        tekort = nodig - beschikbaar
+        recept = recepten.get(tid)
+        # Zelf maken kan alleen als er een recept is; anders is het inkoop.
+        maken = bool(recept) and diepte < BOUW_MAX_DIEPTE and tekort > 0
+        runs = math.ceil(tekort / recept["per_run"]) if maken else 0
+
+        knopen.append({
+            "type_id": tid, "diepte": diepte, "nodig": nodig,
+            "nodig_fmt": _getal(nodig), "voorraad": beschikbaar,
+            "voorraad_fmt": _getal(beschikbaar), "tekort": tekort,
+            "tekort_fmt": _getal(tekort), "maken": maken, "runs": runs,
+            "heeft_bp": bool(recept) and recept["bp"] in eigen_bps,
+            "bouwbaar": bool(recept),
+        })
+        if not maken:
+            if tekort > 0:
+                inkoop[tid] += tekort
+            return
+        for mat_id, basis_aantal in recept["materialen"]:
+            # ME verlaagt het verbruik; per run naar boven afronden en nooit
+            # onder één stuk — zo rekent het spel het ook.
+            per_run = max(1, math.ceil(basis_aantal * (1 - me / 100)))
+            _loop(mat_id, per_run * runs, diepte + 1)
+
+    _loop(type_id, aantal, 0)
+
+    # ── Namen en prijzen erbij ────────────────────────────────────────────
+    ids = {k["type_id"] for k in knopen} | set(inkoop)
+    typen = _type_info(ids)
+    prijzen = esi.jita_prijzen(ids)
+
+    for k in knopen:
+        info = typen.get(k["type_id"]) or {}
+        k["naam"] = info.get("naam") or f"Type {k['type_id']}"
+        k["plaatje"] = info.get("plaatje") or ""
+        prijs = (prijzen.get(k["type_id"]) or {}).get("verkoop") or 0.0
+        k["isk_fmt"] = fmt_isk(prijs * k["tekort"])
+        # Inspringen doen we met een marge in de template; hier alleen het getal.
+        k["inspring"] = min(k["diepte"], 5)
+
+    inkooplijst = []
+    for tid, n in sorted(inkoop.items(), key=lambda kv: -kv[1]):
+        info = typen.get(tid) or {}
+        prijs = (prijzen.get(tid) or {}).get("verkoop") or 0.0
+        inkooplijst.append({
+            "type_id": tid, "naam": info.get("naam") or f"Type {tid}",
+            "plaatje": info.get("plaatje") or "",
+            "aantal": n, "aantal_fmt": _getal(n),
+            "isk": prijs * n, "isk_fmt": fmt_isk(prijs * n),
+            "geen_prijs": not prijs,
+        })
+    inkooplijst.sort(key=lambda r: -r["isk"])
+    kosten = sum(r["isk"] for r in inkooplijst)
+
+    doel_info = typen.get(type_id) or {}
+    opbrengst = ((prijzen.get(type_id) or {}).get("verkoop") or 0.0) * aantal
+
+    return {
+        **basis,
+        "doel": {"type_id": type_id, "naam": doel_info.get("naam") or f"Type {type_id}",
+                 "plaatje": doel_info.get("plaatje") or "", "aantal": aantal},
+        "boom": knopen,
+        "knopen": len(knopen),
+        "afgekapt": len(knopen) >= BOUW_MAX_KNOPEN,
+        "inkoop": inkooplijst[:60],
+        "inkoop_regels": len(inkooplijst),
+        "kosten": kosten, "kosten_fmt": fmt_isk(kosten),
+        "opbrengst_fmt": fmt_isk(opbrengst),
+        "winst_fmt": fmt_isk(opbrengst - kosten),
+        "loont": opbrengst > kosten,
+        # Om in het multibuy-venster van het spel te plakken.
+        "multibuy": "\n".join(f"{r['naam']} {r['aantal']}" for r in inkooplijst),
+        "uit_voorraad": sum(1 for k in knopen if k["voorraad"]),
+        "zelf_maken": sum(1 for k in knopen if k["maken"]),
+        "mist_bp": sum(1 for k in knopen if k["maken"] and not k["heeft_bp"]),
+    }

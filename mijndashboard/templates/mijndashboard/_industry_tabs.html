@@ -1,0 +1,31 @@
+{% load i18n %}
+{% comment %}
+    De sub-tabbalk van Industry, in drie groepjes met een streepje ertussen:
+    wat er nú loopt, wat je bezit, en wat je uitrekent. Zes losse pillen op een
+    rij lezen als een muur; met die scheiding zie je waar je moet kijken.
+
+    Staat apart omdat PI z'n eigen template heeft: die balk moet daar hetzelfde
+    zijn, en één plek is één plek.
+{% endcomment %}
+<div class="fin-subtabs">
+    <span class="fin-subgroep">
+        <a class="fin-subtab {% if sub == 'jobs' %}is-actief{% endif %}"
+           href="{% url 'mijndashboard:industry' %}">{% translate "Jobs" %}</a>
+        <a class="fin-subtab {% if sub == 'pi' %}is-actief{% endif %}"
+           href="{% url 'mijndashboard:industry_pi' %}">{% translate "PI" %}</a>
+    </span>
+    <span class="fin-subscheiding"></span>
+    <span class="fin-subgroep">
+        <a class="fin-subtab {% if sub == 'blueprints' %}is-actief{% endif %}"
+           href="{% url 'mijndashboard:industry_blueprints' %}">{% translate "Blueprints" %}</a>
+        <a class="fin-subtab {% if sub == 'bouwproject' %}is-actief{% endif %}"
+           href="{% url 'mijndashboard:industry_bouwproject' %}">{% translate "Bouwproject" %}</a>
+    </span>
+    <span class="fin-subscheiding"></span>
+    <span class="fin-subgroep">
+        <a class="fin-subtab {% if sub == 'bouwwinst' %}is-actief{% endif %}"
+           href="{% url 'mijndashboard:industry_bouwwinst' %}">{% translate "Bouwwinst" %}</a>
+        <a class="fin-subtab {% if sub == 'bouwenkopen' %}is-actief{% endif %}"
+           href="{% url 'mijndashboard:industry_bouwenkopen' %}">{% translate "Bouwen of kopen" %}</a>
+    </span>
+</div>

@@ -11,6 +11,8 @@
 {% block fin_sub %}{% if heeft_pi and aantal %}{{ aantal }} {% translate "kolonies" %} · {{ pins }} {% translate "installaties" %} · {{ systemen }} {% translate "systemen" %}{% endif %}{% endblock %}
 
 {% block details %}
+    {% include "mijndashboard/_industry_tabs.html" %}
+
     {% if not heeft_pi %}
         <div class="fin-melding">
             <p class="mb-2">{% translate "Om je planeten te tonen hebben we toegang tot je planetary interaction nodig." %}</p>

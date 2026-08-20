@@ -16,21 +16,13 @@
 {% block fin_sub %}
     {% if sub == "jobs" %}{{ jobs_totaal }} {% translate "jobs" %}
     {% elif sub == "blueprints" %}{{ bp_totaal }} {% translate "blueprints" %}
+    {% elif sub == "bouwproject" %}{% if doel %}{{ doel.aantal }}x {{ doel.naam }}{% else %}{% translate "kies wat je wil bouwen" %}{% endif %}
     {% else %}{{ bouw_totaal }} {% translate "blueprints doorgerekend" %}{% endif %}
 {% endblock %}
 
 {% block details %}
 
-    <div class="fin-subtabs">
-        <a class="fin-subtab {% if sub == 'jobs' %}is-actief{% endif %}"
-           href="{% url 'mijndashboard:industry' %}">{% translate "Jobs" %}</a>
-        <a class="fin-subtab {% if sub == 'blueprints' %}is-actief{% endif %}"
-           href="{% url 'mijndashboard:industry_blueprints' %}">{% translate "Blueprints" %}</a>
-        <a class="fin-subtab {% if sub == 'bouwwinst' %}is-actief{% endif %}"
-           href="{% url 'mijndashboard:industry_bouwwinst' %}">{% translate "Bouwwinst" %}</a>
-        <a class="fin-subtab {% if sub == 'bouwenkopen' %}is-actief{% endif %}"
-           href="{% url 'mijndashboard:industry_bouwenkopen' %}">{% translate "Bouwen of kopen" %}</a>
-    </div>
+    {% include "mijndashboard/_industry_tabs.html" %}
 
     {# ── Jobs ────────────────────────────────────────────────────────── #}
     {% if sub == "jobs" %}
@@ -185,6 +177,193 @@
                         {% endfor %}
                     </tbody>
                 </table>
+            </div>
+        {% endif %}
+
+    {# ── Bouwproject ─────────────────────────────────────────────────── #}
+    {% elif sub == "bouwproject" %}
+        {% comment %}
+            Kies een doel, en de pagina loopt de hele boom af: het schip vraagt
+            om onderdelen, die vragen weer om andere. Wat in je hangars ligt gaat
+            eraf, wat overblijft is je inkooplijst. Het project staat in de URL,
+            dus je kunt het delen of bewaren als bladwijzer.
+        {% endcomment %}
+        <form class="fin-bouwzoek" method="get">
+            <label>
+                <span>{% translate "Wat wil je bouwen?" %}</span>
+                <input type="search" name="q" value="{{ zoek }}"
+                       placeholder="{% translate 'Naam van schip, module of onderdeel…' %}">
+            </label>
+            <label class="is-smal">
+                <span>{% translate "Aantal" %}</span>
+                <input type="number" name="aantal" min="1" max="10000" value="{{ aantal }}">
+            </label>
+            <label class="is-smal">
+                <span>ME</span>
+                <select name="me">
+                    {% for k in me_keuzes %}
+                        <option value="{{ k }}" {% if k == me %}selected{% endif %}>{{ k }}%</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <button class="fin-knop" type="submit">{% translate "Zoeken" %}</button>
+        </form>
+
+        {% if treffers %}
+            <h2 class="fin-kop">{% translate "Bedoel je" %}
+                <span>— {% translate "alleen dingen waar een bouwrecept voor bestaat" %}</span></h2>
+            <div class="fin-bouwtreffers">
+                {% for t in treffers %}
+                    <a class="fin-bouwtreffer"
+                       href="?type={{ t.type_id }}&amp;aantal={{ aantal }}&amp;me={{ me }}">
+                        <img loading="lazy" alt=""
+                             src="https://images.evetech.net/types/{{ t.type_id }}/icon?size=32">
+                        {{ t.naam }}
+                    </a>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        {% if doel %}
+            <div class="fin-stats">
+                <div class="fin-stat fin-stat-totaal">
+                    <span class="l">{% translate "Doel" %}</span>
+                    <span class="v" style="font-size: 1.05rem;">{{ doel.aantal }}× {{ doel.naam }}</span>
+                    <span class="s">ME {{ me }}% · {{ knopen }} {% translate "onderdelen in de boom" %}</span>
+                </div>
+                <div class="fin-stat fin-stat-uit">
+                    <span class="l">{% translate "Nog inkopen" %}</span>
+                    <span class="v fin-neg">{{ kosten_fmt }}</span>
+                    <span class="s">{{ inkoop_regels }} {% translate "regels op de lijst" %}</span>
+                </div>
+                <div class="fin-stat fin-stat-in">
+                    <span class="l">{% translate "Uit voorraad" %}</span>
+                    <span class="v fin-pos">{{ uit_voorraad }}</span>
+                    <span class="s">{% translate "onderdelen had je al" %}</span>
+                </div>
+                <div class="fin-stat">
+                    <span class="l">{% translate "Zelf maken" %}</span>
+                    <span class="v">{{ zelf_maken }}</span>
+                    <span class="s">
+                        {% if mist_bp %}{{ mist_bp }} {% translate "zonder blueprint" %}{% else %}{% translate "blueprints heb je allemaal" %}{% endif %}
+                    </span>
+                </div>
+                <div class="fin-stat fin-stat-refine">
+                    <span class="l">{% translate "Verkoop (Jita)" %}</span>
+                    <span class="v {% if loont %}fin-pos{% endif %}">{{ opbrengst_fmt }}</span>
+                    <span class="s">
+                        {% if loont %}+{{ winst_fmt }} {% translate "tegenover inkoop" %}
+                        {% else %}{% translate "kopen is goedkoper" %}{% endif %}
+                    </span>
+                </div>
+            </div>
+
+            {% if afgekapt %}
+                <div class="fin-advies is-let-op">
+                    <span class="fin-advies-icoon">⚠</span>
+                    <div>
+                        <div class="fin-advies-kop">{% translate "De boom is afgekapt" %}</div>
+                        <div class="fin-advies-sub">
+                            {% translate "Meer dan 400 onderdelen; verlaag het aantal om alles te zien." %}
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+
+            <div class="fin-bouwkolommen">
+                <div>
+                    <h2 class="fin-kop">{% translate "Bouwschema" %}
+                        <span>— {% translate "wat valt waaronder" %}</span></h2>
+                    <div class="fin-tablewrap">
+                        <table class="fin-table">
+                            <thead>
+                                <tr>
+                                    <th>{% translate "Onderdeel" %}</th>
+                                    <th class="fin-getal">{% translate "Nodig" %}</th>
+                                    <th class="fin-getal">{% translate "Voorraad" %}</th>
+                                    <th class="fin-getal">{% translate "Tekort" %}</th>
+                                    <th>{% translate "Aanpak" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for k in boom %}
+                                    <tr class="{% if not k.tekort %}fin-in{% endif %}">
+                                        <td>
+                                            <span class="fin-erts" style="padding-left: {{ k.inspring }}rem;">
+                                                {% if k.plaatje %}<img loading="lazy" alt="" src="{{ k.plaatje }}">{% endif %}
+                                                {{ k.naam }}
+                                            </span>
+                                        </td>
+                                        <td class="fin-getal" style="width: 1%;">{{ k.nodig_fmt }}</td>
+                                        <td class="fin-getal fin-pos" style="width: 1%;">
+                                            {% if k.voorraad %}{{ k.voorraad_fmt }}{% else %}<span class="fin-leeg">—</span>{% endif %}
+                                        </td>
+                                        <td class="fin-getal" style="width: 1%;">
+                                            {% if k.tekort %}{{ k.tekort_fmt }}{% else %}<span class="fin-leeg">—</span>{% endif %}
+                                        </td>
+                                        <td class="fin-nowrap" style="width: 1%;">
+                                            {% if not k.tekort %}
+                                                <span class="fin-badge fin-badge-klaar">{% translate "gedekt" %}</span>
+                                            {% elif k.maken %}
+                                                <span class="fin-badge fin-badge-bezig">{{ k.runs }}× {% translate "bouwen" %}</span>
+                                                {% if not k.heeft_bp %}
+                                                    <span class="fin-badge fin-badge-rest"
+                                                          title="{% translate 'Je hebt deze blueprint niet' %}">{% translate "geen BP" %}</span>
+                                                {% endif %}
+                                            {% else %}
+                                                <span class="fin-badge fin-badge-open">{% translate "kopen" %}</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div>
+                    <h2 class="fin-kop">{% translate "Inkooplijst" %}
+                        <span>— {% translate "wat je nog moet halen" %}</span></h2>
+                    <div class="fin-tablewrap">
+                        <table class="fin-table">
+                            <thead>
+                                <tr>
+                                    <th>{% translate "Item" %}</th>
+                                    <th class="fin-getal">{% translate "Aantal" %}</th>
+                                    <th class="fin-getal">{% translate "Jita" %}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for r in inkoop %}
+                                    <tr>
+                                        <td>
+                                            <span class="fin-erts">
+                                                {% if r.plaatje %}<img loading="lazy" alt="" src="{{ r.plaatje }}">{% endif %}
+                                                {{ r.naam }}
+                                            </span>
+                                        </td>
+                                        <td class="fin-getal" style="width: 1%;">{{ r.aantal_fmt }}</td>
+                                        <td class="fin-getal fin-nowrap" style="width: 1%;">
+                                            {% if r.geen_prijs %}<span class="fin-leeg">—</span>{% else %}{{ r.isk_fmt }}{% endif %}
+                                        </td>
+                                    </tr>
+                                {% empty %}
+                                    <tr><td colspan="3" class="fin-dim">{% translate "Niets nodig — je hebt alles al liggen." %}</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% if multibuy %}
+                        <details class="fin-inhoud">
+                            <summary>{% translate "Kopieerbare inkooplijst (EVE multibuy)" %}</summary>
+                            <pre class="fin-multibuy">{{ multibuy }}</pre>
+                        </details>
+                    {% endif %}
+                </div>
+            </div>
+        {% elif not zoek %}
+            <div class="fin-melding">
+                {% translate "Typ hierboven wat je wil bouwen. De boom rekent tot zes lagen diep en trekt af wat je al in je hangars hebt." %}
             </div>
         {% endif %}
 

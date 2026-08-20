@@ -137,8 +137,9 @@ def mining(request: WSGIRequest) -> HttpResponse:
 @login_required
 @permission_required("mijndashboard.basic_access")
 def pi(request: WSGIRequest) -> HttpResponse:
-    """Je planetaire kolonies."""
-    ctx = _basis(request, "pi")
+    """Je planetaire kolonies — sub-tabblad van Industry."""
+    ctx = _basis(request, "industry")
+    ctx["sub"] = "pi"
     if ctx["heeft_pi"]:
         ctx.update(data.pi(request.user))
     return render(request, "mijndashboard/pi.html", ctx)
@@ -151,7 +152,21 @@ def industry(request: WSGIRequest, sub: str = "jobs") -> HttpResponse:
     ctx = _basis(request, "industry")
     ctx["heeft_jobs"] = esi.has_token(_character_ids(request.user), esi.JOBS_SCOPE)
     ctx["heeft_bp"] = esi.has_token(_character_ids(request.user), esi.BLUEPRINTS_SCOPE)
-    ctx.update(data.industrie(request.user, sub))
+    if sub == "bouwproject":
+        # Het project staat in de URL, dus deelbaar; onzin negeren we stil.
+        def _getal(naam, standaard, minimum, maximum):
+            try:
+                return max(minimum, min(int(request.GET.get(naam) or standaard), maximum))
+            except ValueError:
+                return standaard
+        ctx.update(data.industrie(
+            request.user, sub,
+            type_id=_getal("type", 0, 0, 10 ** 9) or None,
+            aantal=_getal("aantal", 1, 1, 10000),
+            me=_getal("me", 10, 0, 10),
+            zoek=(request.GET.get("q") or "").strip()[:60]))
+    else:
+        ctx.update(data.industrie(request.user, sub))
     return render(request, "mijndashboard/industry.html", ctx)
 
 

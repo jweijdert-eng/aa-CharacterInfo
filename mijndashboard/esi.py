@@ -1186,3 +1186,61 @@ def jita_prijzen(type_ids):
             uit[int(sleutel)] = vak
             cache.set(f"fin_prijs2_{int(sleutel)}", vak, TTL_PRIJZEN)
     return uit
+
+
+def assets(character_id):
+    """Alles wat dit character bezit (gepagineerd, gecached)."""
+    key = f"fin_assets_{character_id}"
+    hit = cache.get(key)
+    if hit is not None:
+        return hit
+    token = token_for(character_id, "esi-assets.read_assets.v1")
+    rijen = _paged(f"/characters/{character_id}/assets/", token) if token else []
+    cache.set(key, rijen, TTL_BLUEPRINTS)
+    return rijen
+
+
+SDE_URL = "https://sde.eve-o.tech/latest"
+TTL_SDE = 86400
+
+
+def sde_recepten():
+    """{product_id: {"bp", "per_run", "materialen"}} voor alles wat te bouwen is.
+
+    Voor een bouwproject moet je een boom kunnen aflopen: het schip vraagt om
+    onderdelen, die onderdelen vragen weer om andere. Daarvoor heb je recepten
+    nodig van types waarvan je zélf geen blueprint hebt, en die kun je niet per
+    stuk opzoeken — je weet het blueprint-id niet zonder de omgekeerde index.
+    Daarom hier één keer de hele SDE-tabel, omgedraaid naar product → recept.
+    Twee bestanden van samen ~3 MB, en een dag in de cache.
+    """
+    key = "fin_sde_recepten"
+    hit = cache.get(key)
+    if hit is not None:
+        return hit
+
+    def _haal(naam):
+        try:
+            r = _session.get(f"{SDE_URL}/{naam}.json", headers=UA, timeout=60)
+            if r.status_code == 200:
+                return r.json() or []
+        except (requests.RequestException, ValueError) as exc:
+            logger.info("Finance: SDE %s mislukt: %s", naam, exc)
+        return []
+
+    materialen = {}
+    for rij in _haal("industryActivityMaterials"):
+        if rij.get("activityID") == 1:      # 1 = manufacturing
+            materialen.setdefault(rij["typeID"], []).append(
+                (rij["materialTypeID"], int(rij["quantity"])))
+
+    uit = {}
+    for rij in _haal("industryActivityProducts"):
+        if rij.get("activityID") != 1:
+            continue
+        bp = rij["typeID"]
+        uit[rij["productTypeID"]] = {"bp": bp, "per_run": int(rij["quantity"] or 1),
+                                     "materialen": materialen.get(bp, [])}
+    if uit:
+        cache.set(key, uit, TTL_SDE)
+    return uit

@@ -8,5 +8,5 @@ en pip-naam. Dat is geen cosmetische wijziging — het app-label staat in
 Zie de README voor wat een bestaande installatie moet doen.
 """
 
-__version__ = "3.4.0"
+__version__ = "3.5.0"
 __title__ = "Mijn Dashboard"
