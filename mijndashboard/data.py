@@ -3681,19 +3681,48 @@ BOUW_MAX_DIEPTE = 6             # ruim genoeg voor schip → onderdeel → grond
 BOUW_MAX_KNOPEN = 400           # een boom die groter is leest niemand meer
 
 
-def _voorraad(user):
-    """{type_id: aantal} over al je characters, uit je assets."""
+def _voorraad(user, plek=None):
+    """{type_id: aantal} uit je assets, eventueel alleen op één locatie.
+
+    Let op waar spullen volgens ESI "liggen": van 3326 assets hadden er hier
+    3229 een **kist of schip** als locatie, niet een station. Je moet dus de
+    keten omhoog lopen — item in kist, kist in hangar, hangar in station — tot
+    je bij iets uitkomt dat geen eigen asset meer is. Zonder dat lijkt vrijwel
+    niets ergens te liggen en filtert een locatiekeuze alles weg.
+    """
     chars = esi.characters(user)
-    uit = defaultdict(int)
+    alles = []
     with ThreadPoolExecutor(max_workers=6) as pool:
         for rijen in pool.map(esi.assets, [c.character_id for c in chars]):
-            for a in rijen:
-                if a.get("type_id"):
-                    uit[a["type_id"]] += int(a.get("quantity") or 0)
-    return uit
+            alles.extend(rijen)
+
+    # Waar zit elk van onze eigen items in? Daarmee is de keten te volgen.
+    ouder = {a["item_id"]: (a.get("location_id"), a.get("location_type"))
+             for a in alles if a.get("item_id")}
+
+    def _wortel(loc_id, loc_type):
+        for _ in range(12):                 # een keten is nooit twaalf diep
+            if loc_type != "item" or loc_id not in ouder:
+                return loc_id
+            loc_id, loc_type = ouder[loc_id]
+        return loc_id
+
+    voorraad = defaultdict(int)
+    per_plek = defaultdict(int)
+    plekken = defaultdict(int)
+    for a in alles:
+        if not a.get("type_id"):
+            continue
+        wortel = _wortel(a.get("location_id"), a.get("location_type"))
+        aantal = int(a.get("quantity") or 0)
+        plekken[wortel] += 1
+        if plek is None or wortel == plek:
+            voorraad[a["type_id"]] += aantal
+        per_plek[wortel] += aantal
+    return voorraad, plekken
 
 
-def bouwproject(user, type_id=None, aantal=1, me=10, zoek="", koop=None):
+def bouwproject(user, type_id=None, aantal=1, me=10, zoek="", koop=None, plek=None):
     """De bouwboom voor een doel, met voorraad, tekorten en een inkooplijst."""
     recepten = esi.sde_recepten()
     # Onderdelen die je liever koopt dan zelf maakt. Ze staan in de URL en niet
@@ -3721,7 +3750,7 @@ def bouwproject(user, type_id=None, aantal=1, me=10, zoek="", koop=None):
     if not type_id or type_id not in recepten:
         return {**basis, "treffers": [], "boom": [], "doel": None}
 
-    voorraad = _voorraad(user)
+    voorraad, plekken = _voorraad(user, plek)
     eigen_bps = set()
     for c in esi.characters(user):
         for b in esi.blueprints(c.character_id):
@@ -3771,6 +3800,15 @@ def bouwproject(user, type_id=None, aantal=1, me=10, zoek="", koop=None):
     _loop(type_id, aantal, 0)
 
     # ── Namen en prijzen erbij ────────────────────────────────────────────
+    top_plekken = [p for p, _ in sorted(plekken.items(), key=lambda kv: -kv[1])[:12] if p]
+    stations = {p for p in top_plekken if p < 100_000_000}
+    plek_namen = esi.names(stations) if stations else {}
+    rest = set(top_plekken) - stations
+    if rest:
+        plek_namen.update(esi.structure_names(rest, [c.character_id for c in esi.characters(user)]))
+    plek_keuzes = [{"id": p, "naam": plek_namen.get(p) or f"#{p}", "aantal": plekken[p]}
+                   for p in top_plekken if plek_namen.get(p)]
+
     ids = {k["type_id"] for k in knopen} | set(inkoop)
     typen = _type_info(ids)
     prijzen = esi.jita_prijzen(ids)
@@ -3803,6 +3841,8 @@ def bouwproject(user, type_id=None, aantal=1, me=10, zoek="", koop=None):
 
     return {
         **basis,
+        "plek": plek, "plek_keuzes": plek_keuzes,
+        "plek_naam": plek_namen.get(plek, "") if plek else "",
         "doel": {"type_id": type_id, "naam": doel_info.get("naam") or f"Type {type_id}",
                  "plaatje": doel_info.get("plaatje") or "", "aantal": aantal},
         "boom": knopen,

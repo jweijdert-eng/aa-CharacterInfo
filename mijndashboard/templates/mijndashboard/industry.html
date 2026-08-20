@@ -189,6 +189,11 @@
             eraf, wat overblijft is je inkooplijst. Het project staat in de URL,
             dus je kunt het delen of bewaren als bladwijzer.
         {% endcomment %}
+        <div data-bouwproject
+             data-basis="{% url 'mijndashboard:industry_bouwproject' %}"
+             data-doel="{{ doel.type_id|default:'' }}" data-doelnaam="{{ doel.naam|default:'' }}"
+             data-aantal="{{ aantal }}" data-me="{{ me }}" data-koop="{{ koop_param }}"
+             data-plek="{{ plek|default:'' }}">
         <div class="fin-bouwbalk" data-rol="projecten"></div>
 
         <form class="fin-bouwzoek" method="get">
@@ -209,6 +214,26 @@
                     {% endfor %}
                 </select>
             </label>
+            {% if plek_keuzes %}
+                {% comment %}
+                    Alleen voorraad op deze plek meetellen. Handig als je spullen
+                    over meerdere stations verspreid liggen: wat in Jita ligt helpt
+                    je niet als je in Delve bouwt.
+                {% endcomment %}
+                <label>
+                    <span>{% translate "Voorraad tellen op" %}</span>
+                    <select name="plek">
+                        <option value="">{% translate "Overal" %}</option>
+                        {% for p in plek_keuzes %}
+                            <option value="{{ p.id }}" {% if p.id == plek %}selected{% endif %}>
+                                {{ p.naam }} ({{ p.aantal }})
+                            </option>
+                        {% endfor %}
+                    </select>
+                </label>
+            {% endif %}
+            {% if doel %}<input type="hidden" name="type" value="{{ doel.type_id }}">{% endif %}
+            {% if koop_param %}<input type="hidden" name="koop" value="{{ koop_param }}">{% endif %}
             <button class="fin-knop" type="submit">{% translate "Zoeken" %}</button>
         </form>
 
@@ -273,10 +298,7 @@
                 </div>
             {% endif %}
 
-            <div class="fin-bouwkolommen" data-bouwproject
-                 data-basis="{% url 'mijndashboard:industry_bouwproject' %}"
-                 data-doel="{{ doel.type_id }}" data-doelnaam="{{ doel.naam }}"
-                 data-aantal="{{ aantal }}" data-me="{{ me }}" data-koop="{{ koop_param }}">
+            <div class="fin-bouwkolommen">
                 <div>
                     <h2 class="fin-kop">{% translate "Bouwschema" %}
                         <span>— {% translate "wat valt waaronder" %}</span></h2>
@@ -392,6 +414,7 @@
                 {% translate "Typ hierboven wat je wil bouwen. De boom rekent tot zes lagen diep en trekt af wat je al in je hangars hebt." %}
             </div>
         {% endif %}
+        </div>
 
     {# ── Bouwwinst en Bouwen of kopen ────────────────────────────────── #}
     {% else %}

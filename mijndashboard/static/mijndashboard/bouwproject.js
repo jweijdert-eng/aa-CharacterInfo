@@ -34,6 +34,7 @@
     var aantal = paneel.dataset.aantal || '1';
     var me = paneel.dataset.me || '10';
     var koop = (paneel.dataset.koop || '').split(',').filter(Boolean);
+    var plek = paneel.dataset.plek || '';
     var basisUrl = paneel.dataset.basis;
 
     // De sleutel van dit project: doel + aantal + ME. Verander je het aantal,
@@ -50,6 +51,7 @@
       project.aantal = aantal;
       project.me = me;
       project.koop = koop.join(',');
+      project.plek = plek;
       project.bijgewerkt = Date.now();
       alles[sleutel] = project;
       schrijf(alles);
@@ -59,6 +61,7 @@
     function urlVoor(nieuweKoop) {
       var q = '?type=' + doelId + '&aantal=' + aantal + '&me=' + me;
       if (nieuweKoop && nieuweKoop.length) q += '&koop=' + nieuweKoop.join(',');
+      if (plek) q += '&plek=' + plek;
       return basisUrl + q;
     }
 
@@ -86,7 +89,7 @@
 
         var link = document.createElement('a');
         link.href = basisUrl + '?type=' + p.doel + '&aantal=' + p.aantal + '&me=' + p.me +
-                    (p.koop ? '&koop=' + p.koop : '');
+                    (p.koop ? '&koop=' + p.koop : '') + (p.plek ? '&plek=' + p.plek : '');
         var af = Object.keys(p.voortgang || {}).filter(function (t) {
           return p.voortgang[t] === 'done';
         }).length;

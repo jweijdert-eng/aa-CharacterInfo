@@ -166,7 +166,8 @@ def industry(request: WSGIRequest, sub: str = "jobs") -> HttpResponse:
             me=_getal("me", 10, 0, 10),
             zoek=(request.GET.get("q") or "").strip()[:60],
             koop=[int(x) for x in (request.GET.get("koop") or "").split(",")
-                  if x.strip().isdigit()][:200]))
+                  if x.strip().isdigit()][:200],
+            plek=_getal("plek", 0, 0, 10 ** 15) or None))
     else:
         ctx.update(data.industrie(request.user, sub))
     return render(request, "mijndashboard/industry.html", ctx)
