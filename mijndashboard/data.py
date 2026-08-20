@@ -3693,11 +3693,16 @@ def _voorraad(user):
     return uit
 
 
-def bouwproject(user, type_id=None, aantal=1, me=10, zoek=""):
+def bouwproject(user, type_id=None, aantal=1, me=10, zoek="", koop=None):
     """De bouwboom voor een doel, met voorraad, tekorten en een inkooplijst."""
     recepten = esi.sde_recepten()
+    # Onderdelen die je liever koopt dan zelf maakt. Ze staan in de URL en niet
+    # in de browseropslag, want ze veranderen de bóóm: de server moet die tak
+    # dan niet verder uitrekenen maar op de inkooplijst zetten.
+    koop = set(koop or ())
     basis = {"sub": "bouwproject", "zoek": zoek, "aantal": aantal, "me": me,
-             "me_keuzes": [0, 5, 10], "heeft_recepten": bool(recepten)}
+             "me_keuzes": [0, 5, 10], "heeft_recepten": bool(recepten),
+             "koop_lijst": sorted(koop), "koop_param": ",".join(str(k) for k in sorted(koop))}
 
     # ── Zoeken naar het doel ──────────────────────────────────────────────
     if zoek and not type_id:
@@ -3736,8 +3741,10 @@ def bouwproject(user, type_id=None, aantal=1, me=10, zoek=""):
         rest_voorraad[tid] = rest_voorraad.get(tid, 0) - beschikbaar
         tekort = nodig - beschikbaar
         recept = recepten.get(tid)
-        # Zelf maken kan alleen als er een recept is; anders is het inkoop.
-        maken = bool(recept) and diepte < BOUW_MAX_DIEPTE and tekort > 0
+        # Zelf maken kan alleen als er een recept is, jij het niet op "kopen"
+        # hebt gezet, en we niet te diep zitten.
+        maken = (bool(recept) and tid not in koop
+                 and diepte < BOUW_MAX_DIEPTE and tekort > 0)
         runs = math.ceil(tekort / recept["per_run"]) if maken else 0
 
         knopen.append({
@@ -3747,6 +3754,9 @@ def bouwproject(user, type_id=None, aantal=1, me=10, zoek=""):
             "tekort_fmt": _getal(tekort), "maken": maken, "runs": runs,
             "heeft_bp": bool(recept) and recept["bp"] in eigen_bps,
             "bouwbaar": bool(recept),
+            "gekozen_kopen": tid in koop,
+            # Het eindproduct zelf mag je niet op "kopen" zetten; dan bouw je niets.
+            "mag_wisselen": bool(recept) and diepte > 0,
         })
         if not maken:
             if tekort > 0:

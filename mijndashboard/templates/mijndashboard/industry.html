@@ -1,5 +1,6 @@
 {% extends 'mijndashboard/base.html' %}
 {% load i18n %}
+{% load static %}
 
 {% comment %}
     Industry heeft z'n eigen tabbalk binnen de pagina. Die staat in de URL en
@@ -188,6 +189,8 @@
             eraf, wat overblijft is je inkooplijst. Het project staat in de URL,
             dus je kunt het delen of bewaren als bladwijzer.
         {% endcomment %}
+        <div class="fin-bouwbalk" data-rol="projecten"></div>
+
         <form class="fin-bouwzoek" method="get">
             <label>
                 <span>{% translate "Wat wil je bouwen?" %}</span>
@@ -270,10 +273,22 @@
                 </div>
             {% endif %}
 
-            <div class="fin-bouwkolommen">
+            <div class="fin-bouwkolommen" data-bouwproject
+                 data-basis="{% url 'mijndashboard:industry_bouwproject' %}"
+                 data-doel="{{ doel.type_id }}" data-doelnaam="{{ doel.naam }}"
+                 data-aantal="{{ aantal }}" data-me="{{ me }}" data-koop="{{ koop_param }}">
                 <div>
                     <h2 class="fin-kop">{% translate "Bouwschema" %}
                         <span>— {% translate "wat valt waaronder" %}</span></h2>
+                    <div class="fin-bouwknoppen">
+                        <button type="button" class="fin-knop fin-knop-klein" data-rol="bewaren">
+                            {% translate "Bewaren" %}</button>
+                        <button type="button" class="fin-knop fin-knop-klein" data-rol="klap">
+                            ⊟ {% translate "Alles inklappen" %}</button>
+                        <span class="fin-dim" style="font-size: .72rem;">
+                            {% translate "Klik op de status om door te schakelen: te doen → job draait → klaar." %}
+                        </span>
+                    </div>
                     <div class="fin-tablewrap">
                         <table class="fin-table">
                             <thead>
@@ -283,11 +298,15 @@
                                     <th class="fin-getal">{% translate "Voorraad" %}</th>
                                     <th class="fin-getal">{% translate "Tekort" %}</th>
                                     <th>{% translate "Aanpak" %}</th>
+                                    <th>{% translate "Voortgang" %}</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {% for k in boom %}
-                                    <tr class="{% if not k.tekort %}fin-in{% endif %}">
+                                    <tr class="{% if not k.tekort %}fin-in{% endif %}"
+                                        data-knoop="{{ k.type_id }}" data-diepte="{{ k.diepte }}"
+                                        data-maken="{% if k.maken %}1{% else %}0{% endif %}"
+                                        data-tekort="{{ k.tekort }}">
                                         <td>
                                             <span class="fin-erts" style="padding-left: {{ k.inspring }}rem;">
                                                 {% if k.plaatje %}<img loading="lazy" alt="" src="{{ k.plaatje }}">{% endif %}
@@ -313,6 +332,13 @@
                                             {% else %}
                                                 <span class="fin-badge fin-badge-open">{% translate "kopen" %}</span>
                                             {% endif %}
+                                            {% if k.mag_wisselen %}
+                                                <a class="fin-wissel" data-rol="wissel" href="#"
+                                                   title="{% translate 'Wissel tussen zelf bouwen en kopen' %}">→</a>
+                                            {% endif %}
+                                        </td>
+                                        <td class="fin-nowrap" style="width: 1%;">
+                                            <span class="fin-voortgang" data-rol="voortgang"></span>
                                         </td>
                                     </tr>
                                 {% endfor %}
@@ -485,5 +511,11 @@
                 {% blocktranslate with j=jobkosten_pct v=verkoopkosten_pct %}Bouwkosten = de materialen tegen de Jita-vraagprijs met de ME van jouw eigen blueprint, plus geschatte installatiekosten (EIV × {{ j }}%). Verkoop = de Jita-vraagprijs van het product minus {{ v }}% verkoopkosten. Het is een indicatie: de uitkomst hangt ook af van je TE, het bouwsysteem en de rigs van de structuur, en bij lage volumes verschuift één dure order de prijs al. Een * betekent dat van minstens één materiaal geen Jita-prijs bekend is.{% endblocktranslate %}
             </p>
         {% endif %}
+    {% endif %}
+{% endblock %}
+
+{% block extra_javascript %}
+    {% if sub == "bouwproject" %}
+        <script src="{% static 'mijndashboard/bouwproject.js' %}?v={{ versie }}"></script>
     {% endif %}
 {% endblock %}

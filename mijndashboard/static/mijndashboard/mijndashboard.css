@@ -1407,3 +1407,36 @@
     background: var(--fin-surface-2); color: var(--fin-text);
     max-height: 320px; overflow: auto; border-radius: 6px;
 }
+
+/* Bouwproject: bewaarde projecten, voortgang en bouwen-of-kopen. */
+.fin-app .fin-bouwbalk { display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; margin-bottom: .75rem; }
+.fin-app .fin-bouwproject {
+    display: inline-flex; align-items: center; gap: .3rem; padding: .15rem .3rem .15rem .6rem;
+    border-radius: 999px; font-size: .76rem;
+    background: var(--fin-surface); border: 1px solid var(--fin-border);
+}
+.fin-app .fin-bouwproject.is-actief { border-color: rgba(240, 192, 64, .45); background: rgba(240, 192, 64, .10); }
+.fin-app .fin-bouwproject a { color: var(--fin-text); }
+.fin-app .fin-bouwproject.is-actief a { color: var(--fin-gold); }
+.fin-app .fin-bouwproject-weg {
+    background: transparent; border: 0; color: var(--fin-dim); cursor: pointer;
+    font-size: .9rem; line-height: 1; padding: 0 .2rem;
+}
+.fin-app .fin-bouwproject-weg:hover { color: var(--fin-red); }
+.fin-app .fin-bouwknoppen { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; margin-bottom: .5rem; }
+.fin-app .fin-stapknop {
+    background: transparent; border: 1px solid var(--fin-border); border-radius: 999px;
+    padding: .1rem .55rem; font-size: .72rem; font-weight: 600; cursor: pointer;
+}
+.fin-app .fin-gekocht {
+    width: 74px; padding: .1rem .35rem; border-radius: 4px; font-size: .76rem;
+    color: var(--fin-text); background: var(--fin-surface-2); border: 1px solid var(--fin-border);
+}
+.fin-app .fin-nog { font-size: .68rem; margin-left: .35rem; }
+/* Een afgevinkte regel mag naar de achtergrond zakken: je bent er klaar mee. */
+.fin-app .fin-table tbody tr.is-klaar { opacity: .5; }
+.fin-app .fin-wissel {
+    margin-left: .35rem; font-size: .72rem; color: var(--fin-dim);
+    border-bottom: 1px dotted currentColor;
+}
+.fin-app .fin-wissel:hover { color: var(--fin-blue); text-decoration: none; }
