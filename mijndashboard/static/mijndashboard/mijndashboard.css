@@ -1604,3 +1604,9 @@
 .fin-app .fin-bouwproject a { flex-direction: row; align-items: center; gap: .5rem; }
 .fin-app .fin-bouwproject-icoon { width: 30px; height: 30px; border-radius: 5px; flex: none; }
 .fin-app .fin-bouwproject-tekst { display: flex; flex-direction: column; gap: .1rem; min-width: 110px; }
+
+/* Verversen van de voorraad, met de leeftijd erbij. */
+.fin-app .fin-projectkop-rechts { flex: none; text-align: right; }
+.fin-app .fin-ververs { font-size: .68rem; color: var(--fin-dim); }
+.fin-app .fin-ververs:hover { color: var(--fin-blue); text-decoration: none; }
+.fin-app .fin-voorraadtijd { font-size: .6rem; margin-top: .1rem; }

@@ -284,8 +284,26 @@
                         <i style="width: {{ gedekt_pct }}%;"></i>
                     </div>
                 </div>
-                <div class="fin-projectkop-pct">{{ gedekt_pct }}%
-                    <span>{% translate "gedekt" %}</span></div>
+                <div class="fin-projectkop-rechts">
+                    <div class="fin-projectkop-pct">{{ gedekt_pct }}%
+                        <span>{% translate "gedekt" %}</span></div>
+                    {% comment %}
+                        ESI werkt assets maar eens per uur bij, dus zeggen we van
+                        wanneer de voorraad is. De knop gooit onze eigen cache weg;
+                        verder dan CCP's uur komt hij niet, en dat staat er ook bij.
+                    {% endcomment %}
+                    <a class="fin-ververs"
+                       href="?type={{ doel.type_id }}&amp;aantal={{ aantal }}&amp;me={{ me }}{% if koop_param %}&amp;koop={{ koop_param }}{% endif %}{% if plek %}&amp;plek={{ plek }}{% endif %}&amp;ververs=1"
+                       title="{% translate 'Haalt je assets opnieuw op. ESI ververst ze zelf maar eens per uur.' %}">
+                        ↻ {% translate "Voorraad verversen" %}
+                    </a>
+                    {% if voorraad_van %}
+                        <div class="fin-dim fin-voorraadtijd"
+                             title="{% translate 'CCP werkt de assets eens per uur bij' %}">
+                            {% blocktranslate with t=voorraad_van o=voorraad_oud %}voorraad van {{ t }} EVE · {{ o }} oud{% endblocktranslate %}
+                        </div>
+                    {% endif %}
+                </div>
             </div>
 
             <div class="fin-stats">

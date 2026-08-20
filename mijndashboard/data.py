@@ -3681,7 +3681,7 @@ BOUW_MAX_DIEPTE = 6             # ruim genoeg voor schip → onderdeel → grond
 BOUW_MAX_KNOPEN = 400           # een boom die groter is leest niemand meer
 
 
-def _voorraad(user, plek=None):
+def _voorraad(user, plek=None, ververs=False):
     """{type_id: aantal} uit je assets, eventueel alleen op één locatie.
 
     Let op waar spullen volgens ESI "liggen": van 3326 assets hadden er hier
@@ -3693,7 +3693,8 @@ def _voorraad(user, plek=None):
     chars = esi.characters(user)
     alles = []
     with ThreadPoolExecutor(max_workers=6) as pool:
-        for rijen in pool.map(esi.assets, [c.character_id for c in chars]):
+        for rijen in pool.map(lambda cid: esi.assets(cid, ververs),
+                              [c.character_id for c in chars]):
             alles.extend(rijen)
 
     # Waar zit elk van onze eigen items in? Daarmee is de keten te volgen.
@@ -3722,7 +3723,23 @@ def _voorraad(user, plek=None):
     return voorraad, plekken
 
 
-def bouwproject(user, type_id=None, aantal=1, me=10, zoek="", koop=None, plek=None):
+def _voorraad_leeftijd(user, nu):
+    """Wanneer ESI je assets voor het laatst bijwerkte, in EVE-tijd."""
+    ruw = max((esi.assets_bijgewerkt(c.character_id) for c in esi.characters(user)),
+              default="")
+    if not ruw:
+        return {"voorraad_van": "", "voorraad_oud": ""}
+    try:
+        moment = datetime.strptime(ruw, "%a, %d %b %Y %H:%M:%S %Z").replace(tzinfo=timezone.utc)
+    except ValueError:
+        return {"voorraad_van": ruw, "voorraad_oud": ""}
+    minuten = max(0, round((nu - moment).total_seconds() / 60))
+    return {"voorraad_van": moment.strftime("%H:%M"),
+            "voorraad_oud": f"{minuten} min" if minuten < 90 else _over(minuten * 60)}
+
+
+def bouwproject(user, type_id=None, aantal=1, me=10, zoek="", koop=None, plek=None,
+                ververs=False):
     """De bouwboom voor een doel, met voorraad, tekorten en een inkooplijst."""
     recepten = esi.sde_recepten()
     # Onderdelen die je liever koopt dan zelf maakt. Ze staan in de URL en niet
@@ -3777,7 +3794,7 @@ def bouwproject(user, type_id=None, aantal=1, me=10, zoek="", koop=None, plek=No
         return {**basis, "treffers": [], "boom": [], "doel": None,
                 "suggesties": suggesties}
 
-    voorraad, plekken = _voorraad(user, plek)
+    voorraad, plekken = _voorraad(user, plek, ververs)
     # Per blueprint de beste die je hebt: origineel gaat voor kopie, en daarbinnen
     # de hoogste ME. Dat is waar je mee zou bouwen, dus dat zetten we op de regel.
     eigen_bps = {}
@@ -3931,5 +3948,9 @@ def bouwproject(user, type_id=None, aantal=1, me=10, zoek="", koop=None, plek=No
         "te_kopen": sum(1 for k in knopen if k["tekort"] and not k["maken"]),
         "gedekt_pct": (round(sum(1 for k in knopen if not k["tekort"]) / len(knopen) * 100)
                        if knopen else 0),
+        # Van wanneer de voorraad is. ESI werkt assets maar een keer per uur bij,
+        # dus "zojuist opgehaald" zou een verkeerde indruk geven. In EVE-tijd,
+        # want daar denkt iedereen in, met de ouderdom erachter.
+        **_voorraad_leeftijd(user, datetime.now(timezone.utc)),
         "mist_bp": sum(1 for k in knopen if k["maken"] and not k["heeft_bp"]),
     }

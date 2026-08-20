@@ -1188,16 +1188,37 @@ def jita_prijzen(type_ids):
     return uit
 
 
-def assets(character_id):
-    """Alles wat dit character bezit (gepagineerd, gecached)."""
+def assets(character_id, ververs=False):
+    """Alles wat dit character bezit (gepagineerd, gecached).
+
+    `ververs=True` gooit onze eigen cache weg en haalt opnieuw op. Dat helpt
+    alleen zover ESI meewerkt: die geeft z'n assets-antwoord **een uur** lang
+    ongewijzigd terug (`expires` staat een uur na `last-modified`). Verder dan
+    dat komt geen enkele knop.
+    """
     key = f"fin_assets_{character_id}"
+    if ververs:
+        cache.delete(key)
     hit = cache.get(key)
     if hit is not None:
         return hit
     token = token_for(character_id, "esi-assets.read_assets.v1")
-    rijen = _paged(f"/characters/{character_id}/assets/", token) if token else []
+    rijen, headers = ([], {})
+    if token:
+        rijen = _paged(f"/characters/{character_id}/assets/", token)
+        # Wanneer CCP dit voor het laatst bijwerkte; dat is eerlijker om te
+        # tonen dan "zojuist opgehaald".
+        _, headers = _request_met_headers(f"/characters/{character_id}/assets/",
+                                          token, {"page": 1})
     cache.set(key, rijen, TTL_BLUEPRINTS)
+    cache.set(f"fin_assets_tijd_{character_id}",
+              headers.get("last-modified") or "", TTL_BLUEPRINTS)
     return rijen
+
+
+def assets_bijgewerkt(character_id):
+    """Wanneer ESI deze assets voor het laatst bijwerkte (of '')."""
+    return cache.get(f"fin_assets_tijd_{character_id}") or ""
 
 
 SDE_URL = "https://sde.eve-o.tech/latest"
