@@ -2206,3 +2206,58 @@
    kaart — ze hangen absoluut in dit vak. */
 .fin-app .fin-roam-kaartvak { margin: 0 auto; width: fit-content; max-width: 100%; }
 .fin-app .fin-roam-kaartvak canvas { margin: 0 auto; }
+
+/* ── Invulvelden ────────────────────────────────────────────────────────
+   .fin-zoekveld was in deze plugin altijd een omhulsel om een zoekveld heen
+   (position: relative, met het vergrootglas erin absoluut gepositioneerd). Op
+   de fleet-pagina's staat die klasse op de velden zélf, en dan viel er dus
+   niets te stylen: een kaal input-element is in elke browser wit met zwarte
+   tekst, midden in een donkere pagina.
+
+   Element-gebonden selectors, zodat de omhulsels op de andere tabbladen niets
+   merken. */
+.fin-app input.fin-zoekveld,
+.fin-app textarea.fin-zoekveld,
+.fin-app select.fin-zoekveld,
+.fin-app .fin-roam input[type="text"],
+.fin-app .fin-roam input[type="number"],
+.fin-app .fin-roam textarea,
+.fin-app .fin-roam select,
+.fin-app .fin-fleet-blok input[type="text"],
+.fin-app .fin-fleet-blok input[type="number"],
+.fin-app .fin-fleet-blok textarea,
+.fin-app .fin-fleet-blok select {
+    background: var(--fin-surface-2);
+    color: var(--fin-text);
+    border: 1px solid var(--fin-border);
+    border-radius: 4px;
+    padding: .35rem .5rem;
+    font-size: .82rem;
+    font-family: inherit;
+    line-height: 1.4;
+}
+.fin-app input.fin-zoekveld:focus,
+.fin-app textarea.fin-zoekveld:focus,
+.fin-app select.fin-zoekveld:focus,
+.fin-app .fin-roam textarea:focus,
+.fin-app .fin-roam input:focus,
+.fin-app .fin-roam select:focus,
+.fin-app .fin-fleet-blok textarea:focus,
+.fin-app .fin-fleet-blok input:focus,
+.fin-app .fin-fleet-blok select:focus {
+    outline: none;
+    border-color: #f0932b;
+    background: var(--fin-surface);
+}
+.fin-app input.fin-zoekveld::placeholder,
+.fin-app textarea.fin-zoekveld::placeholder,
+.fin-app .fin-roam textarea::placeholder,
+.fin-app .fin-roam input::placeholder,
+.fin-app .fin-fleet-blok textarea::placeholder,
+.fin-app .fin-fleet-blok input::placeholder { color: var(--fin-dim); }
+/* Het uitklapmenu zelf tekent de browser; zonder dit is de lijst wit. */
+.fin-app select.fin-zoekveld option,
+.fin-app .fin-roam select option,
+.fin-app .fin-fleet-blok select option {
+    background: var(--fin-surface-2); color: var(--fin-text);
+}
