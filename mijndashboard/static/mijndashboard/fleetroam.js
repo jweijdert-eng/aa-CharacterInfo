@@ -167,12 +167,29 @@
     return e;
   }
   function leeg(node) { while (node.firstChild) node.removeChild(node.firstChild); }
+  // Letterlijk de schaal van het dashboard (src/utils/secColor.ts).
   function secKleur(sec) {
-    if (sec >= 0.9) return '#2fefef'; if (sec >= 0.8) return '#48f0c0';
-    if (sec >= 0.7) return '#00ef47'; if (sec >= 0.6) return '#00f000';
-    if (sec >= 0.5) return '#8fef2f'; if (sec >= 0.4) return '#efef00';
-    if (sec >= 0.3) return '#f0902f'; if (sec >= 0.2) return '#f04800';
-    if (sec >= 0.1) return '#d73000'; return '#f00000';
+    if (sec >= 1.0) return '#2C75E1';
+    if (sec >= 0.9) return '#399AEB';
+    if (sec >= 0.8) return '#4ECEF8';
+    if (sec >= 0.7) return '#60DBA3';
+    if (sec >= 0.5) return '#3ECF6E';
+    if (sec >= 0.2) return '#F0C040';
+    if (sec >= 0.0) return '#F59E0B';
+    if (sec >= -0.3) return '#FB923C';
+    if (sec >= -0.6) return '#F97316';
+    return '#EF4444';
+  }
+
+  // Tekst met een donkere rand eromheen, zoals paintOrder="stroke" in hun SVG.
+  function omrand(ctx, tekst, x, y, grootte, kleur, dikte) {
+    ctx.font = grootte + 'px system-ui, sans-serif';
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = '#05050e';
+    ctx.lineWidth = dikte || grootte * 0.14;
+    ctx.strokeText(tekst, x, y);
+    ctx.fillStyle = kleur;
+    ctx.fillText(tekst, x, y);
   }
   var ROLLABEL = { fleet_commander: 'FC', wing_commander: 'WC',
                    squad_commander: 'SC', squad_member: '' };
@@ -249,8 +266,12 @@
     }
 
     /* ── Kaartprojectie ──────────────────────────────────────────────── */
+    // Vast tekenvlak, precies als op het dashboard: W=660, H=760, PAD=30. Alles
+    // wordt daarop gerekend en daarna als geheel naar de doos geschaald, zodat
+    // lettergroottes en markers dezelfde verhouding houden als daar.
+    var W = 660, H = 760, PAD = 30;
     var tf = { k: 1, x: 0, y: 0 }, basis = null, autoGezoomd = false;
-    var W = 0, H = 0;
+    var toonSchaal = 1;
 
     function maakBasis() {
       var lijst = Object.keys(sys);
@@ -262,9 +283,8 @@
         var z = -s[2];
         if (z < minZ) minZ = z; if (z > maxZ) maxZ = z;
       }
-      var pad = 30;
       var spanX = (maxX - minX) || 1, spanZ = (maxZ - minZ) || 1;
-      var schaal = Math.min((W - 2 * pad) / spanX, (H - 2 * pad) / spanZ);
+      var schaal = Math.min((W - 2 * PAD) / spanX, (H - 2 * PAD) / spanZ);
       var offX = (W - schaal * spanX) / 2 - minX * schaal;
       var offZ = (H - schaal * spanZ) / 2 - minZ * schaal;
       basis = function (x, z) { return [offX + x * schaal, offZ + (-z) * schaal]; };
@@ -300,9 +320,10 @@
       var cv = deel.canvas;
       if (!cv || !basis) return;
       var dpr = Math.min(window.devicePixelRatio || 1, 2);
-      cv.width = W * dpr; cv.height = H * dpr;
+      var f = toonSchaal * dpr;
+      cv.width = Math.round(W * f); cv.height = Math.round(H * f);
       var ctx = cv.getContext('2d');
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.setTransform(f, 0, 0, f, 0, 0);
       ctx.clearRect(0, 0, W, H);
       ctx.fillStyle = '#05050e';
       ctx.fillRect(0, 0, W, H);
@@ -350,8 +371,8 @@
       }
 
       // 3) De sterren zelf, gekleurd op security.
-      var straal = Math.max(0.45, (0.9 + (tf.k - 1) * 0.16) / 2);
-      ctx.globalAlpha = 0.45;
+      var straal = Math.max(0.5, (1.0 + (tf.k - 1) * 0.16) / 2);
+      ctx.globalAlpha = 0.85;
       Object.keys(sys).forEach(function (sid) {
         var s = sys[sid];
         var p = scherm(s[1], s[2]);
@@ -360,18 +381,6 @@
         ctx.beginPath(); ctx.arc(p[0], p[1], straal, 0, Math.PI * 2); ctx.fill();
       });
       ctx.globalAlpha = 1;
-
-      // 3b) Ingezoomd de systeemnamen erbij; uitgezoomd wordt dat een kluwen.
-      if (tf.k > 10) {
-        ctx.font = Math.min(13, 5 + tf.k * 0.28) + 'px system-ui, sans-serif';
-        ctx.fillStyle = 'rgba(180,190,220,0.75)';
-        Object.keys(sys).forEach(function (sid) {
-          var s = sys[sid];
-          var p = scherm(s[1], s[2]);
-          if (p[0] < 0 || p[0] > W || p[1] < 0 || p[1] > H) return;
-          ctx.fillText(s[4], p[0] + 4, p[1] + 3);
-        });
-      }
 
       // 4) Regionamen: die maken de kaart leesbaar, dus altijd.
       {
@@ -438,74 +447,177 @@
       tekenMarkers(ctx);
     }
 
+    /* Markers, één op één overgenomen van de fleet-kaart op het dashboard.
+     *
+     * Een fleet is daar een stip in de security-kleur van het systeem, met een
+     * groene ring eromheen, een gouden streepjesring als de FC er staat, het
+     * aantal ín de stip en de namen van de leden eronder. Intel is een gevulde
+     * cirkel met een uitroepteken, een pulserende ring, het gemelde aantal
+     * erboven en bij een spike een knipperend ⚠ SPIKE.
+     *
+     * De lettergroottes schalen met de zoom, net als daar:
+     *   sysFont = min(16, 3 + k·0,45)   memFont = min(15, 3 + k·0,42)
+     *   markerFont = min(17, 4 + k·0,48)
+     */
     function tekenMarkers(ctx) {
       var nu = Date.now();
-      var labels = [];
+      var sysFont = Math.min(16, 3 + tf.k * 0.45);
+      var memFont = Math.min(15, 3 + tf.k * 0.42);
+      var markerFont = Math.min(17, 4 + tf.k * 0.48);
+      var memLine = memFont * 1.18;
+      var perSys = ledenPerSysteem();
+      var meest = 1;
+      Object.keys(perSys).forEach(function (sid) {
+        meest = Math.max(meest, perSys[sid].leden.length);
+      });
+      var heeftMarker = {};
+      Object.keys(perSys).forEach(function (sid) { heeftMarker[sid] = 1; });
 
-      // Intel-markers.
+      // Systeemnamen: bij hen komen die uit dezelfde overlay, met een donkere
+      // rand eromheen. Systemen met een fleet-marker krijgen er geen, want die
+      // marker zegt de naam al.
+      if (tf.k > 3) {
+        ctx.textAlign = 'left';
+        Object.keys(sys).forEach(function (sid) {
+          if (heeftMarker[sid]) return;
+          var st = sys[sid];
+          var p = scherm(st[1], st[2]);
+          if (p[0] < 4 || p[0] > W - 4 || p[1] < 8 || p[1] > H - 2) return;
+          omrand(ctx, st[4], p[0] + sysFont * 0.5, p[1] - sysFont * 0.4,
+                 sysFont, 'rgba(225,228,240,0.8)', sysFont * 0.07);
+        });
+      }
+
+      // ── Intel ──────────────────────────────────────────────────────────
+      var puls = (nu % 1500) / 1500;          // radar-ping, 1,5 s rond
+      var spikePuls = (nu % 1000) / 1000;
       Object.keys(intel).forEach(function (sid) {
-        var s = sys[sid];
-        if (!s) return;
+        var st = sys[sid];
+        if (!st) return;
         var b = intel[sid];
-        if (b.clear) return;                       // clear = geen marker
-        var p = scherm(s[1], s[2]);
-        var min = (nu - b.tijd) / 60000;
-        var kleur = min < VERS_MIN ? '#ef4444' : (min < RECENT_MIN ? '#f0932b' : '#8a90b0');
-        var r = b.spike ? 10 : 7;
-        ctx.save();
+        if (b.clear) return;
+        var p = scherm(st[1], st[2]);
+        if (p[0] < -10 || p[0] > W + 10 || p[1] < -10 || p[1] > H + 10) return;
+        var ir = Math.max(5, markerFont * 0.7);
+        var col = b.dreiging ? '#e05555' : '#f0a030';
+
+        if (b.spike) {
+          // Dubbele puls, een halve slag uit fase — zoals de twee SVG-animaties.
+          [spikePuls, (spikePuls + 0.5) % 1].forEach(function (t, i) {
+            ctx.beginPath();
+            ctx.arc(p[0], p[1], ir + (ir * 5) * t, 0, Math.PI * 2);
+            ctx.strokeStyle = i ? '#f0a030' : '#e05555';
+            ctx.globalAlpha = 0.95 * (1 - t);
+            ctx.lineWidth = 3.5 - 3 * t;
+            ctx.stroke();
+          });
+          ctx.globalAlpha = 1;
+        }
+        ctx.beginPath();
+        ctx.arc(p[0], p[1], ir + (ir * 1.8) * puls, 0, Math.PI * 2);
+        ctx.strokeStyle = col;
+        ctx.globalAlpha = 0.85 * (1 - puls);
+        ctx.lineWidth = 2 - 1.6 * puls;
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+
+        ctx.beginPath();
+        ctx.arc(p[0], p[1], ir, 0, Math.PI * 2);
+        ctx.fillStyle = col;
+        ctx.fill();
+        ctx.strokeStyle = '#05050e';
+        ctx.lineWidth = ir * 0.12;
+        ctx.stroke();
+
+        ctx.textAlign = 'center';
+        ctx.font = 'bold ' + (ir * 1.1) + 'px system-ui, sans-serif';
+        ctx.fillStyle = '#fff';
+        ctx.fillText('!', p[0], p[1] + ir * 0.36);
+
+        if (b.aantal > 0) {
+          ctx.font = 'bold ' + (ir * 0.95) + 'px system-ui, sans-serif';
+          omrand(ctx, b.aantal + '+', p[0], p[1] - ir - 1, ir * 0.95, col, ir * 0.09);
+        }
+        if (b.spike) {
+          ctx.font = 'bold ' + (markerFont * 1.3) + 'px system-ui, sans-serif';
+          ctx.globalAlpha = spikePuls < 0.5 ? 1 : 0.45;
+          omrand(ctx, '⚠ SPIKE', p[0], p[1] - ir - markerFont * 1.4,
+                 markerFont * 1.3, spikePuls < 0.5 ? '#e05555' : '#f0a030',
+                 markerFont * 0.12);
+          ctx.globalAlpha = 1;
+        }
+        ctx.textAlign = 'left';
+      });
+
+      // ── De fleet ───────────────────────────────────────────────────────
+      Object.keys(perSys).forEach(function (sid) {
+        var st = sys[sid];
+        if (!st) return;
+        var b = perSys[sid];
+        var p = scherm(st[1], st[2]);
+        var r = 3 + (b.leden.length / meest) * 4;
+
+        ctx.beginPath();
+        ctx.arc(p[0], p[1], r + 4, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(62,207,110,0.12)';
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.arc(p[0], p[1], r + 1.5, 0, Math.PI * 2);
+        ctx.strokeStyle = '#3ecf6e';
+        ctx.lineWidth = 1.4;
+        ctx.stroke();
+
+        if (b.fc) {
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(p[0], p[1], r + 4, 0, Math.PI * 2);
+          ctx.strokeStyle = '#f0c040';
+          ctx.lineWidth = 1;
+          ctx.setLineDash([3, 2]);
+          ctx.stroke();
+          ctx.restore();
+        }
+
         ctx.beginPath();
         ctx.arc(p[0], p[1], r, 0, Math.PI * 2);
-        ctx.strokeStyle = kleur;
-        ctx.lineWidth = b.spike ? 3 : 1.6;
-        ctx.shadowColor = kleur;
-        ctx.shadowBlur = b.spike ? 14 : 7;
-        ctx.stroke();
-        ctx.restore();
-        ctx.fillStyle = 'rgba(0,0,0,0.35)';
+        ctx.fillStyle = secKleur(st[3]);
         ctx.fill();
-        ctx.fillStyle = kleur;
-        ctx.font = 'bold 11px system-ui, sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText(b.aantal ? String(b.aantal) : (b.spike ? '!!' : '!'), p[0], p[1] + 4);
-        ctx.textAlign = 'left';
-        labels.push([p[0] + r + 3, p[1] + 3, s[4], kleur]);
-      });
-
-      // Fleet-markers.
-      var perSys = ledenPerSysteem();
-      Object.keys(perSys).forEach(function (sid) {
-        var s = sys[sid];
-        if (!s) return;
-        var b = perSys[sid];
-        var p = scherm(s[1], s[2]);
-        ctx.save();
-        ctx.beginPath();
-        ctx.arc(p[0], p[1], 12, 0, Math.PI * 2);
-        ctx.strokeStyle = b.fc ? '#f0c040' : '#3ecf6e';
-        ctx.lineWidth = 2;
-        ctx.shadowColor = b.fc ? 'rgba(240,192,64,0.75)' : 'rgba(62,207,110,0.7)';
-        ctx.shadowBlur = 10;
-        ctx.fillStyle = b.fc ? 'rgba(240,192,64,0.14)' : 'rgba(62,207,110,0.16)';
-        ctx.fill();
+        ctx.strokeStyle = '#05050e';
+        ctx.lineWidth = 0.8;
         ctx.stroke();
-        ctx.restore();
-        ctx.fillStyle = b.fc ? '#f0c040' : '#3ecf6e';
-        ctx.font = 'bold 11px system-ui, sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText(String(b.leden.length), p[0], p[1] + 4);
-        ctx.textAlign = 'left';
-        labels.push([p[0] + 15, p[1] + 3, s[4], b.fc ? '#f0c040' : '#3ecf6e']);
-      });
 
-      ctx.font = '11px system-ui, sans-serif';
-      labels.forEach(function (l) {
-        ctx.fillStyle = 'rgba(5,5,14,0.7)';
-        var w = ctx.measureText(l[2]).width;
-        ctx.fillRect(l[0] - 2, l[1] - 9, w + 4, 12);
-        ctx.fillStyle = l[3];
-        ctx.fillText(l[2], l[0], l[1]);
+        ctx.textAlign = 'center';
+        ctx.font = 'bold ' + Math.min(9, r + 1.5) + 'px system-ui, sans-serif';
+        ctx.fillStyle = '#05050e';
+        ctx.fillText(String(b.leden.length), p[0], p[1] + 2.6);
+
+        ctx.textAlign = 'left';
+        ctx.font = 'bold ' + markerFont + 'px system-ui, sans-serif';
+        omrand(ctx, st[4] + (b.fc ? ' · FC' : ''), p[0] + r + 4,
+               p[1] + markerFont * 0.38, markerFont, '#fff', markerFont * 0.085);
+
+        // De namen van de leden eronder, maximaal acht.
+        ctx.textAlign = 'center';
+        b.leden.slice(0, 8).forEach(function (m, i) {
+          omrand(ctx, m.naam, p[0], p[1] + r + memFont + i * memLine,
+                 memFont, 'rgba(225,232,245,0.92)', memFont * 0.07);
+        });
+        if (b.leden.length > 8) {
+          omrand(ctx, '+' + (b.leden.length - 8) + ' meer', p[0],
+                 p[1] + r + memFont + 8 * memLine, memFont, '#8a90b0', memFont * 0.07);
+        }
+        ctx.textAlign = 'left';
       });
     }
+
+    // De pulserende intel-ringen vragen om hertekenen; zonder intel staat de
+    // kaart stil en kost het niets.
+    function pulsLoop() {
+      if (Object.keys(intel).length) teken();
+      window.requestAnimationFrame(pulsLoop);
+    }
+    window.requestAnimationFrame(pulsLoop);
 
     /* ── Het rechtsklikmenu ──────────────────────────────────────────── */
     function dichtstbij(px, py) {
@@ -1076,15 +1188,16 @@
 
     function pasMaatAan() {
       if (!deel.canvas || !deel.kaartVak) return;
-      // Zo groot als het scherm toelaat, en staand — de cluster is hoger dan
-      // breed. Eerst de hoogte uit het venster, dan de breedte daarop; op een
-      // ultrabreed scherm wordt het anders een lage strook met kilometers zwart
-      // ernaast, en op 760px vast een postzegel in het midden.
+      // Het tekenvlak blijft 660×760; alleen hoe groot dat op het scherm komt
+      // hangt van de ruimte af. Staand, want de cluster is hoger dan breed.
       var vh = window.innerHeight || 900;
-      H = Math.max(420, Math.min(Math.round(vh * 0.84), 1000));
-      W = Math.min(deel.kaartVak.clientWidth || 900, Math.round(H * 1.08));
-      deel.canvas.style.width = W + 'px';
-      deel.canvas.style.height = H + 'px';
+      var kolom = (deel.kaartVak.parentNode && deel.kaartVak.parentNode.clientWidth) || 900;
+      var hoogte = Math.max(420, Math.min(Math.round(vh * 0.84), 1100));
+      var breedte = Math.min(kolom, Math.round(hoogte * (W / H)));
+      hoogte = Math.round(breedte * (H / W));
+      toonSchaal = breedte / W;
+      deel.canvas.style.width = breedte + 'px';
+      deel.canvas.style.height = hoogte + 'px';
       maakBasis();
     }
 
