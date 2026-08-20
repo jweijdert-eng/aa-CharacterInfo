@@ -4624,6 +4624,27 @@ def roam_schop(user, character_id):
 TTL_KAART = 7 * 86400       # systemen verhuizen niet
 
 
+def _kaartindeling():
+    """De kaartindeling zoals het dashboard hem gebruikt, uit de meegeleverde
+    bundel. Leeg als het bestand er niet is; dan valt alles terug op de ruwe
+    posities uit de SDE."""
+    from pathlib import Path
+
+    from django.core.cache import cache
+
+    hit = cache.get("fin_kaartindeling")
+    if hit is not None:
+        return hit
+    pad = Path(__file__).with_name("static") / "mijndashboard" / "system-coords.json"
+    try:
+        with pad.open(encoding="utf-8") as f:
+            uit = json.load(f)
+    except (OSError, ValueError):
+        uit = {}
+    cache.set("fin_kaartindeling", uit, TTL_KAART)
+    return uit
+
+
 def kaart_json():
     """{"s": [[id, x, z, sec, naam, regio_id], ...], "r": {regio_id: naam}}.
 
@@ -4646,6 +4667,16 @@ def kaart_json():
                           "security_status", "eve_constellation__eve_region_id",
                           "eve_constellation__eve_region__name"))
 
+    # De plek van een systeem komt uit de kaartindeling van het dashboard
+    # (system-coords.json), niet uit de ruwe positie in de SDE. Dat is een
+    # ander ding: de ruwe posities zetten hele regio's op een kluitje omdat New
+    # Eden nu eenmaal niet gelijkmatig verdeeld is, terwijl die bundel een
+    # indeling is waarin de systemen leesbaar uit elkaar staan — dezelfde die
+    # je op dutchlegionsdashboard.eu/fleet ziet. Nagemeten: Jita staat daar op
+    # (-43144, 178738) en ruw op (-129, 117)·1e15; dat is geen schaalverschil
+    # maar een andere indeling.
+    indeling = _kaartindeling()
+
     # Schalen naar een handzaam bereik: de echte getallen zijn ~1e17 meter en
     # daar kan JSON niets mee dat een browser prettig vindt.
     schaal = 1e15
@@ -4658,7 +4689,13 @@ def kaart_json():
         # bereik van de kaart zo ver open dat heel New Eden in één stip valt.
         if sid >= 31000000:
             continue
-        systemen.append([sid, round(x / schaal, 2), round(z / schaal, 2),
+        plek = indeling.get(str(sid))
+        if plek:
+            px, pz = round(plek[0] / 1000, 2), round(plek[1] / 1000, 2)
+        else:
+            # Niet in de bundel (nieuw systeem): dan maar de ruwe positie.
+            px, pz = round(x / schaal, 2), round(z / schaal, 2)
+        systemen.append([sid, px, pz,
                          round(float(sec or 0), 1), naam, regio_id])
         if regio_id and regio_id not in regios:
             regios[regio_id] = regio_naam

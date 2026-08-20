@@ -382,8 +382,9 @@
       });
       ctx.globalAlpha = 1;
 
-      // 4) Regionamen: die maken de kaart leesbaar, dus altijd.
-      {
+      // 4) Regionamen: alleen in het overzicht. Ingezoomd kijk je naar de
+      //    systemen zelf en liggen ze er alleen maar overheen.
+      if (tf.k < 6) {
         var zwaarte = {};
         Object.keys(sys).forEach(function (sid) {
           var s = sys[sid], r = s[5];
@@ -1218,6 +1219,17 @@
           tekenStats();
           tekenLeden();
           tekenBeheer();
+          // Eén keer inzoomen op de FC, zoals `didAuto` op het dashboard: k = 24,
+          // gecentreerd op zijn systeem. Daarna blijft staan wat jij instelt.
+          if (s.in_fleet && !autoGezoomd && basis) {
+            var doel = (s.fc && s.fc.systeem_id) ||
+                       (s.leden[0] && s.leden[0].systeem_id);
+            if (doel && sys[doel]) {
+              autoGezoomd = true;
+              zoomOp(doel, 24);
+              return;
+            }
+          }
           teken();
         }).catch(function () {});
     }
