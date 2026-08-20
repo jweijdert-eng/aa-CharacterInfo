@@ -1610,3 +1610,15 @@
 .fin-app .fin-ververs { font-size: .68rem; color: var(--fin-dim); }
 .fin-app .fin-ververs:hover { color: var(--fin-blue); text-decoration: none; }
 .fin-app .fin-voorraadtijd { font-size: .6rem; margin-top: .1rem; }
+
+/* ── Kleurhelpers van het dashboard, nog een keer ─────────────────────── */
+/* Deze staan bovenaan het dl-blok gedefinieerd, maar sommige onderdelen zetten
+   daarna zelf een kleur (.dl-char-sub is grijs). Even zwaar en later in het
+   bestand = die wint, dus "+8,4M vandaag" bleef grijs terwijl het groen hoort te
+   zijn. Daarom hier nog een keer, ná alle blokken. */
+.fin-app .fin-dl .dl-dim { color: var(--dl-dim); }
+.fin-app .fin-dl .dl-goud { color: var(--dl-gold); }
+.fin-app .fin-dl .dl-groen { color: var(--dl-green); }
+.fin-app .fin-dl .dl-rood { color: var(--dl-red); }
+.fin-app .fin-dl .dl-blauw { color: var(--dl-blue); }
+.fin-app .fin-dl .dl-oranje { color: #f97316; }
