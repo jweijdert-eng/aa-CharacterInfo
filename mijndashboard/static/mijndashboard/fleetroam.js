@@ -350,8 +350,8 @@
       }
 
       // 3) De sterren zelf, gekleurd op security.
-      var straal = Math.max(0.5, (1.0 + (tf.k - 1) * 0.16) / 2);
-      ctx.globalAlpha = 0.62;
+      var straal = Math.max(0.45, (0.9 + (tf.k - 1) * 0.16) / 2);
+      ctx.globalAlpha = 0.45;
       Object.keys(sys).forEach(function (sid) {
         var s = sys[sid];
         var p = scherm(s[1], s[2]);
@@ -382,14 +382,38 @@
           var a = zwaarte[r] || (zwaarte[r] = { x: 0, z: 0, n: 0 });
           a.x += s[1]; a.z += s[2]; a.n++;
         });
-        ctx.fillStyle = 'rgba(200,208,235,0.75)';
-        ctx.font = Math.min(15, 11 + tf.k * 0.2) + 'px system-ui, sans-serif';
+        ctx.fillStyle = 'rgba(214,222,246,0.88)';
+        ctx.font = Math.min(14, 11 + tf.k * 0.12) + 'px system-ui, sans-serif';
         ctx.textAlign = 'center';
-        Object.keys(zwaarte).forEach(function (r) {
+        var bezet = [];
+        // Waar de fleet staat gaat vóór: die regionaam mag nooit wegvallen
+        // omdat er toevallig een buurregio overheen valt. Daarna de grootste,
+        // want dat zijn de herkenningspunten.
+        var fleetRegios = {};
+        Object.keys(ledenPerSysteem()).forEach(function (sid) {
+          if (sys[sid]) fleetRegios[sys[sid][5]] = 1;
+        });
+        Object.keys(zwaarte).sort(function (a, b) {
+          var fa = fleetRegios[a] ? 1 : 0, fb = fleetRegios[b] ? 1 : 0;
+          if (fa !== fb) return fb - fa;
+          return zwaarte[b].n - zwaarte[a].n;
+        }).forEach(function (r) {
+          var naam = regios[r] || '';
+          if (!naam) return;
           var a = zwaarte[r];
           var p = scherm(a.x / a.n, a.z / a.n);
           if (p[0] < 0 || p[0] > W || p[1] < 0 || p[1] > H) return;
-          ctx.fillText(regios[r] || '', p[0], p[1]);
+          var halve = ctx.measureText(naam).width / 2 + 3;
+          var vak = [p[0] - halve, p[1] - 9, p[0] + halve, p[1] + 4];
+          for (var i = 0; i < bezet.length; i++) {
+            var b2 = bezet[i];
+            if (vak[0] < b2[2] && vak[2] > b2[0] && vak[1] < b2[3] && vak[3] > b2[1]) return;
+          }
+          bezet.push(vak);
+          // Waar de fleet staat, staat ook de marker met z'n naam. De regionaam
+          // een regel lager, anders schuift hij er precies achter — en juist die
+          // wil je lezen: daar is je fleet.
+          ctx.fillText(naam, p[0], p[1] + (fleetRegios[r] ? 18 : 0));
         });
         ctx.textAlign = 'left';
       }
@@ -428,11 +452,15 @@
         var min = (nu - b.tijd) / 60000;
         var kleur = min < VERS_MIN ? '#ef4444' : (min < RECENT_MIN ? '#f0932b' : '#8a90b0');
         var r = b.spike ? 10 : 7;
+        ctx.save();
         ctx.beginPath();
         ctx.arc(p[0], p[1], r, 0, Math.PI * 2);
         ctx.strokeStyle = kleur;
         ctx.lineWidth = b.spike ? 3 : 1.6;
+        ctx.shadowColor = kleur;
+        ctx.shadowBlur = b.spike ? 14 : 7;
         ctx.stroke();
+        ctx.restore();
         ctx.fillStyle = 'rgba(0,0,0,0.35)';
         ctx.fill();
         ctx.fillStyle = kleur;
@@ -450,13 +478,17 @@
         if (!s) return;
         var b = perSys[sid];
         var p = scherm(s[1], s[2]);
+        ctx.save();
         ctx.beginPath();
         ctx.arc(p[0], p[1], 12, 0, Math.PI * 2);
         ctx.strokeStyle = b.fc ? '#f0c040' : '#3ecf6e';
         ctx.lineWidth = 2;
-        ctx.fillStyle = 'rgba(62,207,110,0.16)';
+        ctx.shadowColor = b.fc ? 'rgba(240,192,64,0.75)' : 'rgba(62,207,110,0.7)';
+        ctx.shadowBlur = 10;
+        ctx.fillStyle = b.fc ? 'rgba(240,192,64,0.14)' : 'rgba(62,207,110,0.16)';
         ctx.fill();
         ctx.stroke();
+        ctx.restore();
         ctx.fillStyle = b.fc ? '#f0c040' : '#3ecf6e';
         ctx.font = 'bold 11px system-ui, sans-serif';
         ctx.textAlign = 'center';
@@ -1044,14 +1076,13 @@
 
     function pasMaatAan() {
       if (!deel.canvas || !deel.kaartVak) return;
-      // De kaart pakt de volle breedte; de hoogte komt uit het scherm, want
-      // daar zit de beperking. Op een breed scherm stond hij anders als een
-      // postzegel in het midden. De cluster is hoger dan breed, dus de
-      // projectie past zich op de hoogte aan en er blijft links en rechts
-      // ruimte over — die gebruiken we voor de labels.
-      W = deel.kaartVak.clientWidth || 900;
-      var maxH = Math.round((window.innerHeight || 900) * 0.82);
-      H = Math.max(420, Math.min(maxH, Math.round(W * 0.72)));
+      // Zo groot als het scherm toelaat, en staand — de cluster is hoger dan
+      // breed. Eerst de hoogte uit het venster, dan de breedte daarop; op een
+      // ultrabreed scherm wordt het anders een lage strook met kilometers zwart
+      // ernaast, en op 760px vast een postzegel in het midden.
+      var vh = window.innerHeight || 900;
+      H = Math.max(420, Math.min(Math.round(vh * 0.84), 1000));
+      W = Math.min(deel.kaartVak.clientWidth || 900, Math.round(H * 1.08));
       deel.canvas.style.width = W + 'px';
       deel.canvas.style.height = H + 'px';
       maakBasis();
