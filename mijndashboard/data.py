@@ -3748,7 +3748,34 @@ def bouwproject(user, type_id=None, aantal=1, me=10, zoek="", koop=None, plek=No
         return {**basis, "treffers": treffers, "boom": [], "doel": None}
 
     if not type_id or type_id not in recepten:
-        return {**basis, "treffers": [], "boom": [], "doel": None}
+        # Leeg scherm: dan maar suggesties uit je eigen kast. Je hebt de
+        # blueprint al, dus dat is het meest voor de hand liggende project —
+        # en het scheelt bedenken wat je hier moet intypen.
+        suggesties = []
+        if recepten:
+            product_van = {}
+            for product_id, r in recepten.items():
+                product_van[r["bp"]] = product_id
+            beste = {}
+            for c in esi.characters(user):
+                for b in esi.blueprints(c.character_id):
+                    product = product_van.get(b["type_id"])
+                    if not product:
+                        continue
+                    me = int(b.get("material_efficiency") or 0)
+                    origineel = int(b.get("quantity") or 0) == BP_ORIGINEEL
+                    huidig = beste.get(product)
+                    if not huidig or (origineel, me) > (huidig["origineel"], huidig["me"]):
+                        beste[product] = {"me": me, "origineel": origineel}
+            namen = _type_info(set(beste))
+            suggesties = sorted(
+                ({"type_id": pid, "naam": (namen.get(pid) or {}).get("naam") or f"Type {pid}",
+                  "plaatje": (namen.get(pid) or {}).get("plaatje") or "",
+                  "me": v["me"], "origineel": v["origineel"]}
+                 for pid, v in beste.items()),
+                key=lambda x: (not x["origineel"], -x["me"], x["naam"]))[:12]
+        return {**basis, "treffers": [], "boom": [], "doel": None,
+                "suggesties": suggesties}
 
     voorraad, plekken = _voorraad(user, plek)
     eigen_bps = set()

@@ -194,7 +194,13 @@
              data-doel="{{ doel.type_id|default:'' }}" data-doelnaam="{{ doel.naam|default:'' }}"
              data-aantal="{{ aantal }}" data-me="{{ me }}" data-koop="{{ koop_param }}"
              data-plek="{{ plek|default:'' }}">
-        <div class="fin-bouwbalk" data-rol="projecten"></div>
+        <div class="fin-bouwtop">
+            <div class="fin-bouwbalk" data-rol="projecten"></div>
+            {% if doel %}
+                <button type="button" class="fin-knop fin-knop-klein" data-rol="bewaren">
+                    {% translate "Bewaren" %}</button>
+            {% endif %}
+        </div>
 
         <form class="fin-bouwzoek" method="get">
             <label>
@@ -311,17 +317,11 @@
 
             <div class="fin-bouwkolommen">
                 <div>
-                    <h2 class="fin-kop">{% translate "Bouwschema" %}
-                        <span>— {% translate "wat valt waaronder" %}</span></h2>
-                    <div class="fin-bouwknoppen">
-                        <button type="button" class="fin-knop fin-knop-klein" data-rol="bewaren">
-                            {% translate "Bewaren" %}</button>
-                        <button type="button" class="fin-knop fin-knop-klein" data-rol="klap">
+                    <h2 class="fin-kop is-rij">{% translate "Bouwschema" %}
+                        <span>— {% translate "wat valt waaronder" %}</span>
+                        <button type="button" class="fin-knop fin-knop-klein fin-kop-actie" data-rol="klap">
                             ⊟ {% translate "Alles inklappen" %}</button>
-                        <span class="fin-dim" style="font-size: .72rem;">
-                            {% translate "Klik op de status om door te schakelen: te doen → job draait → klaar." %}
-                        </span>
-                    </div>
+                    </h2>
                     <div class="fin-tablewrap">
                         <table class="fin-table">
                             <thead>
@@ -378,6 +378,9 @@
                             </tbody>
                         </table>
                     </div>
+                    <p class="fin-onderschrift">
+                        {% translate "Klik op de status om door te schakelen: te doen → job draait → klaar. Met het pijltje achter de aanpak wissel je tussen zelf bouwen en kopen." %}
+                    </p>
                 </div>
 
                 <div>
@@ -421,11 +424,65 @@
                 </div>
             </div>
         {% elif not zoek %}
-            <div class="fin-melding">
-                {% translate "Typ hierboven wat je wil bouwen. De boom rekent tot zes lagen diep en trekt af wat je al in je hangars hebt." %}
+            {% comment %}
+                Het lege scherm was een leeg zoekveld met een zin eronder. Nu een
+                startpunt: wat de pagina doet in drie stappen, en meteen een rij
+                dingen waar je de blueprint al van hebt — dan hoef je niet te
+                bedenken wat je hier moet intypen.
+            {% endcomment %}
+            <div class="fin-start">
+                <div class="fin-start-kop">
+                    <span class="fin-start-icoon">⚒</span>
+                    <div>
+                        <div class="fin-start-titel">{% translate "Wat gaan we bouwen?" %}</div>
+                        <div class="fin-start-sub">
+                            {% translate "Kies een doel; de rest rekent zichzelf uit." %}
+                        </div>
+                    </div>
+                </div>
+                <div class="fin-start-stappen">
+                    <div class="fin-start-stap is-goud">
+                        <span class="n">1</span>
+                        <div>
+                            <b>{% translate "Kies wat je wil maken" %}</b>
+                            {% translate "Zoek op naam, of pak hieronder iets waar je de blueprint al van hebt." %}
+                        </div>
+                    </div>
+                    <div class="fin-start-stap is-blauw">
+                        <span class="n">2</span>
+                        <div>
+                            <b>{% translate "De boom wordt uitgerekend" %}</b>
+                            {% translate "Tot zes lagen diep: onderdelen van onderdelen, met jouw ME." %}
+                        </div>
+                    </div>
+                    <div class="fin-start-stap is-groen">
+                        <span class="n">3</span>
+                        <div>
+                            <b>{% translate "Je hangars gaan eraf" %}</b>
+                            {% translate "Wat overblijft is je inkooplijst, klaar om in multibuy te plakken." %}
+                        </div>
+                    </div>
+                </div>
             </div>
+
+            {% if suggesties %}
+                <h2 class="fin-kop">{% translate "Uit je eigen kast" %}
+                    <span>— {% translate "hier heb je de blueprint al van" %}</span></h2>
+                <div class="fin-bouwtreffers">
+                    {% for t in suggesties %}
+                        <a class="fin-bouwtreffer {% if t.origineel %}is-bpo{% endif %}"
+                           href="?type={{ t.type_id }}&amp;aantal={{ aantal }}&amp;me={{ me }}"
+                           title="{% if t.origineel %}{% translate 'Origineel' %}{% else %}{% translate 'Kopie' %}{% endif %} · ME {{ t.me }}">
+                            {% if t.plaatje %}<img loading="lazy" alt="" src="{{ t.plaatje }}">{% endif %}
+                            {{ t.naam }}
+                            <i>ME {{ t.me }}</i>
+                        </a>
+                    {% endfor %}
+                </div>
+            {% endif %}
         {% endif %}
         </div>
+
 
     {# ── Bouwwinst en Bouwen of kopen ────────────────────────────────── #}
     {% else %}

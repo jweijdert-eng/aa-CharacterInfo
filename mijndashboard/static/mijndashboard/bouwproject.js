@@ -52,6 +52,8 @@
       project.me = me;
       project.koop = koop.join(',');
       project.plek = plek;
+      // Hoeveel onderdelen de boom telt, zodat de balk op de kaart klopt.
+      project.knopen = paneel.querySelectorAll('[data-knoop][data-maken="1"]').length || project.knopen || 0;
       project.bijgewerkt = Date.now();
       alles[sleutel] = project;
       schrijf(alles);
@@ -87,13 +89,31 @@
         var chip = document.createElement('span');
         chip.className = 'fin-bouwproject' + (k === sleutel ? ' is-actief' : '');
 
-        var link = document.createElement('a');
-        link.href = basisUrl + '?type=' + p.doel + '&aantal=' + p.aantal + '&me=' + p.me +
-                    (p.koop ? '&koop=' + p.koop : '') + (p.plek ? '&plek=' + p.plek : '');
         var af = Object.keys(p.voortgang || {}).filter(function (t) {
           return p.voortgang[t] === 'done';
         }).length;
-        link.textContent = (p.naam || p.doelnaam || 'project') + ' ×' + p.aantal + (af ? ' · ' + af + ' klaar' : '');
+        var totaal = p.knopen || 0;
+        var pct = totaal ? Math.round(af / totaal * 100) : 0;
+
+        var link = document.createElement('a');
+        link.href = basisUrl + '?type=' + p.doel + '&aantal=' + p.aantal + '&me=' + p.me +
+                    (p.koop ? '&koop=' + p.koop : '') + (p.plek ? '&plek=' + p.plek : '');
+        var titel = document.createElement('span');
+        titel.className = 'fin-bouwproject-naam';
+        titel.textContent = (p.naam || p.doelnaam || 'project') + ' ×' + p.aantal;
+        link.appendChild(titel);
+        var sub = document.createElement('span');
+        sub.className = 'fin-bouwproject-sub';
+        // Klaar tegenover totaal zegt meer dan alleen "3 klaar".
+        sub.textContent = totaal ? af + ' van ' + totaal + ' klaar' : 'nog niets afgevinkt';
+        link.appendChild(sub);
+        var voortgangsbalk = document.createElement('span');
+        voortgangsbalk.className = 'fin-bouwproject-balk';
+        var vulling = document.createElement('i');
+        vulling.style.width = pct + '%';
+        if (pct === 100) vulling.classList.add('is-af');
+        voortgangsbalk.appendChild(vulling);
+        link.appendChild(voortgangsbalk);
         chip.appendChild(link);
 
         var weg = document.createElement('button');
