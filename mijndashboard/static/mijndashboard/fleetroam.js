@@ -523,7 +523,10 @@
         if (b.clear) return;
         var p = scherm(st[1], st[2]);
         if (p[0] < -10 || p[0] > W + 10 || p[1] < -10 || p[1] > H + 10) return;
-        var ir = Math.max(5, markerFont * 0.7);
+        // Met een gemeld aantal wordt de stip iets groter, want daar moet een
+        // getal in passen. Ondergrens van 8, anders is het bij een uitgezoomde
+        // regiokaart een puntje van vijf pixels en lees je er niets in.
+        var ir = Math.max(b.aantal > 0 ? 8 : 5, markerFont * (b.aantal > 0 ? 0.85 : 0.7));
         var col = b.dreiging ? '#e05555' : '#f0a030';
 
         if (b.spike) {
@@ -554,14 +557,19 @@
         ctx.lineWidth = ir * 0.12;
         ctx.stroke();
 
+        // Het gemelde aantal ín de stip — "7G-QIG 17 neuts" wordt een 17 op de
+        // kaart. Zonder getal blijft het een uitroepteken.
         ctx.textAlign = 'center';
-        ctx.font = 'bold ' + (ir * 1.1) + 'px system-ui, sans-serif';
         ctx.fillStyle = '#fff';
-        ctx.fillText('!', p[0], p[1] + ir * 0.36);
-
         if (b.aantal > 0) {
-          ctx.font = 'bold ' + (ir * 0.95) + 'px system-ui, sans-serif';
-          omrand(ctx, b.aantal + '+', p[0], p[1] - ir - 1, ir * 0.95, col, ir * 0.09);
+          var tekst = String(b.aantal);
+          // Passend maken: bij drie cijfers moet het lettertype kleiner.
+          var grootte = Math.max(7, ir * (tekst.length > 2 ? 0.85 : 1.05));
+          ctx.font = 'bold ' + grootte + 'px system-ui, sans-serif';
+          ctx.fillText(tekst, p[0], p[1] + grootte * 0.35);
+        } else {
+          ctx.font = 'bold ' + (ir * 1.1) + 'px system-ui, sans-serif';
+          ctx.fillText('!', p[0], p[1] + ir * 0.36);
         }
         if (b.spike) {
           ctx.font = 'bold ' + (markerFont * 1.3) + 'px system-ui, sans-serif';
