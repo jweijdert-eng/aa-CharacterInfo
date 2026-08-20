@@ -22,32 +22,6 @@
         </div>
     {% else %}
 
-        {% comment %}
-            Het enige op deze pagina waar een beslissing aan vastzit: ruw
-            verkopen of eerst refinen. Twee bedragen naast elkaar zetten laat de
-            lezer zelf aftrekken; het verschil zelf is de boodschap.
-        {% endcomment %}
-        {% if heeft_prijzen %}
-            <div class="fin-advies">
-                <span class="fin-advies-icoon">⚒</span>
-                <div>
-                    <div class="fin-advies-kop">
-                        {% if refine_loont %}
-                            {% blocktranslate with w=refine_winst_fmt p=refine_pct %}Refinen levert {{ w }} ISK extra op — {{ p }}% meer dan ruw verkopen{% endblocktranslate %}
-                        {% else %}
-                            {% blocktranslate with w=refine_winst_fmt %}Ruw verkopen is hier beter — refinen kost je {{ w }} ISK{% endblocktranslate %}
-                        {% endif %}
-                    </div>
-                    <div class="fin-advies-sub">
-                        {% blocktranslate with a=totaal_isk_fmt b=totaal_ref_fmt r=rendement %}Ruw {{ a }} tegenover {{ b }} bij {{ r }}% rendement, alles op Jita buy.{% endblocktranslate %}
-                        {% if beste_erts %}
-                            {% blocktranslate with e=beste_erts.naam p=beste_erts.per_m3_fmt %}Per kubieke meter levert {{ e }} het meest op: {{ p }} ISK/m³.{% endblocktranslate %}
-                        {% endif %}
-                    </div>
-                </div>
-            </div>
-        {% endif %}
-
         <div class="fin-stats">
             <div class="fin-stat fin-stat-totaal">
                 <span class="l">{% translate "Gemijnd" %}</span>
