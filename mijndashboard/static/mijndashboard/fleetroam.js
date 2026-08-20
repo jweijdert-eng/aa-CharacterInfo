@@ -295,6 +295,30 @@
       return [b[0] * tf.k + tf.x, b[1] * tf.k + tf.y];
     }
 
+    function pasOpRegio(regio_id) {
+      var minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity, n = 0;
+      Object.keys(sys).forEach(function (sid) {
+        var st = sys[sid];
+        if (st[5] !== regio_id) return;
+        n++;
+        if (st[1] < minX) minX = st[1];
+        if (st[1] > maxX) maxX = st[1];
+        var z = st[2];
+        if (z < minZ) minZ = z;
+        if (z > maxZ) maxZ = z;
+      });
+      if (!n || !basis) return false;
+      // De hoeken van de regio in schermpunten, dan de zoom die daar omheen past.
+      var a = basis(minX, minZ), b = basis(maxX, maxZ);
+      var breed = Math.abs(b[0] - a[0]) || 1, hoog = Math.abs(b[1] - a[1]) || 1;
+      var k = Math.min((W - 2 * PAD) / breed, (H - 2 * PAD) / hoog);
+      k = Math.max(0.8, Math.min(k, 40));
+      var mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2;
+      tf = { k: k, x: W / 2 - mx * k, y: H / 2 - my * k };
+      teken();
+      return true;
+    }
+
     function zoomOp(sid, k) {
       var s = sys[sid];
       if (!s || !basis) return;
@@ -598,15 +622,19 @@
         omrand(ctx, st[4] + (b.fc ? ' · FC' : ''), p[0] + r + 4,
                p[1] + markerFont * 0.38, markerFont, '#fff', markerFont * 0.085);
 
-        // De namen van de leden eronder, maximaal acht.
+        // De namen van de leden eronder. Op het dashboard staan er acht, maar
+        // daar zit meestal een handvol man in de fleet; bij zestien wordt het
+        // een muur tekst die de systemen eronder bedekt. Drie namen, de rest
+        // als telling — het aantal staat toch al in de ring.
         ctx.textAlign = 'center';
-        b.leden.slice(0, 8).forEach(function (m, i) {
+        var toon = b.leden.length <= 4 ? b.leden.length : 3;
+        b.leden.slice(0, toon).forEach(function (m, i) {
           omrand(ctx, m.naam, p[0], p[1] + r + memFont + i * memLine,
                  memFont, 'rgba(225,232,245,0.92)', memFont * 0.07);
         });
-        if (b.leden.length > 8) {
-          omrand(ctx, '+' + (b.leden.length - 8) + ' meer', p[0],
-                 p[1] + r + memFont + 8 * memLine, memFont, '#8a90b0', memFont * 0.07);
+        if (b.leden.length > toon) {
+          omrand(ctx, '+' + (b.leden.length - toon) + ' meer', p[0],
+                 p[1] + r + memFont + toon * memLine, memFont, '#8a90b0', memFont * 0.07);
         }
         ctx.textAlign = 'left';
       });
@@ -1226,7 +1254,7 @@
                        (s.leden[0] && s.leden[0].systeem_id);
             if (doel && sys[doel]) {
               autoGezoomd = true;
-              zoomOp(doel, 24);
+              if (!pasOpRegio(sys[doel][5])) zoomOp(doel, 24);
               return;
             }
           }
@@ -1352,7 +1380,9 @@
     var fcZoom = wortel.querySelector('[data-naar-fc]');
     if (fcZoom) {
       fcZoom.addEventListener('click', function () {
-        if (stand && stand.fc && stand.fc.systeem_id) zoomOp(stand.fc.systeem_id, 24);
+        if (!stand || !stand.fc || !stand.fc.systeem_id) return;
+        var st = sys[stand.fc.systeem_id];
+        if (!st || !pasOpRegio(st[5])) zoomOp(stand.fc.systeem_id, 24);
       });
     }
 
