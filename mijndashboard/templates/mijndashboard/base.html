@@ -40,6 +40,8 @@
                href="{% url 'mijndashboard:ratting' %}">{% translate "Ratting" %}</a>
             <a class="fin-tab {% if actief == 'mining' %}is-actief{% endif %}"
                href="{% url 'mijndashboard:mining' %}">{% translate "Mining" %}</a>
+            <a class="fin-tab {% if actief == 'fleet' %}is-actief{% endif %}"
+               href="{% url 'mijndashboard:fleet' %}">{% translate "Fleet" %}</a>
             <a class="fin-tab {% if actief == 'industry' %}is-actief{% endif %}"
                href="{% url 'mijndashboard:industry' %}">{% translate "Industry" %}</a>
             <a class="fin-tab {% if actief == 'markt' %}is-actief{% endif %}"

@@ -184,6 +184,74 @@ def markt(request: WSGIRequest) -> HttpResponse:
     return render(request, "mijndashboard/markt.html", ctx)
 
 
+@login_required
+@permission_required("mijndashboard.basic_access")
+def fleet(request: WSGIRequest) -> HttpResponse:
+    """Fleetsessies: een gezamenlijke mining- of ratting-run verdelen."""
+    ctx = _basis(request, "fleet")
+    if request.method == "POST":
+        sessie, fout = data.fleet_start(
+            request.user,
+            request.POST.get("naam", ""),
+            request.POST.get("soort", ""),
+            request.POST.getlist("deelnemers"),
+            request.POST.getlist("boosters"),
+            request.POST.get("booster_pct", 10),
+        )
+        if fout:
+            messages.error(request, fout)
+        else:
+            messages.success(request, _("Sessie gestart — veel succes."))
+            return redirect("mijndashboard:fleet_sessie", sessie_id=sessie.id)
+    ctx["sessies"] = data.fleet_lijst(request.user)
+    ctx["kandidaten"] = data.fleet_kandidaten()
+    ctx["booster_max"] = data.BOOSTER_MAX
+    return render(request, "mijndashboard/fleet.html", ctx)
+
+
+def _sessie_voor(user, sessie_id):
+    """De sessie ophalen, maar alleen als deze gebruiker er iets mee te maken heeft.
+
+    Een sessie gaat over andermans ISK, dus het id in de URL is niet genoeg: je
+    moet hem gemaakt hebben of er zelf in staan.
+    """
+    from .models import Fleetsessie
+
+    sessie = Fleetsessie.objects.filter(pk=sessie_id).first()
+    if not sessie:
+        return None
+    if sessie.door_id == user.id:
+        return sessie
+    eigen = {c.character_id for c in esi.characters(user)}
+    return sessie if eigen & set(sessie.deelnemers) else None
+
+
+@login_required
+@permission_required("mijndashboard.basic_access")
+def fleet_sessie(request: WSGIRequest, sessie_id: int) -> HttpResponse:
+    """Eén sessie: wie bracht wat in, en wie krijgt wat."""
+    sessie = _sessie_voor(request.user, sessie_id)
+    if not sessie:
+        messages.error(request, _("Die sessie bestaat niet, of je doet er niet aan mee."))
+        return redirect("mijndashboard:fleet")
+
+    if request.method == "POST":
+        if sessie.door_id != request.user.id:
+            messages.error(request, _("Alleen wie de sessie startte kan hem beheren."))
+        elif request.POST.get("actie") == "stop":
+            data.fleet_stop(sessie)
+            messages.success(request, _("Sessie gestopt — de eindstand staat vast."))
+        elif request.POST.get("actie") == "verwijder":
+            sessie.delete()
+            messages.success(request, _("Sessie verwijderd."))
+            return redirect("mijndashboard:fleet")
+        return redirect("mijndashboard:fleet_sessie", sessie_id=sessie.id)
+
+    ctx = _basis(request, "fleet")
+    ctx.update(data.fleet_detail(request.user, sessie))
+    return render(request, "mijndashboard/fleet_sessie.html", ctx)
+
+
 def _antwoord(ctx, mail_id):
     """Het opstelvenster vast invullen als antwoord op een mail."""
     origineel = next((m for m in ctx.get("mails") or []

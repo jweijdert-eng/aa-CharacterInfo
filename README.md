@@ -120,6 +120,34 @@ stukje weg:
 
 Wie via CharLink of Member Audit gekoppeld heeft, heeft die meestal al.
 
+## Fleetsessies
+
+Het tabblad **Fleet** verdeelt de opbrengst van een gezamenlijke mining- of ratting-run.
+
+Een fleet **aanmaken** kan niet vanuit hier: ESI heeft daar geen endpoint voor. Je vormt de fleet in het
+spel; deze pagina gaat over wie wat inbracht en wie wat krijgt.
+
+Zo werkt het:
+
+1. Start de sessie **voordat** je begint, geef hem een naam en vink de deelnemers aan. Deelnemers komen uit
+   Alliance Auth zelf — iedereen met een gekoppeld character staat in de lijst, dus niemand hoeft zich apart
+   aan te melden en de fleet-scope is niet nodig.
+2. Vink eventueel boosters aan. Die krijgen een vast percentage van de pot vooraf, en delen daarna gewoon
+   mee in de rest.
+3. Stop de sessie als je klaar bent. De laatste kolom laat zien wat er van wie naar wie moet.
+
+**Mining** meet met momentopnames: de ledger bij de start, de ledger bij het eind, en het verschil is van
+deze sessie. Dat moet zo, want de mining-ledger van EVE telt per **dag** — daar is achteraf geen uur uit te
+knippen, en een sessie achteraf aanmaken kan dus ook niet. EVE werkt de ledger ongeveer elke tien minuten
+bij, dus het laatste kwartier van een lopende sessie kan nog ontbreken. Waarde tegen Jita buy.
+
+**Ratting** heeft dat niet nodig: het wallet-journaal heeft een tijdstempel per regel, dus daar telt gewoon
+het tijdvak van de sessie. Bounty en ESS staan er netto in, dus na corp-belasting.
+
+Een sessie is zichtbaar voor wie hem startte en voor de deelnemers; stoppen en verwijderen mag alleen wie hem
+startte. Dit is het enige onderdeel van de plugin dat iets in de database bewaart (tabel
+`mijndashboard_fleetsessie`).
+
 ## Permissie
 
 `mijndashboard.basic_access` — mag de eigen EVE-gegevens bekijken.

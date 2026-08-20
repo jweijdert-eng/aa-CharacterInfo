@@ -1,0 +1,147 @@
+{% extends 'mijndashboard/base.html' %}
+{% load i18n %}
+
+{% block fin_icoon %}
+    {# Fleet Command Burst — het ding waar een boost mee de fleet in gaat. #}
+    <img class="fin-hero-icon" alt=""
+         src="https://images.evetech.net/types/42526/icon?size=64">
+{% endblock %}
+
+{% block fin_title %}{% translate "Fleet" %}{% endblock %}
+{% block fin_sub %}
+    {% if sessies %}
+        {{ sessies|length }} {% translate "sessies" %}
+    {% else %}
+        {% translate "Samen mijnen of ratten, en de opbrengst eerlijk verdelen" %}
+    {% endif %}
+{% endblock %}
+
+{% block details %}
+
+    {% comment %}
+        Wat deze pagina níét doet, en waarom dat hier staat: een fleet aanmaken
+        kan alleen in het spel. ESI heeft daar geen endpoint voor. Zonder die
+        zin gaat iemand hier zoeken naar een knop die niet bestaat.
+    {% endcomment %}
+    <div class="fin-advies">
+        <span class="fin-advies-icoon">🛰</span>
+        <div>
+            <div class="fin-advies-kop">{% translate "Fleet vorm je in het spel — hier verdeel je de opbrengst" %}</div>
+            <div class="fin-advies-sub">
+                {% translate "Start de sessie vóór je begint. Bij mining meten we de stand bij de start en bij het eind; het verschil is wat er in de sessie gemijnd is. Achteraf een sessie aanmaken kan niet, want de mining-ledger van EVE telt per dag." %}
+            </div>
+        </div>
+    </div>
+
+    <div class="fin-fleet-kolommen">
+
+        {# ── Nieuwe sessie ────────────────────────────────────────────── #}
+        <div class="fin-fleet-blok fin-fleet-nieuw">
+            <h2 class="fin-kop">{% translate "Nieuwe sessie" %}</h2>
+
+            {% if not kandidaten %}
+                <div class="fin-leeg">
+                    {% translate "Er is nog niemand met een gekoppeld character. Zonder token kunnen we niemands opbrengst zien." %}
+                </div>
+            {% else %}
+                <form method="post" class="fin-fleet-form">
+                    {% csrf_token %}
+
+                    <label class="fin-veld">
+                        <span>{% translate "Naam" %}</span>
+                        <input type="text" name="naam" maxlength="100" required
+                               class="fin-zoekveld"
+                               placeholder="{% translate 'Rorqual-nacht in 1DQ1-A' %}">
+                    </label>
+
+                    <div class="fin-veld">
+                        <span>{% translate "Soort" %}</span>
+                        <div class="fin-fleet-soort">
+                            <input type="radio" name="soort" value="mining" id="fin-soort-mining" checked>
+                            <label for="fin-soort-mining">
+                                <b>⛏ {% translate "Mining" %}</b>
+                                <i>{% translate "uit de ledger, per erts" %}</i>
+                            </label>
+                            <input type="radio" name="soort" value="ratting" id="fin-soort-ratting">
+                            <label for="fin-soort-ratting">
+                                <b>💀 {% translate "Ratting" %}</b>
+                                <i>{% translate "bounty en ESS" %}</i>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="fin-veld">
+                        <span>{% translate "Deelnemers" %}
+                            <i>— {% translate "vink aan wie meedoet; ⚡ = booster" %}</i></span>
+                        <div class="fin-fleet-lijst">
+                            {% comment %}
+                                Het vinkje staat náást het label met een for=, niet
+                                erin. Een input binnen een label die er ook naar
+                                wijst schakelt bij een klik op het vinkje zelf twee
+                                keer, en dan lijkt aanvinken niet te werken.
+                            {% endcomment %}
+                            {% for k in kandidaten %}
+                                <div class="fin-fleet-kandidaat">
+                                    <input type="checkbox" class="fin-fleet-vink"
+                                           id="fin-mee-{{ k.character_id }}"
+                                           name="deelnemers" value="{{ k.character_id }}">
+                                    <label class="fin-fleet-wie" for="fin-mee-{{ k.character_id }}">
+                                        <img loading="lazy" alt=""
+                                             src="https://images.evetech.net/characters/{{ k.character_id }}/portrait?size=32">
+                                        <span>{{ k.naam }}</span>
+                                        {% if k.corp %}<i>{{ k.corp }}</i>{% endif %}
+                                    </label>
+                                    <input type="checkbox" class="fin-fleet-bstvink"
+                                           id="fin-bst-{{ k.character_id }}"
+                                           name="boosters" value="{{ k.character_id }}">
+                                    <label class="fin-fleet-boost" for="fin-bst-{{ k.character_id }}"
+                                           title="{% translate 'Booster: krijgt een extra aandeel' %}">⚡</label>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <label class="fin-veld">
+                        <span>{% translate "Aandeel booster" %}</span>
+                        <span class="fin-fleet-pct">
+                            <input type="number" name="booster_pct" value="10"
+                                   min="0" max="{{ booster_max }}" class="fin-zoekveld">
+                            <i>{% translate "% van de pot, vooraf verdeeld over de boosters" %}</i>
+                        </span>
+                    </label>
+
+                    <button type="submit" class="fin-knop">{% translate "Sessie starten" %}</button>
+                </form>
+            {% endif %}
+        </div>
+
+        {# ── Lopende en afgeronde sessies ─────────────────────────────── #}
+        <div class="fin-fleet-blok">
+            <h2 class="fin-kop">{% translate "Sessies" %}</h2>
+            {% if not sessies %}
+                <div class="fin-leeg">{% translate "Nog geen sessies. Start er hiernaast een." %}</div>
+            {% else %}
+                <div class="fin-fleet-sessies">
+                    {% for s in sessies %}
+                        <a class="fin-fleet-sessie {% if s.loopt %}is-loopt{% endif %}"
+                           href="{% url 'mijndashboard:fleet_sessie' s.id %}">
+                            <span class="fin-fleet-icoon">{% if s.is_mining %}⛏{% else %}💀{% endif %}</span>
+                            <span class="fin-fleet-mid">
+                                <span class="fin-fleet-naam">{{ s.naam }}</span>
+                                <span class="fin-fleet-sub">
+                                    {{ s.soort }} · {{ s.deelnemers }} {% translate "deelnemers" %} ·
+                                    {{ s.duur_fmt }}{% if not s.loopt %} · {{ s.geleden }} {% translate "geleden" %}{% endif %}
+                                </span>
+                            </span>
+                            {% if s.loopt %}
+                                <span class="fin-badge fin-badge-bezig">{% translate "loopt" %}</span>
+                            {% else %}
+                                <span class="fin-badge fin-badge-klaar">{% translate "klaar" %}</span>
+                            {% endif %}
+                        </a>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        </div>
+    </div>
+{% endblock %}

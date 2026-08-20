@@ -1,0 +1,163 @@
+{% extends 'mijndashboard/base.html' %}
+{% load i18n %}
+
+{% block fin_icoon %}
+    <img class="fin-hero-icon" alt=""
+         src="https://images.evetech.net/types/{% if is_mining %}22542{% else %}42526{% endif %}/icon?size=64">
+{% endblock %}
+
+{% block fin_title %}{{ sessie.naam }}{% endblock %}
+{% block fin_sub %}
+    {{ sessie.get_soort_display }} · {{ rijen|length }} {% translate "deelnemers" %} · {{ duur_fmt }}
+    {% if loopt %}· {% translate "loopt nog" %}{% endif %}
+{% endblock %}
+
+{% block details %}
+
+    <div class="fin-projectkop fin-fleet-kop">
+        <span class="fin-projectkop-icoon">{% if is_mining %}⛏{% else %}💀{% endif %}</span>
+        <div class="fin-projectkop-mid">
+            <div class="fin-projectkop-naam">
+                {% if loopt %}{% translate "In de pot tot nu toe" %}{% else %}{% translate "In de pot" %}{% endif %}
+                <b class="fin-pos">{{ pot_fmt }}</b>
+            </div>
+            <div class="fin-projectkop-sub">
+                {% blocktranslate %}Ieder krijgt {{ per_hoofd_fmt }}{% endblocktranslate %}
+                {% if aantal_boosters %}
+                    · {% blocktranslate count n=aantal_boosters %}booster {{ per_booster_fmt }} extra{% plural %}{{ n }} boosters, elk {{ per_booster_fmt }} extra{% endblocktranslate %}
+                    ({{ sessie.booster_pct }}% = {{ booster_pot_fmt }})
+                {% endif %}
+            </div>
+        </div>
+        <div class="fin-projectkop-rechts">
+            {% if mag_beheren %}
+                <form method="post" class="fin-fleet-acties">
+                    {% csrf_token %}
+                    {% if loopt %}
+                        <button type="submit" name="actie" value="stop" class="fin-knop">
+                            {% translate "Sessie stoppen" %}</button>
+                    {% else %}
+                        <button type="submit" name="actie" value="verwijder"
+                                class="fin-knop fin-knop-klein"
+                                onclick="return confirm('{% translate "Deze sessie verwijderen?" %}')">
+                            {% translate "Verwijderen" %}</button>
+                    {% endif %}
+                </form>
+            {% endif %}
+            <a class="fin-knop fin-knop-klein" href="{% url 'mijndashboard:fleet' %}">
+                {% translate "Alle sessies" %}</a>
+        </div>
+    </div>
+
+    {% if loopt %}
+        <div class="fin-advies">
+            <span class="fin-advies-icoon">⏳</span>
+            <div>
+                <div class="fin-advies-kop">{% translate "De sessie loopt nog" %}</div>
+                <div class="fin-advies-sub">
+                    {% if is_mining %}
+                        {% translate "De stand hieronder is het verschil met de start, ververst bij elke keer laden. EVE werkt de mining-ledger ongeveer elke tien minuten bij, dus het laatste kwartier kan nog ontbreken." %}
+                    {% else %}
+                        {% translate "Bounty en ESS worden geteld vanaf de start. Wallet-regels komen met een paar minuten vertraging binnen." %}
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    {% endif %}
+
+    <div class="fin-tablewrap">
+        <table class="fin-table">
+            <thead>
+                <tr>
+                    <th>{% translate "Deelnemer" %}</th>
+                    {% if is_mining %}
+                        <th>{% translate "Gemijnd" %}</th>
+                        <th class="fin-getal">{% translate "m³" %}</th>
+                    {% else %}
+                        <th class="fin-getal">{% translate "Bounty" %}</th>
+                        <th class="fin-getal">{% translate "ESS" %}</th>
+                    {% endif %}
+                    <th class="fin-getal">{% translate "Ingebracht" %}</th>
+                    <th class="fin-getal">{% translate "Krijgt" %}</th>
+                    <th class="fin-getal">{% translate "Verrekenen" %}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in rijen %}
+                    <tr>
+                        <td>
+                            <span class="fin-fleet-naamcel">
+                                <img loading="lazy" alt=""
+                                     src="https://images.evetech.net/characters/{{ r.character_id }}/portrait?size=32">
+                                <span>{{ r.naam }}</span>
+                                {% if r.booster %}
+                                    <i class="fin-fleet-boostchip"
+                                       title="{% translate 'Booster' %}">⚡</i>
+                                {% endif %}
+                            </span>
+                        </td>
+                        {% if is_mining %}
+                            <td>
+                                {% if r.details %}
+                                    <span class="fin-fleet-erts">
+                                        {% for d in r.details %}
+                                            <span class="fin-min-variant">
+                                                <img loading="lazy" alt="" class="fin-min-variant-icoon"
+                                                     src="https://images.evetech.net/types/{{ d.type_id }}/icon?size=32">
+                                                <span class="fin-min-variant-naam">{{ d.naam }}</span>
+                                                <span class="fin-min-variant-aantal">{{ d.aantal_fmt }}</span>
+                                            </span>
+                                        {% endfor %}
+                                    </span>
+                                {% else %}
+                                    <span class="fin-dim">{% translate "niets" %}</span>
+                                {% endif %}
+                            </td>
+                            <td class="fin-getal">{{ r.m3_fmt }}</td>
+                        {% else %}
+                            <td class="fin-getal">{{ r.bounty_fmt }}</td>
+                            <td class="fin-getal">{{ r.ess_fmt }}</td>
+                        {% endif %}
+                        <td class="fin-getal">
+                            {{ r.isk_fmt }}
+                            {% if heeft_pot %}<span class="fin-fleet-aandeel">{{ r.aandeel }}%</span>{% endif %}
+                        </td>
+                        <td class="fin-getal">{{ r.krijgt_fmt }}</td>
+                        {% comment %}
+                            De laatste kolom is waar het om draait: niet wat iemand
+                            verdiende, maar wat er nog van A naar B moet. Groen is
+                            "krijgt nog", rood is "moet nog overmaken".
+                        {% endcomment %}
+                        <td class="fin-getal">
+                            {% if not heeft_pot %}
+                                <span class="fin-dim">—</span>
+                            {% elif r.ontvangt %}
+                                <span class="fin-pos">+{{ r.verschil_fmt }}</span>
+                            {% else %}
+                                <span class="fin-neg">−{{ r.verschil_fmt }}</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    {% if not heeft_pot %}
+        <div class="fin-leeg">
+            {% if is_mining %}
+                {% translate "Nog niets gemijnd sinds de start — of de ledger van EVE loopt nog achter." %}
+            {% else %}
+                {% translate "Nog geen bounty of ESS in dit tijdvak." %}
+            {% endif %}
+        </div>
+    {% endif %}
+
+    <p class="fin-onderschrift">
+        {% if is_mining %}
+            {% translate "Waarde tegen Jita buy. Wie erts in de fleet-hangar levert brengt in; de verrekening gaat ervan uit dat alles in één pot komt." %}
+        {% else %}
+            {% translate "Bounty en ESS zoals ze in het wallet-journaal staan, dus na corp-belasting." %}
+        {% endif %}
+    </p>
+{% endblock %}

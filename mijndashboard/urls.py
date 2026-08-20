@@ -27,6 +27,10 @@ urlpatterns = [
     path("industry/bouwproject/", views.industry, {"sub": "bouwproject"}, name="industry_bouwproject"),
     path("industry/bouwwinst/", views.industry, {"sub": "bouwwinst"}, name="industry_bouwwinst"),
     path("industry/bouwen-of-kopen/", views.industry, {"sub": "bouwenkopen"}, name="industry_bouwenkopen"),
+    # Fleetsessies staan los van Mining en Ratting: het gaat hier om de
+    # verdeling over meerdere mensen, niet om je eigen opbrengst.
+    path("fleet/", views.fleet, name="fleet"),
+    path("fleet/<int:sessie_id>/", views.fleet_sessie, name="fleet_sessie"),
     path("markt/", views.markt, name="markt"),
     path("mail/", views.mail, name="mail"),
     path("koppelen/", views.koppelen, name="koppelen"),

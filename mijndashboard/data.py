@@ -3954,3 +3954,258 @@ def bouwproject(user, type_id=None, aantal=1, me=10, zoek="", koop=None, plek=No
         **_voorraad_leeftijd(user, datetime.now(timezone.utc)),
         "mist_bp": sum(1 for k in knopen if k["maken"] and not k["heeft_bp"]),
     }
+
+
+# --------------------------------------------------------------------------
+# Fleetsessies
+# --------------------------------------------------------------------------
+#
+# Naar het voorbeeld van eve.wxmx.de (EVE Ops): een sessie starten, en achteraf
+# zien wie wat bijdroeg en wie wat krijgt. Twee verschillen met dat tool:
+#
+# * Deelnemers komen uit Alliance Auth zelf. Iedereen die via CharLink gekoppeld
+#   is heeft z'n tokens al, dus niemand hoeft zich apart aan te melden en de
+#   fleet-scope (die hier nog niemand heeft) is niet nodig.
+# * Ratting rekent met het **tijdvak** van de sessie in plaats van met een
+#   momentopname: het wallet-journaal heeft een tijdstempel per regel. Bij mining
+#   kan dat niet — die ledger vat per dag samen — dus daar nemen we standen op.
+
+BOOSTER_MAX = 50            # meer dan de helft vooraf weggeven slaat nergens op
+SESSIE_MAX = 60             # hoeveel sessies de lijst toont
+
+
+def _eve_characters(ids):
+    try:
+        from allianceauth.eveonline.models import EveCharacter
+    except ImportError:
+        return []
+    return list(EveCharacter.objects.filter(character_id__in=[int(i) for i in ids]))
+
+
+def _mining_stand(character_id):
+    """Wat er nu in de ledger staat, per dag/erts/systeem.
+
+    De cache gaat er expres langs: een momentopname van een half uur oud maakt
+    het verschil tussen begin en eind onzichtbaar.
+    """
+    stand = {}
+    for e in esi.mining(character_id, ververs=True):
+        sleutel = f"{e.get('date')}|{e.get('type_id')}|{e.get('solar_system_id')}"
+        stand[sleutel] = stand.get(sleutel, 0) + int(e.get("quantity") or 0)
+    return stand
+
+
+def _standen(character_ids):
+    """De ledger van een hele fleet tegelijk ophalen."""
+    uit = {}
+    if not character_ids:
+        return uit
+    with ThreadPoolExecutor(max_workers=6) as pool:
+        for cid, stand in zip(character_ids, pool.map(_mining_stand, character_ids)):
+            uit[str(cid)] = stand
+    return uit
+
+
+def _mining_verschil(begin, eind):
+    """{type_id: aantal} dat er tussen twee standen bij gekomen is.
+
+    Alleen groei telt. Een regel die kleiner wordt kan niet — behalve als ESI een
+    oude dag laat vallen, en die hoort dan zeker niet bij deze sessie.
+    """
+    uit = defaultdict(int)
+    for sleutel, aantal in (eind or {}).items():
+        erbij = int(aantal) - int((begin or {}).get(sleutel, 0))
+        if erbij > 0:
+            try:
+                uit[int(sleutel.split("|")[1])] += erbij
+            except (IndexError, ValueError):
+                continue
+    return uit
+
+
+def _ratting_in_venster(character_id, van, tot):
+    """Bounty en ESS van dit character tussen twee momenten."""
+    bounty = ess = 0.0
+    for e in esi.journal(character_id):
+        moment = _parse(e.get("date"))
+        if not moment or moment < van or (tot and moment > tot):
+            continue
+        bedrag = float(e.get("amount") or 0)
+        if e.get("ref_type") == REF_BOUNTY:
+            bounty += bedrag
+        elif e.get("ref_type") == REF_ESS:
+            ess += bedrag
+    return bounty, ess
+
+
+def fleet_kandidaten():
+    """Wie er als deelnemer te kiezen is: iedereen in de Auth met een token.
+
+    Niet alleen je eigen characters — een fleet bestaat juist uit anderen. Zonder
+    wallet- of mining-token kunnen we iemands opbrengst niet zien, dus heeft
+    meedoen geen zin en laten we hem weg.
+    """
+    try:
+        from allianceauth.eveonline.models import EveCharacter
+        from esi.models import Token
+    except ImportError:
+        return []
+
+    met_token = set(Token.objects
+                    .filter(scopes__name__in=[esi.MINING_SCOPE, esi.WALLET_SCOPE])
+                    .values_list("character_id", flat=True))
+    return [{"character_id": c.character_id, "naam": c.character_name,
+             "corp": c.corporation_ticker or ""}
+            for c in EveCharacter.objects
+            .filter(character_id__in=met_token).order_by("character_name")]
+
+
+def fleet_start(user, naam, soort, deelnemers, boosters, booster_pct):
+    """Een sessie beginnen en meteen de beginstand vastleggen."""
+    from .models import Fleetsessie
+
+    soort = Fleetsessie.RATTING if soort == Fleetsessie.RATTING else Fleetsessie.MINING
+    try:
+        deelnemers = sorted({int(d) for d in deelnemers})[:100]
+        boosters = {int(b) for b in boosters}
+    except (TypeError, ValueError):
+        return None, "Ongeldige deelnemer."
+    if not (naam or "").strip():
+        return None, "Geef de sessie een naam."
+    if not deelnemers:
+        return None, "Kies minstens één deelnemer."
+
+    # De stand van nu is het nulpunt; alles wat er daarna bij komt is van deze
+    # sessie. Bij ratting hoeft dat niet: daar knippen we straks op tijd.
+    begin = _standen(deelnemers) if soort == Fleetsessie.MINING else {}
+
+    sessie = Fleetsessie.objects.create(
+        naam=naam.strip()[:100], soort=soort, door=user,
+        deelnemers=deelnemers,
+        boosters=sorted(boosters & set(deelnemers)),
+        booster_pct=max(0, min(int(booster_pct or 0), BOOSTER_MAX)),
+        begin=begin,
+    )
+    return sessie, ""
+
+
+def fleet_stop(sessie):
+    """De sessie afsluiten en de eindstand vastleggen."""
+    from .models import Fleetsessie
+
+    if sessie.gestopt:
+        return
+    if sessie.soort == Fleetsessie.MINING:
+        sessie.eind = _standen(sessie.deelnemers)
+    sessie.gestopt = datetime.now(timezone.utc)
+    sessie.save(update_fields=["eind", "gestopt"])
+
+
+def fleet_lijst(user):
+    """De sessies die jij gemaakt hebt of waar je zelf aan meedoet."""
+    from .models import Fleetsessie
+
+    eigen = {c.character_id for c in esi.characters(user)}
+    nu = datetime.now(timezone.utc)
+    uit = []
+    for s in Fleetsessie.objects.all()[:SESSIE_MAX * 3]:
+        meedoen = bool(eigen & set(s.deelnemers))
+        if s.door_id != user.id and not meedoen:
+            continue
+        uit.append({
+            "id": s.id, "naam": s.naam, "soort": s.get_soort_display(),
+            "is_mining": s.soort == Fleetsessie.MINING,
+            "loopt": s.loopt, "gestart": s.gestart, "gestopt": s.gestopt,
+            "duur_fmt": _duur(((s.gestopt or nu) - s.gestart).total_seconds()),
+            "geleden": _geleden(s.gestopt or s.gestart, nu),
+            "deelnemers": len(s.deelnemers), "meedoen": meedoen,
+            "van_mij": s.door_id == user.id,
+        })
+        if len(uit) >= SESSIE_MAX:
+            break
+    return uit
+
+
+def fleet_detail(user, sessie):
+    """Wat elke deelnemer bijdroeg, en wie wat krijgt."""
+    from .models import Fleetsessie
+
+    ids = [int(i) for i in sessie.deelnemers]
+    namen = {c.character_id: c.character_name for c in _eve_characters(ids)}
+    nu = datetime.now(timezone.utc)
+    tot = sessie.gestopt or nu
+    is_mining = sessie.soort == Fleetsessie.MINING
+
+    rijen, pot = [], 0.0
+    if is_mining:
+        # Loopt de sessie nog, dan is de stand van nu de voorlopige eindstand.
+        eind = sessie.eind or _standen(ids)
+        per_char = {cid: _mining_verschil((sessie.begin or {}).get(str(cid)),
+                                          eind.get(str(cid))) for cid in ids}
+        alle_types = set().union(*per_char.values()) if per_char else set()
+
+        volumes, _portie, _mat, _groepen = _type_gegevens(alle_types)
+        prijzen = esi.jita_buy(alle_types) if alle_types else {}
+        typen = _type_info(alle_types) if alle_types else {}
+        for cid in ids:
+            verschil = per_char[cid]
+            isk = sum(n * prijzen.get(t, 0.0) for t, n in verschil.items())
+            m3 = sum(n * volumes.get(t, 0.0) for t, n in verschil.items())
+            pot += isk
+            rijen.append({
+                "character_id": cid, "naam": namen.get(cid, str(cid)),
+                "booster": cid in (sessie.boosters or []),
+                "isk": isk, "isk_fmt": fmt_isk(isk),
+                "m3_fmt": _getal(m3),
+                "details": sorted(
+                    [{"naam": (typen.get(t) or {}).get("naam") or f"Type {t}",
+                      "type_id": t, "aantal_fmt": _getal(n)}
+                     for t, n in verschil.items()],
+                    key=lambda x: x["naam"])[:8],
+            })
+    else:
+        with ThreadPoolExecutor(max_workers=6) as pool:
+            uitslagen = list(pool.map(
+                lambda cid: _ratting_in_venster(cid, sessie.gestart, sessie.gestopt), ids))
+        for cid, (bounty, ess) in zip(ids, uitslagen):
+            isk = bounty + ess
+            pot += isk
+            rijen.append({
+                "character_id": cid, "naam": namen.get(cid, str(cid)),
+                "booster": cid in (sessie.boosters or []),
+                "isk": isk, "isk_fmt": fmt_isk(isk),
+                "bounty_fmt": fmt_isk(bounty), "ess_fmt": fmt_isk(ess),
+                "details": [],
+            })
+
+    # ── Verdelen ──────────────────────────────────────────────────────────
+    # Eerst het boosteraandeel van de pot af, dan de rest gelijk over iedereen.
+    # Boosters delen dus in beide mee: ze doen ook gewoon mee.
+    boosters = [r for r in rijen if r["booster"]]
+    booster_pot = pot * (sessie.booster_pct / 100) if boosters else 0.0
+    per_hoofd = (pot - booster_pot) / len(rijen) if rijen else 0.0
+    per_booster = booster_pot / len(boosters) if boosters else 0.0
+    for r in rijen:
+        r["krijgt"] = per_hoofd + (per_booster if r["booster"] else 0.0)
+        r["krijgt_fmt"] = fmt_isk(r["krijgt"])
+        # Wie meer bijdroeg dan hij terugkrijgt, betaalt in feite mee aan de rest.
+        # Dat verschil is precies wat er overgemaakt moet worden.
+        r["verschil"] = r["krijgt"] - r["isk"]
+        r["verschil_fmt"] = fmt_isk(abs(r["verschil"]))
+        r["ontvangt"] = r["verschil"] >= 0
+        r["aandeel"] = round(r["isk"] / pot * 100) if pot else 0
+
+    rijen.sort(key=lambda r: -r["isk"])
+    return {
+        "sessie": sessie,
+        "is_mining": is_mining,
+        "rijen": rijen,
+        "pot_fmt": fmt_isk(pot), "heeft_pot": pot > 0,
+        "per_hoofd_fmt": fmt_isk(per_hoofd),
+        "booster_pot_fmt": fmt_isk(booster_pot),
+        "per_booster_fmt": fmt_isk(per_booster),
+        "aantal_boosters": len(boosters),
+        "duur_fmt": _duur((tot - sessie.gestart).total_seconds()),
+        "loopt": sessie.loopt,
+        "mag_beheren": sessie.door_id == user.id,
+    }

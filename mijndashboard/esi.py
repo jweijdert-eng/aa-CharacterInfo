@@ -313,16 +313,22 @@ def contracts(character_id):
     return rows
 
 
-def mining(character_id):
+def mining(character_id, ververs=False):
     """Mining-ledger van dit character (gepagineerd, gecached).
 
     ESI houdt hier ongeveer 30 dagen van bij, per dag en per ertssoort
     samengevat — geen losse cycli.
+
+    `ververs` slaat onze eigen cache over. Dat is nodig voor de momentopnames van
+    een fleetsessie: die cache staat op een half uur, dus zonder dit zou de
+    eindstand van een sessie van een uur gelijk zijn aan de beginstand. ESI zelf
+    houdt de ledger nog zo'n tien minuten vast — korter dan dat wordt niet.
     """
     key = f"fin_mining_{character_id}"
-    hit = cache.get(key)
-    if hit is not None:
-        return hit
+    if not ververs:
+        hit = cache.get(key)
+        if hit is not None:
+            return hit
 
     token = token_for(character_id, MINING_SCOPE)
     if not token:
