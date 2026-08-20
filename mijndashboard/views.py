@@ -199,10 +199,65 @@ def fleet(request: WSGIRequest) -> HttpResponse:
         antwoord = _fleet_post(request)
         if antwoord is not None:
             return antwoord
+    ctx["sub"] = "sessies"
     ctx["sessies"] = data.fleet_lijst(request.user)
     ctx["kandidaten"] = data.fleet_kandidaten()
-    ctx.update(data.fleet_paneel(request.user))
+    # Alleen voor het telletje op de sub-tab; de fleet zelf staat op Roam.
+    fleet = data.fleet_paneel(request.user)
+    ctx["in_fleet"] = fleet["in_fleet"]
+    ctx["aantal"] = len(fleet["fleet_leden"])
     return render(request, "mijndashboard/fleet.html", ctx)
+
+
+@login_required
+@permission_required("mijndashboard.basic_access")
+def fleet_roam(request: WSGIRequest) -> HttpResponse:
+    """De fleet zoals hij nu vliegt: samenstelling, waar iedereen staat, beheer."""
+    if request.method == "POST":
+        antwoord = _roam_post(request)
+        if antwoord is not None:
+            return antwoord
+
+    ctx = _basis(request, "fleet")
+    ctx["sub"] = "roam"
+    ctx.update(data.fleet_roam(request.user))
+    return render(request, "mijndashboard/fleet_roam.html", ctx)
+
+
+def _roam_post(request):
+    """De knoppen op de roam-pagina. Geeft altijd een redirect."""
+    actie = request.POST.get("actie", "")
+
+    if actie == "uitnodigen":
+        wie = request.POST.getlist("uitnodigen")
+        if not wie:
+            messages.error(request, _("Niemand aangevinkt om uit te nodigen."))
+            return redirect("mijndashboard:fleet_roam")
+        gelukt, fouten = data.roam_uitnodigen(
+            request.user, wie, request.POST.get("squad", ""))
+        if gelukt:
+            messages.success(request, ngettext(
+                "%(n)d uitnodiging verstuurd — die staat nu als popup in het spel.",
+                "%(n)d uitnodigingen verstuurd — die staan nu als popup in het spel.",
+                gelukt) % {"n": gelukt})
+        for fout in fouten:
+            messages.error(request, fout)
+
+    elif actie == "motd":
+        ok, fout = data.roam_motd(request.user, request.POST.get("motd", ""))
+        if ok:
+            messages.success(request, _("MOTD aangepast."))
+        else:
+            messages.error(request, fout)
+
+    elif actie == "schop":
+        ok, fout = data.roam_schop(request.user, request.POST.get("character_id", 0))
+        if ok:
+            messages.success(request, _("Uit de fleet gezet."))
+        else:
+            messages.error(request, fout)
+
+    return redirect("mijndashboard:fleet_roam")
 
 
 def _fleet_post(request):

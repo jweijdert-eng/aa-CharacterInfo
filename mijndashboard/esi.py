@@ -1395,3 +1395,71 @@ def _fleetfout(respons):
         420: "ESI-foutlimiet bereikt. Even wachten.",
     }.get(respons.status_code, f"ESI gaf {respons.status_code} terug.")
     return f"{uitleg} ({melding})" if melding else uitleg
+
+
+def fleet_instellen(fleet_id, token, motd=None, free_move=None):
+    """MOTD en free move zetten. Geeft (True, "") of (False, "wat er misging").
+
+    ESI antwoordt met 204. Let op: alleen de **echte** fleet boss mag dit; een
+    wing commander krijgt een 200 op de call maar in het spel verandert er
+    niets. Daarom laten we de knop alleen aan de boss zien.
+    """
+    lading = {}
+    if motd is not None:
+        lading["motd"] = motd
+    if free_move is not None:
+        lading["is_free_move"] = bool(free_move)
+    if not lading:
+        return True, ""
+
+    try:
+        r = _session.put(
+            f"{ESI}/fleets/{fleet_id}/",
+            headers={**UA, "Authorization": f"Bearer {token}",
+                     "Content-Type": "application/json"},
+            params={"datasource": "tranquility"}, json=lading, timeout=25)
+    except requests.RequestException as exc:
+        return False, f"ESI niet bereikbaar: {exc}"
+    if r.status_code in (200, 204):
+        return True, ""
+    return False, _fleetfout(r)
+
+
+def schop_lid(fleet_id, character_id, token):
+    """Iemand uit de fleet zetten."""
+    try:
+        r = _session.delete(
+            f"{ESI}/fleets/{fleet_id}/members/{character_id}/",
+            headers={**UA, "Authorization": f"Bearer {token}"},
+            params={"datasource": "tranquility"}, timeout=25)
+    except requests.RequestException as exc:
+        return False, f"ESI niet bereikbaar: {exc}"
+    if r.status_code in (200, 204):
+        cache.delete(f"fin_fleetleden_{fleet_id}")
+        return True, ""
+    return False, _fleetfout(r)
+
+
+def universe_systemen(system_ids):
+    """{system_id: (naam, security)} — publiek, dus geen token nodig.
+
+    De security komt uit dezelfde call en is voor een roam het halve verhaal:
+    de kleur van het systeem zegt of je in high-, low- of nullsec zit.
+    """
+    uit = {}
+    ontbrekend = []
+    for sid in {int(s) for s in system_ids if s}:
+        hit = cache.get(f"fin_sys_{sid}")
+        if hit is not None:
+            uit[sid] = tuple(hit)
+        else:
+            ontbrekend.append(sid)
+
+    for sid in ontbrekend:
+        data = _request(f"/universe/systems/{sid}/")
+        if not data:
+            continue
+        paar = (data.get("name") or str(sid), float(data.get("security_status") or 0))
+        uit[sid] = paar
+        cache.set(f"fin_sys_{sid}", list(paar), 30 * 86400)   # systemen verhuizen niet
+    return uit

@@ -1829,3 +1829,127 @@
     gap: 0 .5rem;
 }
 .fin-app .fin-fleet-nodig .fin-fleet-kandidaat { border-bottom: 0; border-radius: 5px; }
+
+/* ── Fleet Roam ─────────────────────────────────────────────────────────
+   Twee kolommen: links wát de fleet is (samenstelling), rechts wáár hij is.
+   Dat zijn de twee vragen tijdens een roam; de rest is beheer en staat eronder. */
+.fin-app .fin-roam-kolommen {
+    display: grid; grid-template-columns: minmax(0, 20rem) minmax(0, 1fr);
+    gap: 1rem; align-items: start; margin-bottom: 1rem;
+}
+@media (max-width: 1000px) {
+    .fin-app .fin-roam-kolommen { grid-template-columns: 1fr; }
+}
+.fin-app .fin-roam-van { font-style: normal; font-size: .8rem; color: var(--fin-dim); }
+.fin-app .fin-stat .fin-fleet-vlaggen {
+    display: flex; flex-direction: column; gap: .05rem;
+    font-size: .78rem; font-weight: 600; line-height: 1.35;
+}
+.fin-app .fin-stat .fin-fleet-vlaggen i { font-style: normal; }
+
+/* Samenstelling — de rol is de kop, de schepen erbinnen de onderbouwing. */
+.fin-app .fin-roam-rollen { display: flex; flex-direction: column; gap: .5rem; }
+.fin-app .fin-roam-rol {
+    border-left: 3px solid var(--fin-border); padding-left: .6rem;
+}
+.fin-app .fin-roam-rol.is-logi { border-left-color: var(--fin-green); }
+.fin-app .fin-roam-rol.is-tackle { border-left-color: var(--fin-blue); }
+.fin-app .fin-roam-rol.is-ewar { border-left-color: #a78bfa; }
+.fin-app .fin-roam-rol.is-boss { border-left-color: var(--fin-gold); }
+.fin-app .fin-roam-rol.is-caps { border-left-color: #f97316; }
+.fin-app .fin-roam-rolkop { display: flex; align-items: baseline; gap: .4rem; }
+.fin-app .fin-roam-rolnaam {
+    font-size: .72rem; letter-spacing: .06em; text-transform: uppercase;
+    color: var(--fin-dim);
+}
+.fin-app .fin-roam-roltal { font-size: 1rem; font-weight: 700; }
+.fin-app .fin-roam-schepen { display: flex; flex-wrap: wrap; gap: .25rem .6rem; }
+.fin-app .fin-roam-schip {
+    display: flex; align-items: center; gap: .3rem; font-size: .78rem; min-width: 0;
+}
+.fin-app .fin-roam-schip img { width: 18px; height: 18px; border-radius: 3px; flex: 0 0 auto; }
+.fin-app .fin-roam-schip b { font-weight: 700; }
+.fin-app .fin-roam-schip > span {
+    color: var(--fin-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* Waar staat iedereen — per systeem een blokje. Het systeem van de FC is de
+   norm; alles daaronder is iemand die achterloopt en krijgt daarom kleur. */
+.fin-app .fin-roam-systeem { margin-bottom: .7rem; }
+.fin-app .fin-roam-systeem:last-child { margin-bottom: 0; }
+.fin-app .fin-roam-syskop {
+    display: flex; align-items: center; gap: .4rem; margin-bottom: .2rem;
+    padding-bottom: .2rem; border-bottom: 1px solid var(--fin-border);
+}
+.fin-app .fin-roam-sec { font-size: .72rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.fin-app .fin-sec-high { color: #4ade80; }
+.fin-app .fin-sec-low { color: #fbbf24; }
+.fin-app .fin-sec-null { color: #ef4444; }
+.fin-app .fin-roam-sysnaam { font-weight: 600; font-size: .88rem; }
+.fin-app .fin-roam-systal {
+    font-size: .7rem; color: var(--fin-dim);
+    border: 1px solid var(--fin-border); border-radius: 4px; padding: 0 .3rem;
+}
+.fin-app .fin-roam-hier {
+    font-style: normal; font-size: .68rem; color: var(--fin-gold); margin-left: auto;
+}
+.fin-app .fin-roam-systeem.is-los .fin-roam-syskop { border-bottom-color: rgba(240, 192, 64, .4); }
+.fin-app .fin-roam-systeem.is-los .fin-roam-sysnaam { color: var(--fin-gold); }
+
+.fin-app .fin-roam-lijst {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(21rem, 1fr));
+    gap: 0 1.2rem;
+}
+.fin-app .fin-roam-lid {
+    display: flex; align-items: center; gap: .4rem; min-width: 0;
+    padding: .18rem .25rem; border-radius: 5px; font-size: .82rem;
+}
+.fin-app .fin-roam-lid:hover { background: rgba(255, 255, 255, .03); }
+.fin-app .fin-roam-lid.is-fc .fin-roam-naam { color: var(--fin-gold); font-weight: 600; }
+.fin-app .fin-roam-lid > img { width: 22px; height: 22px; border-radius: 50%; flex: 0 0 auto; }
+.fin-app .fin-roam-naam {
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 0 1 auto;
+}
+/* Het schip stond tegen de rechterrand van z'n cel en kwam daardoor naast de
+   naam van de vólgende kolom te staan. Direct achter de eigen naam dus, en de
+   tijd mag naar rechts. */
+.fin-app .fin-roam-schipnaam {
+    display: flex; align-items: center; gap: .25rem; flex: 0 1 auto;
+    color: var(--fin-dim); font-size: .74rem; max-width: 9rem;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.fin-app .fin-roam-schipnaam img { width: 16px; height: 16px; border-radius: 3px; flex: 0 0 auto; }
+.fin-app .fin-roam-sinds {
+    color: var(--fin-dim); font-size: .68rem; flex: 0 0 auto;
+    min-width: 1.8rem; text-align: right; margin-left: auto;
+}
+/* De kick-knop blijft weg tot je over de regel hangt: hij hoort er te zijn,
+   maar niet als eerste in beeld te springen bij een lijst van veertig man. */
+.fin-app .fin-roam-schop { margin: 0; flex: 0 0 auto; }
+.fin-app .fin-roam-schop button {
+    background: none; border: 0; cursor: pointer; padding: 0 .2rem;
+    color: var(--fin-dim); font-size: .8rem; line-height: 1; opacity: 0;
+}
+.fin-app .fin-roam-lid:hover .fin-roam-schop button { opacity: 1; }
+.fin-app .fin-roam-schop button:hover { color: var(--fin-red); }
+
+/* Beheer onderaan: MOTD en uitnodigen. */
+.fin-app .fin-roam-beheer { display: flex; flex-direction: column; gap: .9rem; }
+.fin-app .fin-roam-beheer .fin-kop { margin: 0; }
+.fin-app .fin-roam-beheer .fin-kop span { color: var(--fin-dim); font-weight: 400; }
+.fin-app .fin-roam-motd { display: flex; flex-direction: column; gap: .5rem; align-items: flex-start; }
+.fin-app .fin-roam-motd textarea { width: 100%; resize: vertical; }
+.fin-app .fin-roam-motdnu {
+    border-left: 3px solid var(--fin-border); padding-left: .6rem; font-size: .82rem;
+}
+.fin-app .fin-roam-motdnu .l {
+    display: block; font-size: .68rem; letter-spacing: .06em;
+    text-transform: uppercase; color: var(--fin-dim); margin-bottom: .15rem;
+}
+.fin-app .fin-roam-nodigvoet {
+    display: flex; align-items: flex-end; gap: .7rem; flex-wrap: wrap;
+}
+.fin-app .fin-roam-squad { display: flex; flex-direction: column; gap: .25rem; margin: 0; }
+.fin-app .fin-roam-squad > span {
+    font-size: .72rem; letter-spacing: .04em; text-transform: uppercase; color: var(--fin-dim);
+}

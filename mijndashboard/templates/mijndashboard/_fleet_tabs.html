@@ -1,0 +1,12 @@
+{% load i18n %}
+{% comment %}
+    Gedeeld door beide fleet-pagina's, zodat de balk op één plek staat.
+{% endcomment %}
+<div class="fin-subtabs">
+    <a class="fin-subtab {% if sub == 'sessies' %}is-actief{% endif %}"
+       href="{% url 'mijndashboard:fleet' %}">{% translate "Mining/Ratting" %}</a>
+    <a class="fin-subtab {% if sub == 'roam' %}is-actief{% endif %}"
+       href="{% url 'mijndashboard:fleet_roam' %}">{% translate "Fleet Roam" %}
+        {% if in_fleet %}<span class="fin-subtab-aantal">{{ aantal }}</span>{% endif %}
+    </a>
+</div>

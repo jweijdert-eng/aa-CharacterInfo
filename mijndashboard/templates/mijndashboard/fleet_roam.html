@@ -1,0 +1,246 @@
+{% extends 'mijndashboard/base.html' %}
+{% load i18n %}
+
+{% block fin_icoon %}
+    {# Fleet Command Burst — het ding waar een boost mee de fleet in gaat. #}
+    <img class="fin-hero-icon" alt=""
+         src="https://images.evetech.net/types/42526/icon?size=64">
+{% endblock %}
+
+{% block fin_title %}{% translate "Fleet Roam" %}{% endblock %}
+{% block fin_sub %}
+    {% if in_fleet %}
+        {{ aantal }} {% translate "in de fleet" %}
+        {% if aantal_systemen > 1 %}
+            · {{ aantal_systemen }} {% translate "systemen" %}
+        {% endif %}
+    {% else %}
+        {% translate "De fleet zoals hij nu vliegt" %}
+    {% endif %}
+{% endblock %}
+
+{% block details %}
+    {% include "mijndashboard/_fleet_tabs.html" %}
+
+    {% if not fc_gekoppeld %}
+        <div class="fin-melding">
+            <p class="mb-2">{% translate "Een fleet vorm je in het spel; ESI kan dat niet. Wél kun je van hieruit zien wie erin zit en mensen uitnodigen — zij krijgen de gewone invite-popup in EVE." %}</p>
+            <p class="mb-2 fin-dim">{% translate "Daarvoor koppel je je FC-character één keer extra. Alleen jij hoeft dat te doen: wie je uitnodigt hoeft niets." %}</p>
+            <a href="{% url 'mijndashboard:fleet_koppelen' %}" class="fin-knop">{% translate "Koppel als FC" %}</a>
+        </div>
+
+    {% elif not in_fleet %}
+        <div class="fin-melding">
+            <p class="mb-2">{% blocktranslate with naam=fc.naam %}{{ naam }} zit op dit moment niet in een fleet.{% endblocktranslate %}</p>
+            <p class="mb-2 fin-dim">{% translate "Maak de fleet in het spel en ververs deze pagina. EVE geeft een nieuwe fleet ongeveer een minuut later door." %}</p>
+            <a href="{% url 'mijndashboard:fleet_roam' %}" class="fin-knop">{% translate "Verversen" %}</a>
+        </div>
+
+    {% else %}
+
+        {% comment %}
+            Bovenaan de vier dingen waar een FC tijdens een roam naar kijkt: hoe
+            groot ben ik, hoeveel logi heb ik, staat iedereen bij elkaar, en mag
+            er vrij verplaatst worden.
+        {% endcomment %}
+        <div class="fin-stats">
+            <div class="fin-stat">
+                <span class="l">{% translate "In de fleet" %}</span>
+                <span class="v">{{ aantal }}</span>
+                <span class="s">{% if fc_naam %}{% translate "FC" %}: {{ fc_naam }}{% endif %}</span>
+            </div>
+            <div class="fin-stat {% if not logi %}fin-stat-leeg{% endif %}">
+                <span class="l">{% translate "Logi" %}</span>
+                <span class="v">{{ logi }}</span>
+                <span class="s">
+                    {% if logi %}
+                        {% widthratio aantal logi 1 %} {% translate "man per logi" %}
+                    {% else %}
+                        {% translate "geen reps in deze fleet" %}
+                    {% endif %}
+                </span>
+            </div>
+            <div class="fin-stat {% if verspreid %}fin-stat-belasting{% endif %}">
+                <span class="l">{% translate "Bij elkaar" %}</span>
+                <span class="v">{{ samen }}<i class="fin-roam-van">/ {{ aantal }}</i></span>
+                <span class="s">
+                    {% if verspreid %}
+                        {% blocktranslate count n=verspreid %}{{ n }} staat ergens anders{% plural %}{{ n }} staan ergens anders{% endblocktranslate %}
+                    {% else %}
+                        {% translate "iedereen in hetzelfde systeem" %}
+                    {% endif %}
+                </span>
+            </div>
+            <div class="fin-stat">
+                <span class="l">{% translate "Instellingen" %}</span>
+                <span class="v fin-fleet-vlaggen">
+                    <i class="{% if free_move %}fin-pos{% else %}fin-dim{% endif %}">
+                        {% if free_move %}✓{% else %}✗{% endif %} {% translate "Free move" %}</i>
+                    <i class="{% if geregistreerd %}fin-pos{% else %}fin-dim{% endif %}">
+                        {% if geregistreerd %}✓{% else %}✗{% endif %} {% translate "Advert" %}</i>
+                </span>
+                <span class="s">{% if is_boss %}{% translate "je bent fleet boss" %}{% else %}{% translate "je bent geen fleet boss" %}{% endif %}</span>
+            </div>
+        </div>
+
+        {% if verspreid %}
+            <div class="fin-advies is-let-op">
+                <span class="fin-advies-icoon">⚠</span>
+                <div>
+                    <div class="fin-advies-kop">
+                        {% blocktranslate count n=verspreid %}{{ n }} lid staat niet bij de FC{% plural %}{{ n }} leden staan niet bij de FC{% endblocktranslate %}
+                    </div>
+                    <div class="fin-advies-sub">
+                        {% translate "Hieronder staan ze onder hun eigen systeem. Op een roam is dat meestal iemand die de gate mist." %}
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+
+        <div class="fin-roam-kolommen">
+
+            {# ── Samenstelling ────────────────────────────────────────── #}
+            <div class="fin-fleet-blok">
+                <h2 class="fin-kop">{% translate "Samenstelling" %}</h2>
+                <div class="fin-roam-rollen">
+                    {% for blok in samenstelling %}
+                        <div class="fin-roam-rol is-{{ blok.rol }}">
+                            <div class="fin-roam-rolkop">
+                                <span class="fin-roam-rolnaam">{{ blok.label }}</span>
+                                <span class="fin-roam-roltal">{{ blok.aantal }}</span>
+                            </div>
+                            <div class="fin-roam-schepen">
+                                {% for s in blok.schepen %}
+                                    <span class="fin-roam-schip" title="{{ s.naam }}">
+                                        {% if s.plaatje %}<img loading="lazy" alt="" src="{{ s.plaatje }}">{% endif %}
+                                        <b>{{ s.aantal }}</b>
+                                        <span>{{ s.naam }}</span>
+                                    </span>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            {# ── Waar staat iedereen ──────────────────────────────────── #}
+            <div class="fin-fleet-blok">
+                <h2 class="fin-kop">{% translate "Waar staat iedereen" %}</h2>
+                {% for sys in systemen %}
+                    <div class="fin-roam-systeem {% if not sys.bij_fc %}is-los{% endif %}">
+                        <div class="fin-roam-syskop">
+                            <span class="fin-roam-sec {{ sys.sec_klasse }}">{{ sys.sec }}</span>
+                            <span class="fin-roam-sysnaam">{{ sys.naam }}</span>
+                            <span class="fin-roam-systal">{{ sys.leden|length }}</span>
+                            {% if sys.bij_fc %}
+                                <i class="fin-roam-hier">{% translate "hier zit de FC" %}</i>
+                            {% endif %}
+                        </div>
+                        <div class="fin-roam-lijst">
+                            {% for m in sys.leden %}
+                                <div class="fin-roam-lid {% if m.is_fc %}is-fc{% endif %}">
+                                    <img loading="lazy" alt=""
+                                         src="https://images.evetech.net/characters/{{ m.character_id }}/portrait?size=32">
+                                    <span class="fin-roam-naam">{{ m.naam }}</span>
+                                    {% if m.fleetrol %}<i class="fin-fleet-rol">{{ m.fleetrol }}</i>{% endif %}
+                                    <span class="fin-roam-schipnaam">
+                                        {% if m.plaatje %}<img loading="lazy" alt="" src="{{ m.plaatje }}">{% endif %}
+                                        {{ m.schip }}
+                                    </span>
+                                    <span class="fin-roam-sinds">{{ m.sinds }}</span>
+                                    {% if is_boss and mag_uitnodigen and not m.is_fc %}
+                                        <form method="post" class="fin-roam-schop">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="actie" value="schop">
+                                            <input type="hidden" name="character_id" value="{{ m.character_id }}">
+                                            <button type="submit" title="{% translate 'Uit de fleet zetten' %}"
+                                                    onclick="return confirm('{{ m.naam|escapejs }} {% translate "uit de fleet zetten?" %}')">✕</button>
+                                        </form>
+                                    {% endif %}
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        {% if is_boss and mag_uitnodigen %}
+            <div class="fin-fleet-blok fin-roam-beheer">
+                <h2 class="fin-kop">{% translate "Fleet-beheer" %}
+                    <span>— {% translate "alleen jij als fleet boss ziet dit" %}</span></h2>
+
+                <form method="post" class="fin-roam-motd">
+                    {% csrf_token %}
+                    <input type="hidden" name="actie" value="motd">
+                    <label class="fin-veld">
+                        <span>{% translate "MOTD" %}
+                            <i>— {% translate "verschijnt bovenin het fleet-venster in het spel" %}</i></span>
+                        <textarea name="motd" rows="2" class="fin-zoekveld"
+                                  placeholder="{% translate 'Broadcast targets only. Anchor op de FC.' %}">{{ motd_kaal }}</textarea>
+                    </label>
+                    <button type="submit" class="fin-knop fin-knop-klein">{% translate "MOTD zetten" %}</button>
+                </form>
+
+                {% if motd %}
+                    <div class="fin-roam-motdnu">
+                        <span class="l">{% translate "Nu in het spel" %}</span>
+                        <div class="fin-mail-body">{{ motd|safe }}</div>
+                    </div>
+                {% endif %}
+
+                {% if uit_te_nodigen %}
+                    <form method="post" class="fin-fleet-nodig">
+                        {% csrf_token %}
+                        <input type="hidden" name="actie" value="uitnodigen">
+                        <div class="fin-veld">
+                            <span>{% translate "Uitnodigen" %}
+                                <i>— {% translate "zij krijgen de popup in het spel en accepteren zelf" %}</i></span>
+                            <div class="fin-fleet-lijst">
+                                {% for k in uit_te_nodigen %}
+                                    <div class="fin-fleet-kandidaat">
+                                        <input type="checkbox" class="fin-fleet-vink"
+                                               id="fin-roam-{{ k.character_id }}"
+                                               name="uitnodigen" value="{{ k.character_id }}">
+                                        <label class="fin-fleet-wie" for="fin-roam-{{ k.character_id }}">
+                                            <img loading="lazy" alt=""
+                                                 src="https://images.evetech.net/characters/{{ k.character_id }}/portrait?size=32">
+                                            <span>{{ k.naam }}</span>
+                                            {% if k.corp %}<i>{{ k.corp }}</i>{% endif %}
+                                        </label>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        <div class="fin-roam-nodigvoet">
+                            {% if wings %}
+                                <label class="fin-roam-squad">
+                                    <span>{% translate "In squad" %}</span>
+                                    <select name="squad" class="fin-zoekveld">
+                                        <option value="">{% translate "wachtruimte — zelf indelen" %}</option>
+                                        {% for w in wings %}
+                                            {% for s in w.squads %}
+                                                <option value="{{ w.id }}:{{ s.id }}">{{ w.naam }} · {{ s.naam }}</option>
+                                            {% endfor %}
+                                        {% endfor %}
+                                    </select>
+                                </label>
+                            {% endif %}
+                            <button type="submit" class="fin-knop">{% translate "Uitnodiging versturen" %}</button>
+                        </div>
+                    </form>
+                {% else %}
+                    <div class="fin-leeg">{% translate "Iedereen die in de Auth gekoppeld is zit al in de fleet." %}</div>
+                {% endif %}
+            </div>
+        {% elif not is_boss %}
+            <p class="fin-onderschrift">
+                {% translate "Uitnodigen, kicken en de MOTD zetten kan alleen de fleet boss — dat is degene die de fleet geopend heeft." %}
+            </p>
+        {% endif %}
+
+        <p class="fin-onderschrift">
+            {% translate "Deze pagina leest de fleet live uit EVE. De ledenlijst ververst elke vijf seconden aan de kant van EVE; welke fleet je in zit ongeveer elke minuut." %}
+        </p>
+    {% endif %}
+{% endblock %}

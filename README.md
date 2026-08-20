@@ -148,6 +148,23 @@ deze sessie. Dat moet zo, want de mining-ledger van EVE telt per **dag** — daa
 knippen, en een sessie achteraf aanmaken kan dus ook niet. EVE werkt de ledger ongeveer elke tien minuten
 bij, dus het laatste kwartier van een lopende sessie kan nog ontbreken. Waarde tegen Jita buy.
 
+Het tabblad heeft twee sub-tabs: **Mining/Ratting** (de sessies hierboven) en **Fleet Roam**.
+
+### Fleet Roam: de fleet zoals hij nu vliegt
+
+Leest de fleet live uit EVE en beantwoordt de vragen die een FC tijdens een roam heeft:
+
+- **Samenstelling** — hoeveel logi, tackle, e-war, command en dps, met de scheepstypes eronder. De
+  indeling komt uit de scheepsgroep in de SDE, dus een Guardian telt vanzelf als logi.
+- **Waar staat iedereen** — leden gegroepeerd per systeem, met security-kleur, en het systeem van de FC
+  bovenaan. Wie ergens anders staat komt eronder in het geel te staan: dat is de man die de gate mist.
+- **Verhouding logi/fleet** — hoeveel man er per logi vliegt, of een waarschuwing als er geen reps mee zijn.
+- **Fleet-beheer** (alleen de fleet boss) — MOTD zetten, mensen uitnodigen (eventueel meteen in een squad)
+  en iemand uit de fleet zetten.
+
+De **clusterkaart met intel** van het dashboard zit hier bewust niet in: die leest je EVE-chatlogs van je
+eigen schijf en hoort daarom thuis waar hij nu staat.
+
 ### De fleet zelf: uitnodigen vanuit Auth
 
 Een fleet **aanmaken** kan niet via ESI, maar zodra de FC hem in het spel gevormd heeft kun je van hieruit

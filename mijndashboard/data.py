@@ -4359,3 +4359,244 @@ def fleet_sessie_uit_fleet(user, naam, soort):
                     f"{len(in_fleet) - len(deelnemers)} van de {len(in_fleet)} "
                     "mensen in de fleet zijn niet gekoppeld in de Auth en doen "
                     "niet mee in de verdeling.")
+
+
+# --------------------------------------------------------------------------
+# Fleet Roam: de fleet zoals hij nu vliegt
+# --------------------------------------------------------------------------
+#
+# Overgenomen van de fleet-pagina op het dashboard, maar met drie dingen die
+# daar ontbreken en die een FC juist wil weten:
+#
+# * **Samenstelling** — hoeveel logi, hoeveel dps, hoeveel tackle. Een lijst van
+#   veertig namen beantwoordt die vraag niet; een telling per klasse wel.
+# * **Wie is er niet bij** — leden gegroepeerd per systeem, met de FC bovenaan.
+#   Wie ergens anders staat is een straggler, en dat is precies waar een roam op
+#   stukloopt.
+# * **Uitnodigen met een vinkje** in plaats van namen overtypen: Auth weet wie er
+#   is, dus die namen hoeven niet uit je hoofd.
+
+# Groepen die er voor een fleet toe doen. eve_group geeft "Logistics",
+# "Force Auxiliary" enzovoort; die vertalen we naar een rol met een kleur.
+ROLGROEPEN = (
+    ("logi", "Logi", ("Logistics", "Force Auxiliary", "Logistics Frigate")),
+    ("tackle", "Tackle", ("Interceptor", "Interdictor", "Heavy Interdiction Cruiser",
+                          "Command Destroyer")),
+    ("ewar", "E-war", ("Electronic Attack Ship", "Force Recon Ship",
+                       "Combat Recon Ship")),
+    ("boss", "Command", ("Command Ship", "Strategic Cruiser")),
+    ("caps", "Capital", ("Carrier", "Dreadnought", "Supercarrier", "Titan",
+                         "Force Auxiliary", "Capital Industrial Ship")),
+    ("dps", "DPS", ()),          # de rest
+)
+
+
+def _rol_van_groep(groep):
+    for sleutel, _label, groepen in ROLGROEPEN:
+        if groep in groepen:
+            return sleutel
+    return "dps"
+
+
+def _sec_klasse(sec):
+    """Kleurklasse voor de security van een systeem, zoals in het spel."""
+    if sec is None:
+        return "fin-sec-null"
+    if sec >= 0.45:
+        return "fin-sec-high"
+    if sec > 0.0:
+        return "fin-sec-low"
+    return "fin-sec-null"
+
+
+def fleet_roam(user):
+    """Alles wat de roam-pagina toont."""
+    uit = {"fc_gekoppeld": False, "in_fleet": False, "fc": None,
+           "leden": [], "systemen": [], "samenstelling": [], "wings": [],
+           "uit_te_nodigen": [], "mag_uitnodigen": False, "is_boss": False,
+           "motd": "", "free_move": False, "geregistreerd": False,
+           "aantal": 0, "aantal_systemen": 0}
+
+    gevonden = fc_character(user)
+    if not gevonden:
+        return uit
+    char, token = gevonden
+    uit["fc_gekoppeld"] = True
+    uit["fc"] = {"character_id": char.character_id, "naam": char.character_name}
+    uit["mag_uitnodigen"] = bool(esi.token_for(char.character_id, esi.FLEET_WRITE_SCOPE))
+
+    fleet = esi.huidige_fleet(char.character_id, token)
+    if not fleet:
+        return uit
+    fleet_id = fleet["fleet_id"]
+    uit["in_fleet"] = True
+    uit["fleet_id"] = fleet_id
+    uit["is_boss"] = fleet.get("role") == "fleet_commander"
+
+    info = esi.fleet_info(fleet_id, token)
+    # De MOTD is EVE-opmaak (kleurcodes, links); render() geeft veilige HTML.
+    uit["motd"] = (mailtekst.render(info.get("motd") or "") or {}).get("html", "")
+    uit["motd_kaal"] = (mailtekst.render(info.get("motd") or "") or {}).get("tekst", "")
+    uit["free_move"] = bool(info.get("is_free_move"))
+    uit["geregistreerd"] = bool(info.get("is_registered"))
+
+    leden = esi.fleet_leden(fleet_id, token)
+    uit["aantal"] = len(leden)
+    if not leden:
+        return uit
+
+    ids = [int(m.get("character_id") or 0) for m in leden]
+    namen = {c.character_id: c.character_name for c in _eve_characters(ids)}
+    ontbrekend = [i for i in ids if i not in namen]
+    if ontbrekend:
+        namen.update({int(k): v for k, v in (esi.names(ontbrekend) or {}).items()})
+
+    schip_ids = {int(m.get("ship_type_id") or 0) for m in leden}
+    typen = _type_info(schip_ids)
+    _vol, _por, _mat, groepen = _type_gegevens(schip_ids)
+    systemen = esi.universe_systemen({m.get("solar_system_id") for m in leden})
+
+    # Waar staat de FC? Daar hoort de rest te zijn.
+    fc_lid = next((m for m in leden if m.get("role") == "fleet_commander"), None)
+    fc_systeem = int((fc_lid or {}).get("solar_system_id") or 0)
+    if fc_lid:
+        uit["fc_naam"] = namen.get(int(fc_lid["character_id"]), "")
+
+    nu = datetime.now(timezone.utc)
+    per_systeem, telling = {}, Counter()
+    for m in leden:
+        cid = int(m.get("character_id") or 0)
+        tid = int(m.get("ship_type_id") or 0)
+        sid = int(m.get("solar_system_id") or 0)
+        groep = (groepen.get(tid) or (0, ""))[1]
+        rol = _rol_van_groep(groep)
+        telling[(rol, groep or "Onbekend", tid)] += 1
+        naam_sys, sec = systemen.get(sid, (str(sid), None))
+
+        lid = {
+            "character_id": cid, "naam": namen.get(cid, str(cid)),
+            "schip": (typen.get(tid) or {}).get("naam", ""),
+            "schip_id": tid, "plaatje": (typen.get(tid) or {}).get("plaatje", ""),
+            "groep": groep, "rol": rol,
+            "fleetrol": _rolnaam(m.get("role")),
+            "is_fc": m.get("role") == "fleet_commander",
+            "systeem": naam_sys, "systeem_id": sid,
+            "sec": f"{sec:.1f}" if sec is not None else "",
+            "sec_klasse": _sec_klasse(sec),
+            "sinds": _geleden(_parse(m.get("join_time")), nu),
+            "bij_fc": sid == fc_systeem,
+        }
+        uit["leden"].append(lid)
+        per_systeem.setdefault(sid, {"naam": naam_sys, "sec": lid["sec"],
+                                     "sec_klasse": lid["sec_klasse"],
+                                     "bij_fc": sid == fc_systeem, "leden": []})
+        per_systeem[sid]["leden"].append(lid)
+
+    uit["leden"].sort(key=lambda r: (not r["is_fc"], r["naam"].lower()))
+
+    # Het systeem van de FC bovenaan, daarna het grootste groepje. Zo staat
+    # bovenaan waar de fleet is, en eronder wie er achterloopt.
+    uit["systemen"] = sorted(per_systeem.values(),
+                             key=lambda s: (not s["bij_fc"], -len(s["leden"])))
+    uit["aantal_systemen"] = len(per_systeem)
+    uit["verspreid"] = sum(len(s["leden"]) for s in uit["systemen"] if not s["bij_fc"])
+    uit["samen"] = len(leden) - uit["verspreid"]
+
+    # Samenstelling: per rol, en daarbinnen per scheepstype.
+    labels = {s: l for s, l, _g in ROLGROEPEN}
+    per_rol = {}
+    for (rol, groep, tid), n in telling.items():
+        blok = per_rol.setdefault(rol, {"rol": rol, "label": labels.get(rol, rol),
+                                        "aantal": 0, "schepen": []})
+        blok["aantal"] += n
+        blok["schepen"].append({
+            "naam": (typen.get(tid) or {}).get("naam", groep),
+            "plaatje": (typen.get(tid) or {}).get("plaatje", ""),
+            "type_id": tid, "aantal": n,
+        })
+    volgorde = [s for s, _l, _g in ROLGROEPEN]
+    uit["samenstelling"] = sorted(per_rol.values(),
+                                  key=lambda b: volgorde.index(b["rol"]))
+    for blok in uit["samenstelling"]:
+        blok["schepen"].sort(key=lambda s: -s["aantal"])
+    uit["logi"] = per_rol.get("logi", {}).get("aantal", 0)
+
+    # Wings en squads: nodig om iemand meteen in de juiste squad te zetten.
+    for w in esi.fleet_wings(fleet_id, token):
+        uit["wings"].append({
+            "id": w.get("id"), "naam": w.get("name") or "Wing",
+            "squads": [{"id": s.get("id"), "naam": s.get("name") or "Squad"}
+                       for s in (w.get("squads") or [])],
+        })
+
+    erin = set(ids)
+    uit["uit_te_nodigen"] = [k for k in fleet_kandidaten()
+                             if k["character_id"] not in erin]
+    return uit
+
+
+def roam_uitnodigen(user, character_ids, squad=""):
+    """Uitnodigen, eventueel meteen in een bepaalde squad.
+
+    `squad` is "wing_id:squad_id" uit het keuzemenu; leeg betekent: in de
+    wachtruimte bovenin de fleet, dan deelt de FC zelf in.
+    """
+    gevonden = fc_character(user)
+    if not gevonden:
+        return 0, ["Er is geen character van jou gekoppeld als FC."]
+    char, leestoken = gevonden
+    schrijftoken = esi.token_for(char.character_id, esi.FLEET_WRITE_SCOPE)
+    if not schrijftoken:
+        return 0, ["Dit character mag geen uitnodigingen versturen."]
+    fleet = esi.huidige_fleet(char.character_id, leestoken)
+    if not fleet:
+        return 0, [f"{char.character_name} zit niet in een fleet."]
+
+    wing_id = squad_id = None
+    if squad and ":" in squad:
+        wing, sq = squad.split(":", 1)
+        wing_id = int(wing) if wing.isdigit() else None
+        squad_id = int(sq) if sq.isdigit() else None
+
+    gelukt, fouten = 0, []
+    namen = {c.character_id: c.character_name for c in _eve_characters(character_ids)}
+    for cid in character_ids:
+        ok, fout = esi.nodig_uit(fleet["fleet_id"], cid, schrijftoken,
+                                 wing_id=wing_id, squad_id=squad_id)
+        if ok:
+            gelukt += 1
+        else:
+            fouten.append(f"{namen.get(int(cid), cid)}: {fout}")
+    return gelukt, fouten
+
+
+def roam_motd(user, motd):
+    """De MOTD zetten."""
+    gevonden = fc_character(user)
+    if not gevonden:
+        return False, "Geen FC-character gekoppeld."
+    char, leestoken = gevonden
+    schrijftoken = esi.token_for(char.character_id, esi.FLEET_WRITE_SCOPE)
+    if not schrijftoken:
+        return False, "Dit character mag de fleet niet aanpassen."
+    fleet = esi.huidige_fleet(char.character_id, leestoken)
+    if not fleet:
+        return False, "Niet in een fleet."
+    return esi.fleet_instellen(fleet["fleet_id"], schrijftoken, motd=motd or "")
+
+
+def roam_schop(user, character_id):
+    """Iemand uit de fleet zetten."""
+    gevonden = fc_character(user)
+    if not gevonden:
+        return False, "Geen FC-character gekoppeld."
+    char, leestoken = gevonden
+    schrijftoken = esi.token_for(char.character_id, esi.FLEET_WRITE_SCOPE)
+    if not schrijftoken:
+        return False, "Dit character mag de fleet niet aanpassen."
+    fleet = esi.huidige_fleet(char.character_id, leestoken)
+    if not fleet:
+        return False, "Niet in een fleet."
+    if int(character_id) == char.character_id:
+        return False, "Jezelf eruit schoppen kan hier niet."
+    return esi.schop_lid(fleet["fleet_id"], int(character_id), schrijftoken)
