@@ -33,6 +33,107 @@
         </div>
     </div>
 
+    {% comment %}
+        Het FC-blok. Alles hierin hangt aan één character met de fleet-scopes;
+        heeft niemand die, dan staat er alleen een knop om te koppelen.
+    {% endcomment %}
+    <div class="fin-fleet-blok fin-fleet-fc">
+        <h2 class="fin-kop">{% translate "De fleet" %}
+            {% if fc %}<span>— {{ fc.naam }}</span>{% endif %}
+        </h2>
+
+        {% if not fc_gekoppeld %}
+            <div class="fin-fleet-fcleeg">
+                <p>{% translate "Een fleet maak je in het spel; ESI kan dat niet. Wél kun je van hieruit mensen uitnodigen — die krijgen dan de gewone invite-popup in EVE." %}</p>
+                <p class="fin-dim">{% translate "Daarvoor koppel je je FC-character één keer extra. Alleen jij hoeft dat te doen: wie je uitnodigt hoeft niets." %}</p>
+                <a class="fin-knop" href="{% url 'mijndashboard:fleet_koppelen' %}">
+                    {% translate "Koppel als FC" %}</a>
+            </div>
+
+        {% elif not in_fleet %}
+            <div class="fin-fleet-fcleeg">
+                <p>{% blocktranslate with naam=fc.naam %}{{ naam }} zit op dit moment niet in een fleet.{% endblocktranslate %}</p>
+                <p class="fin-dim">{% translate "Maak de fleet in het spel en ververs deze pagina. EVE geeft de fleet een minuut later door, dus even geduld kan nodig zijn." %}</p>
+                <a class="fin-knop fin-knop-klein" href="{% url 'mijndashboard:fleet' %}">
+                    {% translate "Verversen" %}</a>
+            </div>
+
+        {% else %}
+            <div class="fin-fleet-erin">
+                <span class="fin-fleet-tel">{{ fleet_leden|length }}</span>
+                <span>{% translate "in de fleet" %}
+                    {% if not is_boss %}
+                        <i class="fin-fleet-let">{% translate "je bent geen fleet boss — uitnodigen kan dan niet" %}</i>
+                    {% endif %}
+                </span>
+                {% if is_boss and mag_uitnodigen %}
+                    <form method="post" class="fin-fleet-uitfleet">
+                        {% csrf_token %}
+                        <input type="hidden" name="actie" value="sessie_uit_fleet">
+                        <input type="text" name="naam" class="fin-zoekveld" required
+                               placeholder="{% translate 'Naam van de sessie' %}">
+                        <select name="soort" class="fin-zoekveld">
+                            <option value="mining">{% translate "Mining" %}</option>
+                            <option value="ratting">{% translate "Ratting" %}</option>
+                        </select>
+                        <button type="submit" class="fin-knop fin-knop-klein">
+                            {% translate "Sessie met deze fleet" %}</button>
+                    </form>
+                {% endif %}
+            </div>
+
+            <div class="fin-fleet-leden">
+                {% for m in fleet_leden %}
+                    <div class="fin-fleet-lid">
+                        <img loading="lazy" alt=""
+                             src="https://images.evetech.net/characters/{{ m.character_id }}/portrait?size=32">
+                        <span class="fin-fleet-lidnaam">{{ m.naam }}</span>
+                        {% if m.rol %}<i class="fin-fleet-rol">{{ m.rol }}</i>{% endif %}
+                        <span class="fin-fleet-schip">{{ m.schip }}</span>
+                        <span class="fin-fleet-sinds">{{ m.sinds }}</span>
+                    </div>
+                {% endfor %}
+            </div>
+
+            {% if mag_uitnodigen and is_boss %}
+                {% if uit_te_nodigen %}
+                    <form method="post" class="fin-fleet-nodig">
+                        {% csrf_token %}
+                        <input type="hidden" name="actie" value="uitnodigen">
+                        <div class="fin-veld">
+                            <span>{% translate "Uitnodigen" %}
+                                <i>— {% translate "zij krijgen de popup in het spel en accepteren zelf" %}</i></span>
+                            <div class="fin-fleet-lijst">
+                                {% for k in uit_te_nodigen %}
+                                    <div class="fin-fleet-kandidaat">
+                                        <input type="checkbox" class="fin-fleet-vink"
+                                               id="fin-nodig-{{ k.character_id }}"
+                                               name="uitnodigen" value="{{ k.character_id }}">
+                                        <label class="fin-fleet-wie" for="fin-nodig-{{ k.character_id }}">
+                                            <img loading="lazy" alt=""
+                                                 src="https://images.evetech.net/characters/{{ k.character_id }}/portrait?size=32">
+                                            <span>{{ k.naam }}</span>
+                                            {% if k.corp %}<i>{{ k.corp }}</i>{% endif %}
+                                        </label>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        <button type="submit" class="fin-knop">{% translate "Uitnodiging versturen" %}</button>
+                    </form>
+                {% else %}
+                    <div class="fin-leeg">{% translate "Iedereen die gekoppeld is zit al in de fleet." %}</div>
+                {% endif %}
+            {% elif not mag_uitnodigen %}
+                <div class="fin-fleet-fcleeg">
+                    <p class="fin-dim">{% translate "Dit character mag wel meekijken maar niet uitnodigen. Koppel opnieuw als FC om die toestemming toe te voegen." %}</p>
+                    <a class="fin-knop fin-knop-klein" href="{% url 'mijndashboard:fleet_koppelen' %}">
+                        {% translate "Koppel als FC" %}</a>
+                </div>
+            {% endif %}
+        {% endif %}
+    </div>
+
     <div class="fin-fleet-kolommen">
 
         {# ── Nieuwe sessie ────────────────────────────────────────────── #}

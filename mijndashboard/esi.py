@@ -1271,3 +1271,127 @@ def sde_recepten():
     if uit:
         cache.set(key, uit, TTL_SDE)
     return uit
+
+
+# --------------------------------------------------------------------------
+# Fleets
+# --------------------------------------------------------------------------
+#
+# Een fleet **aanmaken** kan hier niet: ESI heeft er geen endpoint voor. Wat wel
+# kan is meekijken in een fleet die in het spel gevormd is, en mensen uitnodigen
+# — dat wordt bij de uitgenodigde gewoon de normale invite-popup in het spel.
+
+FLEET_READ_SCOPE = "esi-fleets.read_fleet.v1"
+FLEET_WRITE_SCOPE = "esi-fleets.write_fleet.v1"
+
+TTL_FLEET = 60              # ESI's eigen cache op /characters/{id}/fleet/
+TTL_FLEETLEDEN = 5          # leden veranderen tijdens een fleet continu
+
+ROLLEN = ("fleet_commander", "wing_commander", "squad_commander", "squad_member")
+
+
+def huidige_fleet(character_id, token=None):
+    """In welke fleet dit character zit: {fleet_id, role, wing_id, squad_id} of None.
+
+    Een 404 is hier geen storing maar het antwoord: niet in een fleet. Daarom
+    cachen we ook de lege uitslag — anders vraagt elke paginaweergave het
+    opnieuw terwijl ESI toch een minuut vasthoudt.
+    """
+    key = f"fin_fleet_{character_id}"
+    hit = cache.get(key)
+    if hit is not None:
+        return hit or None
+
+    token = token or token_for(character_id, FLEET_READ_SCOPE)
+    if not token:
+        return None
+    data = _request(f"/characters/{character_id}/fleet/", token)
+    cache.set(key, data or {}, TTL_FLEET)
+    return data or None
+
+
+def fleet_info(fleet_id, token):
+    """MOTD en instellingen van de fleet."""
+    return _request(f"/fleets/{fleet_id}/", token) or {}
+
+
+def fleet_leden(fleet_id, token):
+    """Wie er nu in de fleet zit.
+
+    Kort gecached: tijdens een fleet stapt er om de haverklap iemand in of uit,
+    en deze lijst bepaalt welke knoppen je ziet.
+    """
+    key = f"fin_fleetleden_{fleet_id}"
+    hit = cache.get(key)
+    if hit is not None:
+        return hit
+    rows = _request(f"/fleets/{fleet_id}/members/", token) or []
+    cache.set(key, rows, TTL_FLEETLEDEN)
+    return rows
+
+
+def fleet_wings(fleet_id, token):
+    """De wings en squads van de fleet."""
+    return _request(f"/fleets/{fleet_id}/wings/", token) or []
+
+
+def nodig_uit(fleet_id, character_id, token, rol="squad_member",
+              wing_id=None, squad_id=None):
+    """Nodig één character uit. Geeft (True, "") of (False, "wat er misging").
+
+    ESI antwoordt met 204 zonder inhoud; de uitnodiging staat dan klaar als
+    popup in het spel. Niemand wordt de fleet ingetrokken — de ander accepteert
+    zelf, precies als bij een uitnodiging vanuit de client.
+    """
+    if rol not in ROLLEN:
+        rol = "squad_member"
+    lading = {"character_id": int(character_id), "role": rol}
+    # Wing en squad alleen meesturen als ze er zijn: ESI weigert een squad_id
+    # zonder wing_id, en een squad_member zónder squad landt in de wachtruimte
+    # bovenin de fleet. Dat laatste is prima als je nog niet ingedeeld hebt.
+    if wing_id:
+        lading["wing_id"] = int(wing_id)
+        if squad_id:
+            lading["squad_id"] = int(squad_id)
+
+    for poging in (1, 2, 3):
+        try:
+            r = _session.post(
+                f"{ESI}/fleets/{fleet_id}/members/",
+                headers={**UA, "Authorization": f"Bearer {token}",
+                         "Content-Type": "application/json"},
+                params={"datasource": "tranquility"}, json=lading, timeout=25)
+        except requests.RequestException as exc:
+            if poging == 3:
+                return False, f"ESI niet bereikbaar: {exc}"
+            time.sleep(2 ** poging)
+            continue
+
+        if r.status_code in (200, 201, 204):
+            cache.delete(f"fin_fleetleden_{fleet_id}")
+            logger.info("Finance: %s uitgenodigd voor fleet %s", character_id, fleet_id)
+            return True, ""
+        if r.status_code in (500, 502, 503, 504) and poging < 3:
+            time.sleep(2 ** poging)
+            continue
+        return False, _fleetfout(r)
+    return False, "Uitnodigen lukte niet na drie pogingen."
+
+
+def _fleetfout(respons):
+    """Van een ESI-foutcode iets maken waar de FC wat aan heeft."""
+    try:
+        melding = (respons.json() or {}).get("error", "")
+    except ValueError:
+        melding = (respons.text or "")[:200]
+
+    uitleg = {
+        400: ("ESI weigerde de uitnodiging. Meestal zit deze persoon al in een "
+              "fleet, of heeft hij een CSPA-heffing ingesteld — dan kan het via "
+              "ESI niet, maar in het spel rechtsklikken nog wel."),
+        403: ("Dit character mag niet uitnodigen. Daarvoor moet je de fleet boss "
+              "zijn, of een commander met die rechten."),
+        404: "Die fleet bestaat niet meer.",
+        420: "ESI-foutlimiet bereikt. Even wachten.",
+    }.get(respons.status_code, f"ESI gaf {respons.status_code} terug.")
+    return f"{uitleg} ({melding})" if melding else uitleg

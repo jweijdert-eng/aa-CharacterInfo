@@ -4195,3 +4195,167 @@ def fleet_detail(user, sessie):
         "loopt": sessie.loopt,
         "mag_beheren": sessie.door_id == user.id,
     }
+
+
+# --------------------------------------------------------------------------
+# De fleet zelf: meekijken en uitnodigen
+# --------------------------------------------------------------------------
+#
+# De FC vormt de fleet in het spel; hier zie je wie erin zit en nodig je de rest
+# uit. Alleen de FC heeft daar de fleet-scopes voor nodig — wie uitgenodigd
+# wordt hoeft niets: die krijgt de gewone popup in het spel.
+
+
+def fc_character(user):
+    """Het character van deze gebruiker dat als FC gekoppeld is, of None.
+
+    Meerdere kunnen het zijn; dan wint degene die nú in een fleet zit. Zo hoeft
+    de FC niet te kiezen welk van z'n characters hij bedoelt.
+    """
+    kandidaten = []
+    for c in esi.characters(user):
+        token = esi.token_for(c.character_id, esi.FLEET_READ_SCOPE)
+        if token:
+            kandidaten.append((c, token))
+    if not kandidaten:
+        return None
+
+    for c, token in kandidaten:
+        if esi.huidige_fleet(c.character_id, token):
+            return c, token
+    return kandidaten[0]
+
+
+def fleet_paneel(user):
+    """Wat het FC-blok op het tabblad moet laten zien."""
+    uit = {"fc_gekoppeld": False, "fc": None, "in_fleet": False,
+           "fleet_leden": [], "uit_te_nodigen": [], "mag_uitnodigen": False}
+
+    gevonden = fc_character(user)
+    if not gevonden:
+        return uit
+    char, token = gevonden
+    uit["fc_gekoppeld"] = True
+    uit["fc"] = {"character_id": char.character_id, "naam": char.character_name}
+    # Uitnodigen vraagt een tweede scope; lezen alleen is ook zinvol (je ziet
+    # dan wie erin zit), dus dat is een aparte vraag.
+    uit["mag_uitnodigen"] = bool(esi.token_for(char.character_id, esi.FLEET_WRITE_SCOPE))
+
+    fleet = esi.huidige_fleet(char.character_id, token)
+    if not fleet:
+        return uit
+
+    fleet_id = fleet.get("fleet_id")
+    uit["in_fleet"] = True
+    uit["fleet_id"] = fleet_id
+    uit["fc_rol"] = fleet.get("role", "")
+    # Alleen de fleet boss mag uitnodigen. De rol staat in het antwoord, dus dat
+    # kunnen we zeggen vóórdat iemand op een knop drukt die 403 geeft.
+    uit["is_boss"] = fleet.get("role") == "fleet_commander"
+
+    leden = esi.fleet_leden(fleet_id, token)
+    ids = [int(m.get("character_id") or 0) for m in leden]
+    namen = {c.character_id: c.character_name for c in _eve_characters(ids)}
+    ontbrekend = [i for i in ids if i not in namen]
+    if ontbrekend:
+        namen.update({int(k): v for k, v in (esi.names(ontbrekend) or {}).items()})
+
+    schepen = _type_info({int(m.get("ship_type_id") or 0) for m in leden})
+    nu = datetime.now(timezone.utc)
+    for m in leden:
+        cid = int(m.get("character_id") or 0)
+        schip = schepen.get(int(m.get("ship_type_id") or 0)) or {}
+        uit["fleet_leden"].append({
+            "character_id": cid,
+            "naam": namen.get(cid, str(cid)),
+            "schip": schip.get("naam", ""),
+            "schip_id": m.get("ship_type_id"),
+            "rol": _rolnaam(m.get("role")),
+            "sinds": _geleden(_parse(m.get("join_time")), nu),
+        })
+    uit["fleet_leden"].sort(key=lambda r: r["naam"].lower())
+
+    # Wie zit er nog niet in? Dat zijn de mensen met een knop erachter.
+    erin = set(ids)
+    uit["uit_te_nodigen"] = [k for k in fleet_kandidaten()
+                             if k["character_id"] not in erin]
+    return uit
+
+
+ROLNAMEN = {
+    "fleet_commander": "FC",
+    "wing_commander": "Wing",
+    "squad_commander": "Squad",
+    "squad_member": "",
+}
+
+
+def _rolnaam(rol):
+    return ROLNAMEN.get(rol, rol or "")
+
+
+def fleet_uitnodigen(user, character_ids):
+    """Nodig een of meer characters uit voor de fleet van deze FC.
+
+    Geeft (aantal gelukt, [foutmeldingen]). Eén mislukte uitnodiging stopt de
+    rest niet: als er iemand een CSPA-heffing heeft, moeten de anderen gewoon
+    hun popup krijgen.
+    """
+    gevonden = fc_character(user)
+    if not gevonden:
+        return 0, ["Er is geen character van jou gekoppeld als FC."]
+    char, leestoken = gevonden
+
+    schrijftoken = esi.token_for(char.character_id, esi.FLEET_WRITE_SCOPE)
+    if not schrijftoken:
+        return 0, ["Dit character mag geen uitnodigingen versturen. "
+                   "Koppel opnieuw als FC."]
+
+    fleet = esi.huidige_fleet(char.character_id, leestoken)
+    if not fleet:
+        return 0, [f"{char.character_name} zit op dit moment niet in een fleet. "
+                   "Maak de fleet eerst in het spel."]
+
+    gelukt, fouten = 0, []
+    namen = {c.character_id: c.character_name for c in _eve_characters(character_ids)}
+    for cid in character_ids:
+        ok, fout = esi.nodig_uit(fleet["fleet_id"], cid, schrijftoken)
+        if ok:
+            gelukt += 1
+        else:
+            fouten.append(f"{namen.get(int(cid), cid)}: {fout}")
+    return gelukt, fouten
+
+
+def fleet_sessie_uit_fleet(user, naam, soort):
+    """Start een sessie met iedereen die nú in de fleet zit.
+
+    Alleen mensen die in de Auth gekoppeld zijn: van een vreemde kunnen we de
+    ledger of het journaal niet lezen, dus die zou als nul in de verdeling
+    komen te staan en de pot van de rest verdunnen.
+    """
+    gevonden = fc_character(user)
+    if not gevonden:
+        return None, "Er is geen character van jou gekoppeld als FC."
+    char, token = gevonden
+
+    fleet = esi.huidige_fleet(char.character_id, token)
+    if not fleet:
+        return None, (f"{char.character_name} zit niet in een fleet. "
+                      "Maak de fleet eerst in het spel.")
+
+    in_fleet = {int(m.get("character_id") or 0)
+                for m in esi.fleet_leden(fleet["fleet_id"], token)}
+    bekend = {k["character_id"] for k in fleet_kandidaten()}
+    deelnemers = sorted(in_fleet & bekend)
+    if not deelnemers:
+        return None, ("Niemand in deze fleet is gekoppeld in de Auth, dus er valt "
+                      "niets uit te rekenen.")
+
+    sessie, fout = fleet_start(user, naam, soort, deelnemers)
+    if fout:
+        return None, fout
+    return sessie, ("" if len(deelnemers) == len(in_fleet) else
+                    f"{len(in_fleet) - len(deelnemers)} van de {len(in_fleet)} "
+                    "mensen in de fleet zijn niet gekoppeld in de Auth en doen "
+                    "niet mee in de verdeling.")

@@ -120,6 +120,14 @@ stukje weg:
 
 Wie via CharLink of Member Audit gekoppeld heeft, heeft die meestal al.
 
+En apart, alleen voor wie FC't, via **Koppel als FC** op het Fleet-tabblad:
+
+- `esi-fleets.read_fleet.v1` — in welke fleet je zit en wie erin zitten
+- `esi-fleets.write_fleet.v1` — uitnodigingen versturen
+
+Die staan bewust niet in de lijst hierboven, zodat een gewoon lid geen toestemming hoeft te geven om fleets
+te beheren.
+
 ## Fleetsessies
 
 Het tabblad **Fleet** verdeelt de opbrengst van een gezamenlijke mining- of ratting-run.
@@ -139,6 +147,29 @@ Zo werkt het:
 deze sessie. Dat moet zo, want de mining-ledger van EVE telt per **dag** — daar is achteraf geen uur uit te
 knippen, en een sessie achteraf aanmaken kan dus ook niet. EVE werkt de ledger ongeveer elke tien minuten
 bij, dus het laatste kwartier van een lopende sessie kan nog ontbreken. Waarde tegen Jita buy.
+
+### De fleet zelf: uitnodigen vanuit Auth
+
+Een fleet **aanmaken** kan niet via ESI, maar zodra de FC hem in het spel gevormd heeft kun je van hieruit
+mensen uitnodigen. Die krijgen de gewone invite-popup in EVE en accepteren zelf — er wordt niemand een fleet
+in getrokken.
+
+Daarvoor koppelt de FC zijn character één keer extra, met de knop **Koppel als FC** op het tabblad. Dat
+vraagt `esi-fleets.read_fleet.v1` en `esi-fleets.write_fleet.v1`. Die twee zitten **met opzet niet** in de
+gewone scope-lijst: hiermee mag een site fleets beheren, en dat hoeft een gewoon lid niet weg te geven om
+z'n wallet te kunnen zien. Wie uitgenodigd wordt hoeft niets te koppelen.
+
+Daarna laat het blok **De fleet** zien wie er in zit (met schip en hoe lang al), en staat achter iedereen die
+er nog niet in zit een vinkje. Met **Sessie met deze fleet** maak je in één klik een sessie met precies de
+mensen die op dat moment in de fleet zitten — wie niet in de Auth gekoppeld is valt daarbij af, want van hem
+kunnen we de ledger of het journaal niet lezen.
+
+Wat er mis kan gaan, en wat de melding dan zegt:
+
+- Je bent geen **fleet boss** — dan mag je via ESI niet uitnodigen. Het blok zegt dat vooraf.
+- De uitgenodigde heeft een **CSPA-heffing** ingesteld. Via ESI kan het dan niet; in het spel rechtsklikken
+  nog wel.
+- De FC zit **niet in een fleet**, of is uitgelogd. Het fleet-id bestaat alleen zolang de fleet bestaat.
 
 **Ratting** heeft dat niet nodig: het wallet-journaal heeft een tijdstempel per regel, dus daar telt gewoon
 het tijdvak van de sessie. Bounty en ESS staan er netto in, dus na corp-belasting.

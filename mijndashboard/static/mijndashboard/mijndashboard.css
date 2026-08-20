@@ -1766,3 +1766,66 @@
 .fin-app .fin-fleet-aandeel {
     display: inline-block; margin-left: .4rem; font-size: .7rem; color: var(--fin-dim);
 }
+
+/* ── Het FC-blok: de fleet zoals hij nu in het spel staat ───────────────── */
+.fin-app .fin-fleet-fc { margin-bottom: 1rem; }
+.fin-app .fin-fleet-fc .fin-kop span { color: var(--fin-dim); font-weight: 400; }
+
+.fin-app .fin-fleet-fcleeg { display: flex; flex-direction: column; gap: .5rem; }
+.fin-app .fin-fleet-fcleeg p { margin: 0; font-size: .86rem; }
+.fin-app .fin-fleet-fcleeg .fin-knop { align-self: flex-start; }
+
+.fin-app .fin-fleet-erin {
+    display: flex; align-items: center; gap: .6rem; flex-wrap: wrap;
+    margin-bottom: .7rem; font-size: .86rem;
+}
+.fin-app .fin-fleet-tel {
+    font-size: 1.3rem; font-weight: 700; color: var(--fin-green);
+    line-height: 1;
+}
+.fin-app .fin-fleet-let { font-style: normal; color: var(--fin-gold); font-size: .78rem; }
+.fin-app .fin-fleet-uitfleet {
+    display: flex; align-items: center; gap: .4rem; margin: 0 0 0 auto; flex-wrap: wrap;
+}
+.fin-app .fin-fleet-uitfleet input { width: 12rem; }
+.fin-app .fin-fleet-uitfleet select { width: auto; }
+
+/* De ledenlijst is een momentopname, geen keuzelijst — dus geen vinkjes, en
+   in kolommen zodat een fleet van dertig man niet een meter lang wordt. */
+.fin-app .fin-fleet-leden {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+    gap: .15rem .8rem; margin-bottom: .9rem;
+}
+.fin-app .fin-fleet-lid {
+    display: flex; align-items: center; gap: .4rem; min-width: 0;
+    padding: .2rem .3rem; border-radius: 5px; font-size: .82rem;
+}
+.fin-app .fin-fleet-lid:hover { background: rgba(255, 255, 255, .03); }
+.fin-app .fin-fleet-lid img { width: 22px; height: 22px; border-radius: 50%; flex: 0 0 auto; }
+.fin-app .fin-fleet-lidnaam {
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 0 1 auto;
+}
+.fin-app .fin-fleet-rol {
+    font-style: normal; font-size: .68rem; flex: 0 0 auto;
+    padding: .05rem .3rem; border-radius: 4px;
+    border: 1px solid rgba(240, 192, 64, .45); color: var(--fin-gold);
+}
+.fin-app .fin-fleet-schip {
+    color: var(--fin-dim); font-size: .74rem; margin-left: auto; flex: 0 0 auto;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 8rem;
+}
+.fin-app .fin-fleet-sinds {
+    color: var(--fin-dim); font-size: .7rem; flex: 0 0 auto; min-width: 2rem;
+    text-align: right;
+}
+
+.fin-app .fin-fleet-nodig { display: flex; flex-direction: column; gap: .6rem; }
+.fin-app .fin-fleet-nodig .fin-knop { align-self: flex-start; }
+/* Over de volle breedte werd dit één naam per regel met de corp-tag ergens in
+   de verte. In kolommen, net als de ledenlijst erboven. */
+.fin-app .fin-fleet-nodig .fin-fleet-lijst {
+    max-height: 16rem; display: grid; padding: .2rem;
+    grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+    gap: 0 .5rem;
+}
+.fin-app .fin-fleet-nodig .fin-fleet-kandidaat { border-bottom: 0; border-radius: 5px; }

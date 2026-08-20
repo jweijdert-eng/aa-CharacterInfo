@@ -9,6 +9,7 @@ from django.core.handlers.wsgi import WSGIRequest
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
 from django.utils.translation import gettext_lazy as _
+from django.utils.translation import ngettext
 
 from esi.decorators import token_required
 
@@ -19,6 +20,11 @@ from . import __version__, data, esi
 SCOPES = [esi.WALLET_SCOPE, esi.CONTRACTS_SCOPE, esi.MINING_SCOPE,
           esi.PLANETS_SCOPE, esi.MAIL_SCOPE, esi.ORDERS_SCOPE,
           esi.SEND_MAIL_SCOPE]
+
+# Apart, en met opzet niet in SCOPES: hiermee mag een site fleets beheren, en
+# dat hoeft een gewoon lid niet weg te geven om z'n wallet te kunnen zien. Wie
+# FC't koppelt één keer extra via de knop op het Fleet-tabblad.
+FC_SCOPES = [esi.FLEET_READ_SCOPE, esi.FLEET_WRITE_SCOPE]
 
 
 def _character_ids(user):
@@ -187,23 +193,70 @@ def markt(request: WSGIRequest) -> HttpResponse:
 @login_required
 @permission_required("mijndashboard.basic_access")
 def fleet(request: WSGIRequest) -> HttpResponse:
-    """Fleetsessies: een gezamenlijke mining- of ratting-run verdelen."""
+    """Fleetsessies verdelen, en de fleet zelf: wie zit erin, wie nodig je uit."""
     ctx = _basis(request, "fleet")
     if request.method == "POST":
-        sessie, fout = data.fleet_start(
-            request.user,
-            request.POST.get("naam", ""),
-            request.POST.get("soort", ""),
-            request.POST.getlist("deelnemers"),
-        )
-        if fout:
-            messages.error(request, fout)
-        else:
-            messages.success(request, _("Sessie gestart — veel succes."))
-            return redirect("mijndashboard:fleet_sessie", sessie_id=sessie.id)
+        antwoord = _fleet_post(request)
+        if antwoord is not None:
+            return antwoord
     ctx["sessies"] = data.fleet_lijst(request.user)
     ctx["kandidaten"] = data.fleet_kandidaten()
+    ctx.update(data.fleet_paneel(request.user))
     return render(request, "mijndashboard/fleet.html", ctx)
+
+
+def _fleet_post(request):
+    """De drie knoppen op het tabblad. Geeft een redirect of None."""
+    actie = request.POST.get("actie", "sessie")
+
+    if actie == "uitnodigen":
+        wie = request.POST.getlist("uitnodigen")
+        if not wie:
+            messages.error(request, _("Niemand aangevinkt om uit te nodigen."))
+            return redirect("mijndashboard:fleet")
+        gelukt, fouten = data.fleet_uitnodigen(request.user, wie)
+        if gelukt:
+            messages.success(request, ngettext(
+                "%(n)d uitnodiging verstuurd — die staat nu als popup in het spel.",
+                "%(n)d uitnodigingen verstuurd — die staan nu als popup in het spel.",
+                gelukt) % {"n": gelukt})
+        for fout in fouten:
+            messages.error(request, fout)
+        return redirect("mijndashboard:fleet")
+
+    if actie == "sessie_uit_fleet":
+        sessie, melding = data.fleet_sessie_uit_fleet(
+            request.user, request.POST.get("naam", ""), request.POST.get("soort", ""))
+        if not sessie:
+            messages.error(request, melding)
+            return redirect("mijndashboard:fleet")
+        messages.success(request, _("Sessie gestart met iedereen in de fleet."))
+        if melding:
+            messages.warning(request, melding)
+        return redirect("mijndashboard:fleet_sessie", sessie_id=sessie.id)
+
+    sessie, fout = data.fleet_start(
+        request.user,
+        request.POST.get("naam", ""),
+        request.POST.get("soort", ""),
+        request.POST.getlist("deelnemers"),
+    )
+    if fout:
+        messages.error(request, fout)
+        return None
+    messages.success(request, _("Sessie gestart — veel succes."))
+    return redirect("mijndashboard:fleet_sessie", sessie_id=sessie.id)
+
+
+@login_required
+@permission_required("mijndashboard.basic_access")
+@token_required(scopes=FC_SCOPES)
+def fleet_koppelen(request: WSGIRequest, token) -> HttpResponse:
+    """Het character van de FC koppelen met de twee fleet-scopes."""
+    messages.success(request, _(
+        "%(naam)s is gekoppeld als FC. Maak de fleet in het spel; daarna staat "
+        "hij hier.") % {"naam": token.character_name})
+    return redirect("mijndashboard:fleet")
 
 
 def _sessie_voor(user, sessie_id):

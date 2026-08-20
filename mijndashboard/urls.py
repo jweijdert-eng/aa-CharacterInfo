@@ -30,6 +30,7 @@ urlpatterns = [
     # Fleetsessies staan los van Mining en Ratting: het gaat hier om de
     # verdeling over meerdere mensen, niet om je eigen opbrengst.
     path("fleet/", views.fleet, name="fleet"),
+    path("fleet/fc/", views.fleet_koppelen, name="fleet_koppelen"),
     path("fleet/<int:sessie_id>/", views.fleet_sessie, name="fleet_sessie"),
     path("markt/", views.markt, name="markt"),
     path("mail/", views.mail, name="mail"),
