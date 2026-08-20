@@ -1148,7 +1148,16 @@
       if (!deel.intelLijst) return;
       leeg(deel.intelLijst);
       var nu = Date.now();
-      var recent = meldingen.slice().sort(function (a, b) { return b.tijd - a.tijd; }).slice(0, 25);
+      // Is een systeem vrijgegeven, dan gaat álle intel erover weg — de oude
+      // meldingen én het "clr"-bericht zelf. Wat er stond klopt niet meer, en
+      // een lijst vol afgehandelde meldingen leest niemand meer.
+      var schoon = meldingen.filter(function (m) {
+        if (!m.systemen.length) return true;      // gewoon gepraat, geen systeem
+        return !m.systemen.every(function (sid) {
+          return intel[sid] && intel[sid].clear;
+        });
+      });
+      var recent = schoon.slice().sort(function (a, b) { return b.tijd - a.tijd; }).slice(0, 25);
       if (!recent.length) {
         deel.intelLijst.appendChild(el('div', 'fin-leeg', 'Nog niets gemeld in ' + kanaal + '.'));
         return;
