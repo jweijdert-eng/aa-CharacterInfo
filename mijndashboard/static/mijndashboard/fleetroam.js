@@ -23,6 +23,8 @@
   var THREAT_RE = /\b(red|reds|hostile|hostiles|neut|neuts|camp|gang|tackled|bubble|dread|carrier|titan|\+)\b/i;
   var AANTAL_RE = /\b(\d{1,3})\+?\b/;
   var LOGNAAM_RE = /^(.*)_\d{8}_\d{6}_\d+\.txt$/;
+  // Woorden die om een icoon vragen, net als STRUCT_KEYWORDS op het dashboard.
+  var STRUCTUUR_RE = { ess: /\bess\b/i, skyhook: /\bskyhook\b/i };
 
   function filterLogs(namen, kanaal) {
     var prefixen = String(kanaal || '').split(/\s*[|,]\s*/).filter(Boolean)
@@ -85,11 +87,16 @@
       // een cijfer (5-P1Y2), en dat cijfer is niet het aantal vijanden.
       var rest = bericht.replace(CODE_RE, ' ');
       var aantal = AANTAL_RE.exec(rest);
+      var structuren = [];
+      Object.keys(STRUCTUUR_RE).forEach(function (k) {
+        if (STRUCTUUR_RE[k].test(bericht)) structuren.push(k);
+      });
       uit.push({
         tijd: tijd, zender: zender, bericht: bericht, systemen: systemen,
         clear: clear, spike: SPIKE_RE.test(bericht),
         dreiging: !clear && THREAT_RE.test(rest),
-        aantal: aantal ? +aantal[1] : 0
+        aantal: aantal ? +aantal[1] : 0,
+        structuren: structuren
       });
     }
     return uit;
@@ -112,6 +119,16 @@
       b.tijd = top.tijd; b.clear = top.clear; b.dreiging = top.dreiging;
       b.aantal = top.aantal;
       b.spike = b.regels.some(function (r) { return r.spike; });
+      // Structuren uit álle recente meldingen van dit systeem, niet alleen de
+      // laatste: "ESS onder vuur" en een minuut later "nog 3 reds" horen bij
+      // elkaar, en dat ESS staat er dan nog steeds.
+      var gezien = {};
+      b.structuren = [];
+      b.regels.forEach(function (r) {
+        (r.structuren || []).forEach(function (k) {
+          if (!gezien[k]) { gezien[k] = 1; b.structuren.push(k); }
+        });
+      });
     });
     return kaart;
   }
@@ -210,6 +227,8 @@
     var URL_JUMPS = wortel.getAttribute('data-jumps');
     var kanaal = wortel.getAttribute('data-kanaal') || 'Insidious.Intel';
 
+    var structuurIconen = {};      // trefwoord -> <img>, voor op de kaart
+    var kaartStructuren = {};      // trefwoord -> type_id, voor in de lijst
     var stand = null;              // laatste antwoord van stand.json
     var sys = {};                  // id → [id, x, z, sec, naam, regio]
     var naamIndex = {};            // naam (klein) → id
@@ -571,6 +590,15 @@
           ctx.font = 'bold ' + (ir * 1.1) + 'px system-ui, sans-serif';
           ctx.fillText('!', p[0], p[1] + ir * 0.36);
         }
+        // Genoemde structuren als icoontje naast de stip — links, want rechts
+        // staat de systeemnaam.
+        (b.structuren || []).forEach(function (woord, i) {
+          var img = structuurIconen[woord];
+          if (!img) return;
+          var g = Math.max(12, ir * 1.6);
+          ctx.drawImage(img, p[0] - ir - g - 2 - i * (g + 2), p[1] - g / 2, g, g);
+        });
+
         if (b.spike) {
           ctx.font = 'bold ' + (markerFont * 1.3) + 'px system-ui, sans-serif';
           ctx.globalAlpha = spikePuls < 0.5 ? 1 : 0.45;
@@ -1136,6 +1164,16 @@
           });
           r.appendChild(sysSpan);
         }
+        (m.structuren || []).forEach(function (woord) {
+          if (!kaartStructuren[woord]) return;
+          var ic = el('img', 'fin-intel-icoon');
+          ic.loading = 'lazy';
+          ic.alt = woord.toUpperCase();
+          ic.title = woord.toUpperCase();
+          ic.src = 'https://images.evetech.net/types/' + kaartStructuren[woord] +
+                   '/icon?size=32';
+          r.appendChild(ic);
+        });
         r.appendChild(el('span', 'fin-intel-tekst', m.bericht));
         r.appendChild(el('span', 'fin-intel-wie', m.zender));
         deel.intelLijst.appendChild(r);
@@ -1282,6 +1320,16 @@
       });
       regios = k.r || {};
       bruggen = k.bruggen || [];
+      // Iconen van de structuren die in intel genoemd kunnen worden (ESS,
+      // skyhook). Eén keer laden; als het plaatje binnen is, hertekenen.
+      kaartStructuren = k.structuren || {};
+      Object.keys(k.structuren || {}).forEach(function (woord) {
+        var img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = function () { structuurIconen[woord] = img; teken(); };
+        img.src = 'https://images.evetech.net/types/' + k.structuren[woord] +
+                  '/icon?size=32';
+      });
       buren = paar[1] || {};
       pasMaatAan();
       haalStand();

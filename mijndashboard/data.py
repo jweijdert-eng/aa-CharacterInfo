@@ -4700,8 +4700,29 @@ def kaart_json():
         if regio_id and regio_id not in regios:
             regios[regio_id] = regio_naam
 
-    uit = {"s": systemen, "r": regios}
+    uit = {"s": systemen, "r": regios, "structuren": _structuur_iconen()}
     cache.set("fin_kaart", uit, TTL_KAART)
+    return uit
+
+
+# Trefwoorden in een intel-melding die om een icoon vragen. Overgenomen van
+# STRUCT_KEYWORDS op het dashboard; de ids komen uit eveuniverse.
+STRUCTUURWOORDEN = (
+    ("ess", "Encounter Surveillance System"),
+    ("skyhook", "Orbital Skyhook"),
+)
+
+
+def _structuur_iconen():
+    """{trefwoord: type_id} voor de iconen bij intel-meldingen."""
+    try:
+        from eveuniverse.models import EveType
+    except ImportError:
+        return {}
+    namen = {naam: woord for woord, naam in STRUCTUURWOORDEN}
+    uit = {}
+    for t in EveType.objects.filter(name__in=list(namen)):
+        uit[namen[t.name]] = t.id
     return uit
 
 

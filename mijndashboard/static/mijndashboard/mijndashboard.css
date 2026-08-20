@@ -2261,3 +2261,9 @@
 .fin-app .fin-fleet-blok select option {
     background: var(--fin-surface-2); color: var(--fin-text);
 }
+
+/* Icoon van een genoemde structuur (ESS, skyhook) in de intel-lijst. */
+.fin-app .fin-intel-icoon {
+    width: 16px; height: 16px; border-radius: 3px; flex: 0 0 auto;
+    vertical-align: middle;
+}
