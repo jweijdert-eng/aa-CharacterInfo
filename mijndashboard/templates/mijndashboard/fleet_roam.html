@@ -7,7 +7,7 @@
          src="https://images.evetech.net/types/42526/icon?size=64">
 {% endblock %}
 
-{% block fin_title %}{% translate "Fleet Roam" %}{% endblock %}
+{% block fin_title %}{% translate "Fleet Roaming" %}{% endblock %}
 {% block fin_sub %}
     {% if in_fleet %}
         {{ aantal }} {% translate "in de fleet" %}
@@ -47,7 +47,7 @@
             <div class="fin-stat">
                 <span class="l">{% translate "In de fleet" %}</span>
                 <span class="v">{{ aantal }}</span>
-                <span class="s">{% if fc_naam %}{% translate "FC" %}: {{ fc_naam }}{% endif %}</span>
+                <span class="s">{% if fc_naam %}FC: {{ fc_naam }}{% endif %}</span>
             </div>
             <div class="fin-stat {% if not logi %}fin-stat-leeg{% endif %}">
                 <span class="l">{% translate "Logi" %}</span>

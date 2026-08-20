@@ -148,9 +148,9 @@ deze sessie. Dat moet zo, want de mining-ledger van EVE telt per **dag** — daa
 knippen, en een sessie achteraf aanmaken kan dus ook niet. EVE werkt de ledger ongeveer elke tien minuten
 bij, dus het laatste kwartier van een lopende sessie kan nog ontbreken. Waarde tegen Jita buy.
 
-Het tabblad heeft twee sub-tabs: **Mining/Ratting** (de sessies hierboven) en **Fleet Roam**.
+Het tabblad heeft twee sub-tabs: **Mining/Ratting** (de sessies hierboven) en **Fleet Roaming**.
 
-### Fleet Roam: de fleet zoals hij nu vliegt
+### Fleet Roaming: de fleet zoals hij nu vliegt
 
 Leest de fleet live uit EVE en beantwoordt de vragen die een FC tijdens een roam heeft:
 
