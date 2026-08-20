@@ -1555,3 +1555,47 @@
     color: var(--fin-dim); font-size: .95rem; pointer-events: none;
 }
 .fin-app .fin-bouwzoek .fin-knop { margin-left: auto; }
+
+/* ── Bouwproject: kopkaart en boomregels ──────────────────────────────── */
+.fin-app .fin-projectkop {
+    display: flex; align-items: center; gap: .9rem; margin-bottom: .75rem;
+    padding: .7rem .9rem; border-radius: 10px;
+    background: linear-gradient(90deg, rgba(240, 192, 64, .10), var(--fin-surface) 45%);
+    border: 1px solid rgba(240, 192, 64, .28);
+}
+.fin-app .fin-projectkop-icoon { width: 52px; height: 52px; border-radius: 8px; flex: none; }
+.fin-app .fin-projectkop-mid { flex: 1 1 auto; min-width: 0; }
+.fin-app .fin-projectkop-naam { font-size: 1.1rem; font-weight: 700; }
+.fin-app .fin-projectkop-sub { font-size: .76rem; color: var(--fin-dim); margin-bottom: .35rem; }
+.fin-app .fin-projectkop-balk {
+    height: 6px; border-radius: 3px; background: var(--fin-border); overflow: hidden;
+}
+.fin-app .fin-projectkop-balk > i { display: block; height: 100%; background: var(--fin-green); }
+.fin-app .fin-projectkop-pct {
+    flex: none; text-align: right; font-size: 1.15rem; font-weight: 700; color: var(--fin-green);
+}
+.fin-app .fin-projectkop-pct span {
+    display: block; font-size: .6rem; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--fin-dim); font-weight: 600;
+}
+
+/* Uitklappijl per tak; regels zonder kinderen houden dezelfde inspringing. */
+.fin-app .fin-tak {
+    width: 1rem; flex: none; background: transparent; border: 0; padding: 0;
+    color: var(--fin-dim); font-size: .7rem; line-height: 1; cursor: pointer;
+}
+.fin-app .fin-tak:hover { color: var(--fin-gold); }
+.fin-app .fin-tak.is-leeg { display: inline-block; cursor: default; }
+/* Wat er onder de naam staat: welke blueprint je hebt en of bouwen loont. */
+.fin-app .fin-knoopsub {
+    display: flex; gap: .4rem; flex-wrap: wrap; align-items: center;
+    font-size: .66rem; margin-top: .15rem; padding-left: 1rem;
+}
+.fin-app .fin-bpbadge {
+    padding: .05rem .35rem; border-radius: 3px; font-weight: 700; font-size: .6rem;
+    background: rgba(0, 180, 216, .14); color: var(--fin-blue);
+}
+.fin-app .fin-bpbadge.is-bpo { background: rgba(62, 207, 110, .14); color: var(--fin-green); }
+.fin-app .fin-advieschip { font-weight: 600; }
+.fin-app .fin-advieschip.is-bouwen { color: var(--fin-gold); }
+.fin-app .fin-advieschip.is-kopen { color: var(--fin-blue); }

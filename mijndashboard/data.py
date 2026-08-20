@@ -3778,10 +3778,16 @@ def bouwproject(user, type_id=None, aantal=1, me=10, zoek="", koop=None, plek=No
                 "suggesties": suggesties}
 
     voorraad, plekken = _voorraad(user, plek)
-    eigen_bps = set()
+    # Per blueprint de beste die je hebt: origineel gaat voor kopie, en daarbinnen
+    # de hoogste ME. Dat is waar je mee zou bouwen, dus dat zetten we op de regel.
+    eigen_bps = {}
     for c in esi.characters(user):
         for b in esi.blueprints(c.character_id):
-            eigen_bps.add(b["type_id"])
+            origineel = int(b.get("quantity") or 0) == BP_ORIGINEEL
+            me_bp = int(b.get("material_efficiency") or 0)
+            huidig = eigen_bps.get(b["type_id"])
+            if not huidig or (origineel, me_bp) > huidig:
+                eigen_bps[b["type_id"]] = (origineel, me_bp)
 
     # ── De boom aflopen ───────────────────────────────────────────────────
     # Voorraad wordt onderweg opgesoupeerd: heb je 100 van iets en vraagt de
@@ -3809,6 +3815,7 @@ def bouwproject(user, type_id=None, aantal=1, me=10, zoek="", koop=None, plek=No
             "voorraad_fmt": _getal(beschikbaar), "tekort": tekort,
             "tekort_fmt": _getal(tekort), "maken": maken, "runs": runs,
             "heeft_bp": bool(recept) and recept["bp"] in eigen_bps,
+            "bp_info": eigen_bps.get(recept["bp"]) if recept else None,
             "bouwbaar": bool(recept),
             "gekozen_kopen": tid in koop,
             # Het eindproduct zelf mag je niet op "kopen" zetten; dan bouw je niets.
@@ -3825,6 +3832,10 @@ def bouwproject(user, type_id=None, aantal=1, me=10, zoek="", koop=None, plek=No
             _loop(mat_id, per_run * runs, diepte + 1)
 
     _loop(type_id, aantal, 0)
+
+    for i, k in enumerate(knopen):
+        volgende = knopen[i + 1] if i + 1 < len(knopen) else None
+        k["heeft_kinderen"] = bool(volgende and volgende["diepte"] > k["diepte"])
 
     # ── Namen en prijzen erbij ────────────────────────────────────────────
     top_plekken = [p for p, _ in sorted(plekken.items(), key=lambda kv: -kv[1])[:12] if p]
@@ -3846,6 +3857,33 @@ def bouwproject(user, type_id=None, aantal=1, me=10, zoek="", koop=None, plek=No
         k["plaatje"] = info.get("plaatje") or ""
         prijs = (prijzen.get(k["type_id"]) or {}).get("verkoop") or 0.0
         k["isk_fmt"] = fmt_isk(prijs * k["tekort"])
+
+        # Advies per regel: is dit onderdeel zelf maken goedkoper dan het kopen?
+        # We vergelijken één laag diep — de directe materialen tegen de kale
+        # koopprijs — want dat is de beslissing die je op díé regel neemt.
+        recept = recepten.get(k["type_id"])
+        k["bouwkosten_fmt"] = ""
+        k["advies"] = ""
+        k["advies_pct"] = 0
+        if recept and k["tekort"] > 0 and prijs:
+            runs = math.ceil(k["tekort"] / recept["per_run"])
+            bouwkosten = 0.0
+            compleet = True
+            for mat_id, basis_aantal in recept["materialen"]:
+                per_run = max(1, math.ceil(basis_aantal * (1 - me / 100)))
+                mp = (prijzen.get(mat_id) or {}).get("verkoop") or 0.0
+                if not mp:
+                    compleet = False
+                bouwkosten += per_run * runs * mp
+            koopkosten = prijs * k["tekort"]
+            if compleet and bouwkosten and koopkosten:
+                k["bouwkosten_fmt"] = fmt_isk(bouwkosten)
+                if bouwkosten < koopkosten:
+                    k["advies"] = "bouwen"
+                    k["advies_pct"] = round((1 - bouwkosten / koopkosten) * 100)
+                else:
+                    k["advies"] = "kopen"
+                    k["advies_pct"] = round((1 - koopkosten / bouwkosten) * 100)
         # Inspringen doen we met een marge in de template; hier alleen het getal.
         k["inspring"] = min(k["diepte"], 5)
 
@@ -3890,5 +3928,8 @@ def bouwproject(user, type_id=None, aantal=1, me=10, zoek="", koop=None, plek=No
         "multibuy": "\n".join(f"{r['naam']} {r['aantal']}" for r in inkooplijst),
         "uit_voorraad": sum(1 for k in knopen if k["voorraad"]),
         "zelf_maken": sum(1 for k in knopen if k["maken"]),
+        "te_kopen": sum(1 for k in knopen if k["tekort"] and not k["maken"]),
+        "gedekt_pct": (round(sum(1 for k in knopen if not k["tekort"]) / len(knopen) * 100)
+                       if knopen else 0),
         "mist_bp": sum(1 for k in knopen if k["maken"] and not k["heeft_bp"]),
     }

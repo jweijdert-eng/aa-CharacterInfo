@@ -141,6 +141,8 @@
         if (!vak) return;
         vak.innerHTML = '';
 
+        takKnop(rij);
+
         // Wisselen tussen zelf bouwen en kopen: dat verandert de boom, dus dat
         // gaat via de URL en niet via de opslag.
         var wissel = rij.querySelector('[data-rol="wissel"]');
@@ -205,6 +207,34 @@
       });
     }
 
+    /* ── Eén tak in- of uitklappen ─────────────────────────────────────── */
+    /* De boom staat plat in de tabel met een diepte per regel; een tak sluiten
+       is dus: alle volgende regels verbergen tot er weer een even ondiepe komt. */
+    function takKnop(rij) {
+      var knop = rij.querySelector('[data-rol="tak"]');
+      if (!knop) return;
+      knop.addEventListener('click', function () {
+        var diepte = parseInt(rij.dataset.diepte || '0', 10);
+        var dicht = knop.textContent.trim() === '▾';
+        knop.textContent = dicht ? '▸' : '▾';
+        var volgende = rij.nextElementSibling;
+        while (volgende && parseInt(volgende.dataset.diepte || '0', 10) > diepte) {
+          volgende.style.display = dicht ? 'none' : '';
+          // Een tak die zelf dicht stond blijft dicht als de ouder weer opengaat.
+          var eigen = volgende.querySelector('[data-rol="tak"]');
+          if (!dicht && eigen && eigen.textContent.trim() === '▸') {
+            var binnen = parseInt(volgende.dataset.diepte || '0', 10);
+            volgende = volgende.nextElementSibling;
+            while (volgende && parseInt(volgende.dataset.diepte || '0', 10) > binnen) {
+              volgende = volgende.nextElementSibling;
+            }
+            continue;
+          }
+          volgende = volgende.nextElementSibling;
+        }
+      });
+    }
+
     /* ── In- en uitklappen ─────────────────────────────────────────────── */
     var ingeklapt = false;
     var klapKnop = paneel.querySelector('[data-rol="klap"]');
@@ -216,6 +246,10 @@
           // Alleen de eerste laag blijft staan; de rest vouwt weg.
           if (parseInt(rij.dataset.diepte || '0', 10) > 1) {
             rij.style.display = ingeklapt ? 'none' : '';
+          }
+          var tak = rij.querySelector('[data-rol="tak"]');
+          if (tak && parseInt(rij.dataset.diepte || '0', 10) >= 1) {
+            tak.textContent = ingeklapt ? '▸' : '▾';
           }
         });
       });

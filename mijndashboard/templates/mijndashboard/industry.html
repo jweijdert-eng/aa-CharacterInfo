@@ -263,6 +263,31 @@
         {% endif %}
 
         {% if doel %}
+            {% comment %}
+                Kopkaart naar het voorbeeld van /build op het dashboard: wát je
+                maakt, met de kerncijfers op één regel en een balk die laat zien
+                hoe ver je bent. De kolommen eronder blijven zoals ze waren.
+            {% endcomment %}
+            <div class="fin-projectkop">
+                {% if doel.plaatje %}
+                    <img class="fin-projectkop-icoon" alt="" src="{{ doel.plaatje }}">
+                {% endif %}
+                <div class="fin-projectkop-mid">
+                    <div class="fin-projectkop-naam">{{ doel.naam }}</div>
+                    <div class="fin-projectkop-sub">
+                        {{ doel.aantal }}× · ME {{ me }}% ·
+                        <span class="fin-neg">{{ kosten_fmt }} ISK {% translate "nog te kopen" %}</span> ·
+                        {{ knopen }} {% translate "onderdelen" %}
+                        {% if plek_naam %}· {% translate "voorraad op" %} {{ plek_naam }}{% endif %}
+                    </div>
+                    <div class="fin-projectkop-balk" title="{{ gedekt_pct }}% {% translate 'gedekt' %}">
+                        <i style="width: {{ gedekt_pct }}%;"></i>
+                    </div>
+                </div>
+                <div class="fin-projectkop-pct">{{ gedekt_pct }}%
+                    <span>{% translate "gedekt" %}</span></div>
+            </div>
+
             <div class="fin-stats">
                 <div class="fin-stat fin-stat-totaal">
                     <span class="l">{% translate "Doel" %}</span>
@@ -346,9 +371,31 @@
                                         data-tekort="{{ k.tekort }}">
                                         <td>
                                             <span class="fin-erts" style="padding-left: {{ k.inspring }}rem;">
+                                                {% if k.heeft_kinderen %}
+                                                    <button type="button" class="fin-tak" data-rol="tak"
+                                                            title="{% translate 'Deze tak in- of uitklappen' %}">▾</button>
+                                                {% else %}
+                                                    <span class="fin-tak is-leeg"></span>
+                                                {% endif %}
                                                 {% if k.plaatje %}<img loading="lazy" alt="" src="{{ k.plaatje }}">{% endif %}
                                                 {{ k.naam }}
                                             </span>
+                                            <div class="fin-knoopsub">
+                                                {% if k.bp_info %}
+                                                    <span class="fin-bpbadge {% if k.bp_info.0 %}is-bpo{% endif %}">
+                                                        {% if k.bp_info.0 %}BPO{% else %}BPC{% endif %} ME{{ k.bp_info.1 }}
+                                                    </span>
+                                                {% endif %}
+                                                {% if k.advies %}
+                                                    <span class="fin-advieschip is-{{ k.advies }}">
+                                                        {% blocktranslate with a=k.advies p=k.advies_pct %}advies: {{ a }} ({{ p }}% goedkoper){% endblocktranslate %}
+                                                    </span>
+                                                {% endif %}
+                                                {% if k.bouwkosten_fmt %}
+                                                    <span class="fin-dim">{% translate "zelf" %} {{ k.bouwkosten_fmt }}
+                                                        · {% translate "kopen" %} {{ k.isk_fmt }}</span>
+                                                {% endif %}
+                                            </div>
                                         </td>
                                         <td class="fin-getal" style="width: 1%;">{{ k.nodig_fmt }}</td>
                                         <td class="fin-getal fin-pos" style="width: 1%;">
