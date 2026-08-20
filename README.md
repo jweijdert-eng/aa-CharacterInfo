@@ -171,12 +171,23 @@ kaart kost geen enkele ESI-call. Ze worden als één bestand opgehaald (`fleet/k
 door de browser gecached.
 
 De **intel** komt niet van de server maar uit je eigen EVE-chatlogs, in de browser gelezen via de File System
-Access API — dezelfde mapkoppeling die het Local-tabblad gebruikt, dus wie die daar al gekoppeld heeft hoeft
-hier niets te doen. Standaard wordt het kanaal `Insidious.Intel` gevolgd; een ander kanaal zet je in
+Access API (Chrome/Edge). Je kiest daarvoor met de knop **Kies Chatlogs-map** de map `EVE/logs/Chatlogs` —
+niet `Gamelogs` en niet de map erboven. Die keuze staat los van het Local-tabblad: dat kan een andere map
+zijn, en dan zou hier in de verkeerde gezocht worden. De knop opent altijd de kiezer, dus een misklik is zo
+rechtgezet.
+
+Vindt hij niets, dan zegt de statusregel **welke kanalen er wél in die map staan**. Zo zie je meteen of je de
+verkeerde map koos of dat het kanaal in het spel dichtstaat.
+
+Alle logbestanden van het kanaal worden gelezen, niet alleen het nieuwste: EVE maakt er één per
+client-sessie, dus met meerdere accounts open staan er meerdere actuele bestanden. Dubbele meldingen vallen
+weg. Per bestand wordt alleen de laatste 512 kB gelezen — het recente werk staat achteraan.
+
+Standaard wordt het kanaal `Insidious.Intel` gevolgd; anders (of meerdere, gescheiden door `|`) in
 `local.py`:
 
 ```python
-MIJNDASHBOARD_INTEL_KANAAL = "Jouw.Intel"
+MIJNDASHBOARD_INTEL_KANAAL = "Jouw.Intel | Ander.Kanaal"
 ```
 
 Meldingen worden gekoppeld aan systeemnamen die erin voorkomen, en gekleurd op leeftijd: rood onder de vijf
