@@ -25,7 +25,8 @@ SCOPES = [esi.WALLET_SCOPE, esi.CONTRACTS_SCOPE, esi.MINING_SCOPE,
 # Apart, en met opzet niet in SCOPES: hiermee mag een site fleets beheren, en
 # dat hoeft een gewoon lid niet weg te geven om z'n wallet te kunnen zien. Wie
 # FC't koppelt één keer extra via de knop op het Fleet-tabblad.
-FC_SCOPES = [esi.FLEET_READ_SCOPE, esi.FLEET_WRITE_SCOPE]
+FC_SCOPES = [esi.FLEET_READ_SCOPE, esi.FLEET_WRITE_SCOPE,
+             esi.WAYPOINT_SCOPE, esi.LOCATIE_SCOPE]
 
 
 def _character_ids(user):
@@ -310,6 +311,34 @@ def _fleet_post(request):
 
 @login_required
 @permission_required("mijndashboard.basic_access")
+def fleet_stand(request: WSGIRequest) -> JsonResponse:
+    """De live stand van de fleet — de pagina haalt dit elke 15 seconden op."""
+    return JsonResponse(data.roam_json(request.user))
+
+
+@login_required
+@permission_required("mijndashboard.basic_access")
+def fleet_doe(request: WSGIRequest) -> JsonResponse:
+    """Eén beheeractie: uitnodigen, kicken, verplaatsen, wings, MOTD."""
+    if request.method != "POST":
+        return JsonResponse({"ok": False, "melding": "POST verwacht."}, status=405)
+    actie = request.POST.get("actie", "")
+
+    if actie == "waypoint":
+        ok, melding = data.roam_waypoint(request.user,
+                                         request.POST.get("systeem_id") or 0,
+                                         request.POST.get("modus", "set"))
+    elif actie == "route":
+        uitslag = data.roam_route(request.user, request.POST.get("systeem_id") or 0)
+        return JsonResponse({"ok": not uitslag["fout"], "melding": uitslag["fout"],
+                             "pad": uitslag["pad"], "jumps": uitslag.get("jumps", 0)})
+    else:
+        ok, melding = data.roam_actie(request.user, actie, request.POST)
+    return JsonResponse({"ok": ok, "melding": melding})
+
+
+@login_required
+@permission_required("mijndashboard.basic_access")
 def fleet_kaart(request: WSGIRequest) -> JsonResponse:
     """Alle systemen van New Eden met hun plek — één keer ophalen, dan cachen.
 
@@ -317,8 +346,10 @@ def fleet_kaart(request: WSGIRequest) -> JsonResponse:
     elke verversing opnieuw over de lijn gaan, als los bestand houdt de browser
     het vast.
     """
-    antwoord = JsonResponse(data.kaart_json())
-    antwoord["Cache-Control"] = "private, max-age=86400"
+    kaart = dict(data.kaart_json())
+    kaart["bruggen"] = data.jump_bridges()
+    antwoord = JsonResponse(kaart)
+    antwoord["Cache-Control"] = "private, max-age=3600"
     return antwoord
 
 

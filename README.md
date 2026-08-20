@@ -152,50 +152,35 @@ Het tabblad heeft twee sub-tabs: **Mining/Ratting** (de sessies hierboven) en **
 
 ### Fleet Roaming: de fleet zoals hij nu vliegt
 
-Leest de fleet live uit EVE en beantwoordt de vragen die een FC tijdens een roam heeft:
+De fleet-pagina van het dashboard, hier in de plugin. Ververst zichzelf elke vijftien seconden.
 
-- **Samenstelling** — hoeveel logi, tackle, e-war, command en dps, met de scheepstypes eronder. De
-  indeling komt uit de scheepsgroep in de SDE, dus een Guardian telt vanzelf als logi.
-- **Waar staat iedereen** — leden gegroepeerd per systeem, met security-kleur, en het systeem van de FC
-  bovenaan. Wie ergens anders staat komt eronder in het geel te staan: dat is de man die de gate mist.
-- **Verhouding logi/fleet** — hoeveel man er per logi vliegt, of een waarschuwing als er geen reps mee zijn.
-- **Fleet-beheer** (alleen de fleet boss) — MOTD zetten, mensen uitnodigen (eventueel meteen in een squad)
-  en iemand uit de fleet zetten.
+**Statusbalk** — fleet commander, jouw rol, aantal leden en in hoeveel systemen, free move en advert, en of
+er iemand niet bij de FC staat.
 
-- **Kaart met intel** — waar de fleet staat en wat er in het intel-kanaal gemeld wordt, op één kaart.
+**Kaart** — New Eden met stargate-lijnen, systemen gekleurd op security, jullie jump bridges als groene
+boog, de fleet als groene ring met het aantal erin (de FC in goud) en intel-markers. Slepen om te pannen,
+scrollen om te zoomen; ingezoomd verschijnen de systeemnamen. Bij het laden zoomt hij vanzelf naar de FC.
 
-#### De intel-kaart
-
-De sterren komen van de server: alle 8490 systemen staan lokaal in django-eveuniverse mét coördinaten, dus de
-kaart kost geen enkele ESI-call. Ze worden als één bestand opgehaald (`fleet/kaart.json`, 412 kB) en daarna
-door de browser gecached.
-
-De **intel** komt niet van de server maar uit je eigen EVE-chatlogs, in de browser gelezen via de File System
-Access API (Chrome/Edge). Je kiest daarvoor met de knop **Kies Chatlogs-map** de map `EVE/logs/Chatlogs` —
-niet `Gamelogs` en niet de map erboven. Die keuze staat los van het Local-tabblad: dat kan een andere map
-zijn, en dan zou hier in de verkeerde gezocht worden. De knop opent altijd de kiezer, dus een misklik is zo
-rechtgezet.
-
-Vindt hij niets, dan zegt de statusregel **welke kanalen er wél in die map staan**. Zo zie je meteen of je de
-verkeerde map koos of dat het kanaal in het spel dichtstaat.
-
-Alle logbestanden van het kanaal worden gelezen, niet alleen het nieuwste: EVE maakt er één per
-client-sessie, dus met meerdere accounts open staan er meerdere actuele bestanden. Dubbele meldingen vallen
-weg. Per bestand wordt alleen de laatste 512 kB gelezen — het recente werk staat achteraan.
-
-Standaard wordt het kanaal `Insidious.Intel` gevolgd; anders (of meerdere, gescheiden door `|`) in
-`local.py`:
+**Rechtsklik op een systeem** geeft het in-game menu: Set Destination, Waypoint toevoegen, Route op al mijn
+characters, Toon route (die als stippellijn op de kaart komt) en links naar Dotlan en zKillboard. De route
+telt jullie eigen Ansiblex-bruggen mee als je die in `local.py` zet:
 
 ```python
-MIJNDASHBOARD_INTEL_KANAAL = "Jouw.Intel | Ander.Kanaal"
+MIJNDASHBOARD_JUMP_BRIDGES = [("1DQ1-A", "Y-2ANO"), ("PS-94K", "319-3D")]
 ```
 
-Meldingen worden gekoppeld aan systeemnamen die erin voorkomen, en gekleurd op leeftijd: rood onder de vijf
-minuten, oranje onder het kwartier, daarna grijs; ouder dan een uur valt weg. `clr`/`clear` maakt een systeem
-groen, `spike` geeft een dikke ring.
+**Leden** — tabel met piloot, rol, schip, systeem (klikbaar: springt naar dat systeem op de kaart), squad
+(als keuzemenu — daarmee verplaats je iemand meteen) en een kruisje om hem uit de fleet te zetten.
 
-**Afstanden op deze kaart zijn hemelsbreed, niet in jumps.** De stargate-tabel van eveuniverse is leeg (nul
-rijen), dus sprongverbindingen en routes worden niet getekend. Beter geen getal dan een verkeerd getal.
+**Fleet-beheer** (alleen de fleet boss) — MOTD zetten, free move aan of uit, wings en squads maken,
+hernoemen en verwijderen, en uitnodigen: aanvinken uit de Auth of namen intypen, eventueel meteen in een
+squad.
+
+**Intel** — meldingen uit je eigen chatlogs, met de laatste stand per systeem op de kaart.
+
+De kaartgegevens komen van de server (`fleet/kaart.json`, 5485 k-space-systemen uit django-eveuniverse,
+zonder ESI-call); de stargate-verbindingen staan als bundel bij de plugin. Wormholeruimte laten we weg: die
+coördinaten liggen zo ver buiten k-space dat de hele kaart in één stip zou vallen.
 
 ### De fleet zelf: uitnodigen vanuit Auth
 

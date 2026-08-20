@@ -4653,6 +4653,11 @@ def kaart_json():
     for sid, naam, x, z, sec, regio_id, regio_naam in rijen:
         if x is None or z is None:
             continue
+        # Alleen k-space. Wormholeruimte (31000000+) en abyssal liggen op
+        # coördinaten die duizenden keren verder weg staan; die trekken het
+        # bereik van de kaart zo ver open dat heel New Eden in één stip valt.
+        if sid >= 31000000:
+            continue
         systemen.append([sid, round(x / schaal, 2), round(z / schaal, 2),
                          round(float(sec or 0), 1), naam, regio_id])
         if regio_id and regio_id not in regios:
@@ -4660,4 +4665,307 @@ def kaart_json():
 
     uit = {"s": systemen, "r": regios}
     cache.set("fin_kaart", uit, TTL_KAART)
+    return uit
+
+
+# --------------------------------------------------------------------------
+# Fleet Roaming: de live stand, als json voor de pagina
+# --------------------------------------------------------------------------
+#
+# De pagina ververst zichzelf elke vijftien seconden, net als op het dashboard.
+# Alles wat daarvoor nodig is zit in één antwoord, zodat er per ronde één
+# verzoek gaat en niet zeven.
+
+
+def roam_json(user):
+    """De hele fleet in één antwoord: leden, wings, rechten, sov."""
+    uit = {"gekoppeld": False, "in_fleet": False, "leden": [], "wings": [],
+           "kandidaten": [], "motd": "", "motd_kaal": "",
+           "free_move": False, "geregistreerd": False,
+           "is_boss": False, "mag_schrijven": False, "mag_waypoint": False,
+           "fc": None, "mijn_rol": "", "mijn_systeem": None}
+
+    gevonden = fc_character(user)
+    if not gevonden:
+        return uit
+    char, token = gevonden
+    uit["gekoppeld"] = True
+    uit["ik"] = {"character_id": char.character_id, "naam": char.character_name}
+    uit["mag_schrijven"] = bool(esi.token_for(char.character_id, esi.FLEET_WRITE_SCOPE))
+    uit["mag_waypoint"] = bool(esi.token_for(char.character_id, esi.WAYPOINT_SCOPE))
+
+    # Waar sta ik zelf? Dat is het beginpunt voor routes.
+    plek = esi.locatie(char.character_id)
+    if plek:
+        uit["mijn_systeem"] = plek.get("solar_system_id")
+
+    fleet = esi.huidige_fleet(char.character_id, token)
+    if not fleet:
+        return uit
+    fleet_id = fleet["fleet_id"]
+    uit["in_fleet"] = True
+    uit["fleet_id"] = fleet_id
+    uit["mijn_rol"] = fleet.get("role", "")
+    uit["is_boss"] = fleet.get("role") == "fleet_commander"
+
+    info = esi.fleet_info(fleet_id, token)
+    gerenderd = mailtekst.render(info.get("motd") or "") if info.get("motd") else {}
+    uit["motd"] = gerenderd.get("html", "")
+    uit["motd_kaal"] = gerenderd.get("tekst", "")
+    uit["free_move"] = bool(info.get("is_free_move"))
+    uit["geregistreerd"] = bool(info.get("is_registered"))
+
+    leden = esi.fleet_leden(fleet_id, token)
+    ids = [int(m.get("character_id") or 0) for m in leden]
+    namen = {c.character_id: c.character_name for c in _eve_characters(ids)}
+    ontbrekend = [i for i in ids if i not in namen]
+    if ontbrekend:
+        namen.update({int(k): v for k, v in (esi.names(ontbrekend) or {}).items()})
+
+    schip_ids = {int(m.get("ship_type_id") or 0) for m in leden}
+    typen = _type_info(schip_ids)
+    _vol, _por, _mat, groepen = _type_gegevens(schip_ids)
+
+    nu = datetime.now(timezone.utc)
+    for m in leden:
+        cid = int(m.get("character_id") or 0)
+        tid = int(m.get("ship_type_id") or 0)
+        groep = (groepen.get(tid) or (0, ""))[1]
+        uit["leden"].append({
+            "character_id": cid,
+            "naam": namen.get(cid, str(cid)),
+            "schip": (typen.get(tid) or {}).get("naam", ""),
+            "schip_id": tid,
+            "groep": groep,
+            "rol": m.get("role") or "squad_member",
+            "wing_id": m.get("wing_id"),
+            "squad_id": m.get("squad_id"),
+            "systeem_id": m.get("solar_system_id"),
+            "sinds": _geleden(_parse(m.get("join_time")), nu),
+            "ik": cid == char.character_id,
+        })
+        if m.get("role") == "fleet_commander":
+            uit["fc"] = {"character_id": cid, "naam": namen.get(cid, str(cid)),
+                         "systeem_id": m.get("solar_system_id")}
+
+    for w in esi.fleet_wings(fleet_id, token):
+        uit["wings"].append({
+            "id": w.get("id"), "naam": w.get("name") or "",
+            "squads": [{"id": s.get("id"), "naam": s.get("name") or ""}
+                       for s in (w.get("squads") or [])],
+        })
+
+    erin = set(ids)
+    uit["kandidaten"] = [k for k in fleet_kandidaten() if k["character_id"] not in erin]
+
+    # Sov alleen ophalen als er iemand buiten empire zit; anders zegt het niets.
+    uit["sov"] = {}
+    return uit
+
+
+def _fc_tokens(user, schrijven=False):
+    """(character, leestoken, schrijftoken, fleet_id) of (None, fout)."""
+    gevonden = fc_character(user)
+    if not gevonden:
+        return None, "Er is geen character van jou gekoppeld als FC."
+    char, leestoken = gevonden
+    fleet = esi.huidige_fleet(char.character_id, leestoken)
+    if not fleet:
+        return None, f"{char.character_name} zit op dit moment niet in een fleet."
+    if not schrijven:
+        return (char, leestoken, None, fleet["fleet_id"]), ""
+    schrijftoken = esi.token_for(char.character_id, esi.FLEET_WRITE_SCOPE)
+    if not schrijftoken:
+        return None, "Dit character mag de fleet niet aanpassen. Koppel opnieuw als FC."
+    return (char, leestoken, schrijftoken, fleet["fleet_id"]), ""
+
+
+def roam_actie(user, actie, gegevens):
+    """Eén beheeractie uitvoeren. Geeft (gelukt, melding)."""
+    schrijft = actie not in ("route",)
+    spullen, fout = _fc_tokens(user, schrijven=schrijft)
+    if fout:
+        return False, fout
+    char, leestoken, schrijftoken, fleet_id = spullen
+
+    def _int(naam, standaard=None):
+        try:
+            return int(gegevens.get(naam))
+        except (TypeError, ValueError):
+            return standaard
+
+    if actie == "uitnodigen":
+        ids = [int(i) for i in gegevens.getlist("character_id")] \
+            if hasattr(gegevens, "getlist") else [_int("character_id")]
+        namen = (gegevens.get("namen") or "").strip()
+        if namen:
+            # Zoals op het dashboard: namen mogen ook getypt worden, één per
+            # regel of met komma's ertussen.
+            lijst = [n.strip() for n in re.split(r"[\n,;]+", namen) if n.strip()]
+            gevonden = esi.zoek_ids(lijst) or {}
+            for n in lijst:
+                treffer = gevonden.get(n.lower())
+                # Alleen personen: een corp uitnodigen kan niet.
+                if treffer and treffer.get("soort") == "character":
+                    ids.append(int(treffer["id"]))
+        ids = [i for i in ids if i]
+        if not ids:
+            return False, "Niemand om uit te nodigen."
+        gelukt, fouten = 0, []
+        for cid in ids:
+            ok, f = esi.nodig_uit(fleet_id, cid, schrijftoken,
+                                  wing_id=_int("wing_id"), squad_id=_int("squad_id"))
+            if ok:
+                gelukt += 1
+            else:
+                fouten.append(f)
+        if gelukt and not fouten:
+            return True, f"{gelukt} uitnodiging(en) verstuurd."
+        if gelukt:
+            return True, f"{gelukt} verstuurd; {fouten[0]}"
+        return False, fouten[0] if fouten else "Uitnodigen mislukte."
+
+    if actie == "schop":
+        cid = _int("character_id")
+        if cid == char.character_id:
+            return False, "Jezelf eruit schoppen kan hier niet."
+        ok, f = esi.schop_lid(fleet_id, cid, schrijftoken)
+        return ok, "Uit de fleet gezet." if ok else f
+
+    if actie == "verplaats":
+        ok, f = esi.verplaats_lid(fleet_id, _int("character_id"), schrijftoken,
+                                  rol=gegevens.get("rol") or "squad_member",
+                                  wing_id=_int("wing_id"), squad_id=_int("squad_id"))
+        return ok, "Verplaatst." if ok else f
+
+    if actie == "wing_nieuw":
+        wing_id, f = esi.maak_wing(fleet_id, schrijftoken)
+        if wing_id and gegevens.get("naam"):
+            esi.hernoem_wing(fleet_id, wing_id, gegevens["naam"], schrijftoken)
+        return bool(wing_id), "Wing toegevoegd." if wing_id else f
+
+    if actie == "wing_naam":
+        ok, f = esi.hernoem_wing(fleet_id, _int("wing_id"), gegevens.get("naam"), schrijftoken)
+        return ok, "Wing hernoemd." if ok else f
+
+    if actie == "wing_weg":
+        ok, f = esi.wis_wing(fleet_id, _int("wing_id"), schrijftoken)
+        return ok, "Wing verwijderd." if ok else f
+
+    if actie == "squad_nieuw":
+        squad_id, f = esi.maak_squad(fleet_id, _int("wing_id"), schrijftoken)
+        if squad_id and gegevens.get("naam"):
+            esi.hernoem_squad(fleet_id, squad_id, gegevens["naam"], schrijftoken)
+        return bool(squad_id), "Squad toegevoegd." if squad_id else f
+
+    if actie == "squad_naam":
+        ok, f = esi.hernoem_squad(fleet_id, _int("squad_id"), gegevens.get("naam"), schrijftoken)
+        return ok, "Squad hernoemd." if ok else f
+
+    if actie == "squad_weg":
+        ok, f = esi.wis_squad(fleet_id, _int("squad_id"), schrijftoken)
+        return ok, "Squad verwijderd." if ok else f
+
+    if actie == "motd":
+        ok, f = esi.fleet_instellen(fleet_id, schrijftoken, motd=gegevens.get("motd") or "")
+        return ok, "MOTD aangepast." if ok else f
+
+    if actie == "free_move":
+        aan = gegevens.get("aan") in ("1", "true", "ja", "on")
+        ok, f = esi.fleet_instellen(fleet_id, schrijftoken, free_move=aan)
+        return ok, ("Free move aan." if aan else "Free move uit.") if ok else f
+
+    return False, f"Onbekende actie: {actie}"
+
+
+def roam_waypoint(user, system_id, modus="set"):
+    """Autopilot zetten. `modus` is set, add of alle (op al je characters)."""
+    system_id = int(system_id)
+    chars = esi.characters(user)
+    doelen = chars if modus == "alle" else [c for c in chars
+                                            if esi.token_for(c.character_id, esi.WAYPOINT_SCOPE)][:1]
+    if not doelen:
+        return False, ("Geen character met het waypoint-recht. Koppel opnieuw "
+                       "als FC om dat toe te voegen.")
+    gelukt, laatste = 0, ""
+    for c in doelen:
+        token = esi.token_for(c.character_id, esi.WAYPOINT_SCOPE)
+        if not token:
+            continue
+        ok, fout = esi.zet_waypoint(system_id, token, wis_andere=(modus != "add"))
+        if ok:
+            gelukt += 1
+        else:
+            laatste = fout
+    if not gelukt:
+        return False, laatste or "Autopilot zetten lukte niet."
+    if modus == "alle":
+        return True, f"Route gezet op {gelukt} van je {len(doelen)} characters."
+    return True, "Route gezet." if modus != "add" else "Waypoint toegevoegd."
+
+
+def roam_route(user, naar, van=None):
+    """Het pad naar een systeem, met jullie eigen bruggen meegeteld."""
+    if not van:
+        gevonden = fc_character(user)
+        if gevonden:
+            plek = esi.locatie(gevonden[0].character_id)
+            van = (plek or {}).get("solar_system_id")
+    if not van:
+        return {"pad": [], "fout": "Je eigen locatie is onbekend — ben je ingelogd in EVE?"}
+    pad = esi.route(van, naar, _brug_verbindingen())
+    return {"pad": pad, "jumps": max(len(pad) - 1, 0), "fout": ""}
+
+
+def _brug_verbindingen():
+    """Jullie Ansiblex-bruggen als extra verbindingen voor de route-berekening.
+
+    Staat als lijst van paren systeemnamen in local.py; leeg betekent gewoon
+    de normale gates.
+    """
+    from django.conf import settings
+
+    paren = getattr(settings, "MIJNDASHBOARD_JUMP_BRIDGES", []) or []
+    if not paren:
+        return ""
+    namen = {}
+    try:
+        from eveuniverse.models import EveSolarSystem
+
+        alle = {n.upper() for paar in paren for n in paar}
+        for s in EveSolarSystem.objects.filter(name__in=list(alle) or [""]):
+            namen[s.name.upper()] = s.id
+        if len(namen) < len(alle):      # hoofdletterongevoelig alsnog proberen
+            for s in EveSolarSystem.objects.all().only("id", "name").iterator():
+                if s.name.upper() in alle:
+                    namen[s.name.upper()] = s.id
+    except ImportError:
+        return ""
+    stukken = []
+    for a, b in paren:
+        ia, ib = namen.get(a.upper()), namen.get(b.upper())
+        if ia and ib:
+            stukken.append(f"{ia}|{ib}")
+    return ",".join(stukken)
+
+
+def jump_bridges():
+    """De bruggen als paren system-ids, voor de kaart."""
+    from django.conf import settings
+
+    paren = getattr(settings, "MIJNDASHBOARD_JUMP_BRIDGES", []) or []
+    if not paren:
+        return []
+    try:
+        from eveuniverse.models import EveSolarSystem
+    except ImportError:
+        return []
+    alle = {n.upper() for paar in paren for n in paar}
+    namen = {s.name.upper(): s.id
+             for s in EveSolarSystem.objects.filter(name__in=[n for n in alle])}
+    uit = []
+    for a, b in paren:
+        ia, ib = namen.get(a.upper()), namen.get(b.upper())
+        if ia and ib:
+            uit.append([ia, ib])
     return uit

@@ -1331,8 +1331,14 @@ def fleet_leden(fleet_id, token):
 
 
 def fleet_wings(fleet_id, token):
-    """De wings en squads van de fleet."""
-    return _request(f"/fleets/{fleet_id}/wings/", token) or []
+    """De wings en squads van de fleet (kort gecached)."""
+    key = f"fin_fleetwings_{fleet_id}"
+    hit = cache.get(key)
+    if hit is not None:
+        return hit
+    rows = _request(f"/fleets/{fleet_id}/wings/", token) or []
+    cache.set(key, rows, TTL_FLEETLEDEN)
+    return rows
 
 
 def nodig_uit(fleet_id, character_id, token, rol="squad_member",
@@ -1462,4 +1468,160 @@ def universe_systemen(system_ids):
         paar = (data.get("name") or str(sid), float(data.get("security_status") or 0))
         uit[sid] = paar
         cache.set(f"fin_sys_{sid}", list(paar), 30 * 86400)   # systemen verhuizen niet
+    return uit
+
+
+# --------------------------------------------------------------------------
+# Fleet-beheer: wings, squads, verplaatsen, en de autopilot
+# --------------------------------------------------------------------------
+#
+# Overgenomen van de fleet-pagina op het dashboard. Alles wat daar vanuit de
+# browser met het EVE-token gebeurde, gaat hier via de server met het token uit
+# django-esi — verder is het dezelfde reeks endpoints.
+
+WAYPOINT_SCOPE = "esi-ui.write_waypoint.v1"
+
+
+def _schrijf(methode, pad, token, lading=None):
+    """PUT/POST/DELETE op ESI met één opzet voor de foutafhandeling."""
+    try:
+        r = _session.request(
+            methode, f"{ESI}{pad}",
+            headers={**UA, "Authorization": f"Bearer {token}",
+                     "Content-Type": "application/json"},
+            params={"datasource": "tranquility"},
+            json=lading, timeout=25)
+    except requests.RequestException as exc:
+        return False, f"ESI niet bereikbaar: {exc}"
+    if r.status_code in (200, 201, 204):
+        return True, ""
+    return False, _fleetfout(r)
+
+
+def maak_wing(fleet_id, token):
+    try:
+        r = _session.post(f"{ESI}/fleets/{fleet_id}/wings/",
+                          headers={**UA, "Authorization": f"Bearer {token}"},
+                          params={"datasource": "tranquility"}, timeout=25)
+    except requests.RequestException as exc:
+        return None, f"ESI niet bereikbaar: {exc}"
+    if r.status_code in (200, 201):
+        cache.delete(f"fin_fleetwings_{fleet_id}")
+        try:
+            return (r.json() or {}).get("wing_id"), ""
+        except ValueError:
+            return None, ""
+    return None, _fleetfout(r)
+
+
+def maak_squad(fleet_id, wing_id, token):
+    try:
+        r = _session.post(f"{ESI}/fleets/{fleet_id}/wings/{wing_id}/squads/",
+                          headers={**UA, "Authorization": f"Bearer {token}"},
+                          params={"datasource": "tranquility"}, timeout=25)
+    except requests.RequestException as exc:
+        return None, f"ESI niet bereikbaar: {exc}"
+    if r.status_code in (200, 201):
+        cache.delete(f"fin_fleetwings_{fleet_id}")
+        try:
+            return (r.json() or {}).get("squad_id"), ""
+        except ValueError:
+            return None, ""
+    return None, _fleetfout(r)
+
+
+def hernoem_wing(fleet_id, wing_id, naam, token):
+    ok, fout = _schrijf("PUT", f"/fleets/{fleet_id}/wings/{wing_id}/", token,
+                        {"name": (naam or "")[:10]})
+    if ok:
+        cache.delete(f"fin_fleetwings_{fleet_id}")
+    return ok, fout
+
+
+def hernoem_squad(fleet_id, squad_id, naam, token):
+    ok, fout = _schrijf("PUT", f"/fleets/{fleet_id}/squads/{squad_id}/", token,
+                        {"name": (naam or "")[:10]})
+    if ok:
+        cache.delete(f"fin_fleetwings_{fleet_id}")
+    return ok, fout
+
+
+def wis_wing(fleet_id, wing_id, token):
+    ok, fout = _schrijf("DELETE", f"/fleets/{fleet_id}/wings/{wing_id}/", token)
+    if ok:
+        cache.delete(f"fin_fleetwings_{fleet_id}")
+    return ok, fout
+
+
+def wis_squad(fleet_id, squad_id, token):
+    ok, fout = _schrijf("DELETE", f"/fleets/{fleet_id}/squads/{squad_id}/", token)
+    if ok:
+        cache.delete(f"fin_fleetwings_{fleet_id}")
+    return ok, fout
+
+
+def verplaats_lid(fleet_id, character_id, token, rol="squad_member",
+                  wing_id=None, squad_id=None):
+    """Iemand naar een andere squad zetten."""
+    lading = {"role": rol if rol in ROLLEN else "squad_member"}
+    if wing_id:
+        lading["wing_id"] = int(wing_id)
+        if squad_id:
+            lading["squad_id"] = int(squad_id)
+    ok, fout = _schrijf("PUT", f"/fleets/{fleet_id}/members/{character_id}/",
+                        token, lading)
+    if ok:
+        cache.delete(f"fin_fleetleden_{fleet_id}")
+    return ok, fout
+
+
+def zet_waypoint(system_id, token, wis_andere=True, eerst=False):
+    """Autopilot: route zetten of een waypoint toevoegen.
+
+    `wis_andere` gooit de bestaande route weg — dat is "Set Destination" in het
+    spel. Zonder dat komt het systeem er als waypoint bij.
+    """
+    try:
+        r = _session.post(
+            f"{ESI}/ui/autopilot/waypoint/",
+            headers={**UA, "Authorization": f"Bearer {token}"},
+            params={"datasource": "tranquility", "destination_id": int(system_id),
+                    "clear_other_waypoints": str(bool(wis_andere)).lower(),
+                    "add_to_beginning": str(bool(eerst)).lower()},
+            timeout=25)
+    except requests.RequestException as exc:
+        return False, f"ESI niet bereikbaar: {exc}"
+    if r.status_code in (200, 204):
+        return True, ""
+    if r.status_code in (500, 520):
+        return False, ("EVE nam het niet aan. Is dit character op dit moment "
+                       "ingelogd in het spel? De autopilot kan alleen gezet "
+                       "worden bij een draaiende client.")
+    return False, _fleetfout(r)
+
+
+def route(van, naar, verbindingen=None):
+    """Aantal sprongen en het pad tussen twee systemen (publiek).
+
+    `verbindingen` zijn extra verbindingen — daarmee tellen jullie eigen
+    Ansiblex-bruggen mee, precies zoals de kaart op het dashboard doet.
+    """
+    params = {"flag": "shortest"}
+    if verbindingen:
+        params["connections"] = verbindingen
+    return _request(f"/route/{int(van)}/{int(naar)}/", None, params) or []
+
+
+TTL_SOV = 3600
+
+
+def sovereignty():
+    """{system_id: alliance_id} — wie welke sov houdt. Publiek."""
+    hit = cache.get("fin_sov")
+    if hit is not None:
+        return hit
+    rijen = _request("/sovereignty/map/") or []
+    uit = {int(r["system_id"]): int(r["alliance_id"])
+           for r in rijen if r.get("alliance_id")}
+    cache.set("fin_sov", uit, TTL_SOV)
     return uit

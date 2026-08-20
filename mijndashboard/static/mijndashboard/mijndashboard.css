@@ -2029,3 +2029,180 @@
    Wallet, Ratting en Mining en die hoeven niet mee te veranderen. */
 .fin-app .fin-roam-stats { gap: 0; }
 .fin-app .fin-roam-stats > .fin-stat + .fin-stat { border-left: 1px solid var(--fin-border); }
+
+/* ── Fleet Roaming: de live pagina ──────────────────────────────────────
+   Welk blok zichtbaar is hangt aan data-toestand op de wortel; zo hoeft het
+   script alleen dat attribuut te zetten en niet met display te rommelen. */
+.fin-app .fin-roam-laden,
+.fin-app .fin-roam-geenfc,
+.fin-app .fin-roam-geenfleet,
+.fin-app .fin-roam-fleet { display: none; }
+.fin-app .fin-roam[data-toestand="laden"] .fin-roam-laden { display: block; }
+.fin-app .fin-roam[data-toestand="geen-fc"] .fin-roam-geenfc { display: block; }
+.fin-app .fin-roam[data-toestand="geen-fleet"] .fin-roam-geenfleet { display: block; }
+.fin-app .fin-roam[data-toestand="fleet"] .fin-roam-fleet { display: block; }
+.fin-app .fin-roam[data-toont="leden"] .fin-roam-kaartvak { display: none; }
+.fin-app .fin-roam[data-toont="kaart"] .fin-roam-ledenvak { display: none; }
+.fin-app .fin-roam-laden { padding: 2rem; text-align: center; color: var(--fin-dim); }
+
+/* ── De balk boven de kaart ─────────────────────────────────────────── */
+.fin-app .fin-roam-balk {
+    display: flex; align-items: center; gap: .6rem; flex-wrap: wrap;
+    margin: .8rem 0 .5rem;
+}
+.fin-app .fin-roam-balk .fin-knop:first-of-type { margin-left: auto; }
+.fin-app .fin-roam-wissel {
+    display: flex; border: 1px solid var(--fin-border); border-radius: 4px; overflow: hidden;
+}
+.fin-app .fin-roam-wissel button {
+    padding: .3rem .8rem; font-size: .72rem; font-weight: 700; cursor: pointer;
+    border: 0; background: transparent; color: var(--fin-dim);
+}
+.fin-app .fin-roam-wissel button.is-actief { background: rgba(0, 180, 216, .15); color: var(--fin-blue); }
+.fin-app .fin-roam-vlaggen { display: flex; flex-direction: column; font-size: .78rem; font-weight: 600; }
+.fin-app .fin-roam-vlaggen i { font-style: normal; }
+
+/* ── De kaart ───────────────────────────────────────────────────────── */
+.fin-app .fin-roam-kaartvak {
+    position: relative; background: #05050e; border: 1px solid var(--fin-border);
+    border-radius: 6px; overflow: hidden;
+}
+.fin-app .fin-roam-kaartvak canvas { display: block; cursor: grab; }
+.fin-app .fin-roam-kaartvak canvas:active { cursor: grabbing; }
+.fin-app .fin-roam-legenda {
+    position: absolute; left: .6rem; bottom: .5rem; display: flex; gap: .7rem;
+    font-size: .64rem; color: var(--fin-dim);
+    background: rgba(5, 5, 14, .8); padding: .2rem .5rem; border-radius: 4px;
+}
+.fin-app .fin-roam-legenda span { display: flex; align-items: center; gap: .25rem; }
+.fin-app .fin-roam-legenda i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.fin-app .fin-legenda-fleet { background: #3ecf6e; }
+.fin-app .fin-legenda-fc { background: #f0c040; }
+.fin-app .fin-legenda-vers { background: #ef4444; }
+.fin-app .fin-legenda-recent { background: #f0932b; }
+.fin-app .fin-legenda-brug { background: rgba(82, 224, 128, .6); border-radius: 1px; width: 12px; height: 3px; }
+.fin-app .fin-roam-hint {
+    position: absolute; right: .6rem; bottom: .5rem; font-size: .62rem;
+    color: var(--fin-dim); background: rgba(5, 5, 14, .8);
+    padding: .15rem .45rem; border-radius: 4px;
+}
+.fin-app .fin-roam-melding {
+    display: none; position: absolute; left: 50%; bottom: 2.2rem; transform: translateX(-50%);
+    font-size: .72rem; font-weight: 700; padding: .35rem .8rem; border-radius: 6px;
+    white-space: nowrap; color: #05050e; z-index: 4;
+}
+.fin-app .fin-roam-melding.is-goed { background: rgba(62, 207, 110, .95); }
+.fin-app .fin-roam-melding.is-fout { background: rgba(224, 85, 85, .95); }
+
+/* Tooltip bij een intel-marker: de meldingen zelf, nieuwste eerst. */
+.fin-app .fin-roam-tip {
+    display: none; position: absolute; z-index: 5; max-width: 22rem;
+    background: rgba(8, 8, 20, .97); border: 1px solid var(--fin-border);
+    border-radius: 5px; padding: .4rem .55rem; pointer-events: none;
+}
+.fin-app .fin-roam-tipkop { display: flex; gap: .4rem; align-items: baseline; margin-bottom: .2rem; }
+.fin-app .fin-roam-tipsec { font-size: .7rem; color: var(--fin-dim); }
+.fin-app .fin-roam-tipregel { display: flex; gap: .4rem; font-size: .72rem; padding: .1rem 0; }
+.fin-app .fin-roam-tipregel.is-clear { color: var(--fin-green); }
+.fin-app .fin-roam-tiptijd { flex: 0 0 2.4rem; color: var(--fin-dim); font-variant-numeric: tabular-nums; }
+.fin-app .fin-roam-tiptekst { flex: 1 1 auto; }
+.fin-app .fin-roam-tipwie { flex: 0 0 auto; color: var(--fin-dim); font-size: .66rem; }
+
+/* Rechtsklikmenu, in de stijl van het spel. */
+.fin-app .fin-roam-menu {
+    display: none; position: absolute; z-index: 6; min-width: 11rem;
+    background: rgba(8, 8, 20, .98); border: 1px solid var(--fin-border);
+    border-radius: 4px; padding: .25rem; box-shadow: 0 4px 18px rgba(0, 0, 0, .6);
+}
+.fin-app .fin-roam-menukop {
+    font-size: .72rem; font-weight: 700; padding: .2rem .4rem .3rem;
+    border-bottom: 1px solid var(--fin-border); margin-bottom: .2rem;
+}
+.fin-app .fin-roam-menuknop {
+    display: block; width: 100%; text-align: left; background: none; border: 0;
+    color: var(--fin-text); font-size: .74rem; padding: .25rem .4rem;
+    cursor: pointer; border-radius: 3px;
+}
+.fin-app .fin-roam-menuknop:hover { background: rgba(0, 180, 216, .16); color: var(--fin-blue); }
+.fin-app .fin-roam-menunoot { font-size: .66rem; color: var(--fin-gold); padding: .2rem .4rem; }
+.fin-app .fin-roam-menulinks {
+    display: flex; gap: .6rem; padding: .3rem .4rem 0; margin-top: .2rem;
+    border-top: 1px solid var(--fin-border); font-size: .7rem;
+}
+
+/* ── Ledentabel ─────────────────────────────────────────────────────── */
+.fin-app .fin-roam-ledenvak { margin-top: .2rem; }
+.fin-app .fin-roam-ledenvak tr.is-ik { background: rgba(240, 192, 64, .06); }
+.fin-app .fin-roam-rolbadge {
+    font-style: normal; font-size: .62rem; font-weight: 700; letter-spacing: .06em;
+    border: 1px solid; border-radius: 3px; padding: .05rem .3rem;
+}
+.fin-app .fin-roam-schipcel { display: flex; align-items: center; gap: .35rem; }
+.fin-app .fin-roam-schipcel img { width: 20px; height: 20px; border-radius: 3px; }
+.fin-app .fin-roam-sec { font-weight: 700; font-size: .74rem; margin-right: .35rem; font-variant-numeric: tabular-nums; }
+.fin-app .fin-roam-syslink { color: inherit; }
+.fin-app .fin-roam-syslink:hover { color: var(--fin-blue); }
+.fin-app .fin-roam-squadkies { font-size: .72rem; padding: .1rem .3rem; max-width: 11rem; }
+.fin-app .fin-roam-sinds { color: var(--fin-dim); font-size: .7rem; }
+.fin-app .fin-roam-wegcel { width: 1.6rem; }
+.fin-app .fin-roam-schopknop {
+    background: none; border: 0; color: var(--fin-dim); cursor: pointer;
+    font-size: .8rem; opacity: 0; padding: 0 .2rem;
+}
+.fin-app .fin-roam-ledenvak tr:hover .fin-roam-schopknop { opacity: 1; }
+.fin-app .fin-roam-schopknop:hover { color: var(--fin-red); }
+
+/* ── Beheer ─────────────────────────────────────────────────────────── */
+.fin-app .fin-roam-intel { margin-top: 1rem; }
+.fin-app .fin-roam-beheer { margin-top: 1rem; }
+.fin-app .fin-roam-beheerrij {
+    display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 18rem);
+    gap: 1rem; margin-bottom: .9rem;
+}
+@media (max-width: 900px) {
+    .fin-app .fin-roam-beheerrij { grid-template-columns: 1fr; }
+}
+.fin-app .fin-roam-label {
+    display: block; font-size: .7rem; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--fin-dim); margin-bottom: .3rem;
+}
+.fin-app .fin-roam-motdvak textarea { width: 100%; resize: vertical; }
+.fin-app .fin-roam-knoprij { display: flex; align-items: flex-end; gap: .5rem; margin-top: .4rem; flex-wrap: wrap; }
+.fin-app .fin-roam-wing {
+    display: flex; align-items: center; gap: .3rem; font-size: .8rem; padding: .15rem 0;
+}
+.fin-app .fin-roam-squad2 {
+    display: flex; align-items: center; gap: .3rem; font-size: .76rem;
+    padding: .1rem 0 .1rem 1.1rem; color: var(--fin-dim);
+}
+.fin-app .fin-roam-mini {
+    background: transparent; border: 1px solid var(--fin-border); border-radius: 3px;
+    color: var(--fin-dim); font-size: .62rem; line-height: 1; padding: .12rem .32rem; cursor: pointer;
+}
+.fin-app .fin-roam-mini:hover { color: var(--fin-blue); border-color: var(--fin-blue); }
+.fin-app .fin-roam-nodigvak textarea { width: 100%; margin-top: .4rem; resize: vertical; }
+.fin-app .fin-roam-squadlabel { display: flex; flex-direction: column; gap: .2rem; margin: 0; }
+.fin-app .fin-roam-squadlabel span {
+    font-size: .7rem; letter-spacing: .06em; text-transform: uppercase; color: var(--fin-dim);
+}
+.fin-app .fin-intel-sys { cursor: pointer; }
+
+/* Aswijzer en zoomknoppen, zoals op de kaart van het dashboard. */
+.fin-app .fin-roam-assen {
+    position: absolute; left: .5rem; top: .4rem; display: flex; align-items: center;
+    gap: .2rem; font-size: .62rem; color: #e05555; pointer-events: none;
+}
+.fin-app .fin-roam-zoom {
+    position: absolute; right: .5rem; top: .4rem; display: flex; flex-direction: column; gap: .2rem;
+}
+.fin-app .fin-roam-zoom button {
+    width: 1.5rem; height: 1.5rem; line-height: 1; cursor: pointer;
+    background: rgba(8, 8, 20, .85); border: 1px solid var(--fin-border);
+    color: var(--fin-dim); border-radius: 4px; font-size: .85rem;
+}
+.fin-app .fin-roam-zoom button:hover { color: var(--fin-blue); border-color: var(--fin-blue); }
+/* De kaart staat rechtop en gecentreerd. Het vak zelf krimpt mee, anders
+   plakken de zoomknoppen tegen de rand van het scherm in plaats van tegen de
+   kaart — ze hangen absoluut in dit vak. */
+.fin-app .fin-roam-kaartvak { max-width: 760px; margin: 0 auto; }
+.fin-app .fin-roam-kaartvak canvas { margin: 0 auto; }
