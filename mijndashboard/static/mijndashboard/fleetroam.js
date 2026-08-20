@@ -16,7 +16,11 @@
 
   var IDB_NAAM = 'mijndashboard', IDB_STORE = 'fs-handles', IDB_SLEUTEL = 'intel-dir';
   var STAART_BYTES = 512 * 1024;
-  var INTEL_MAX_MIN = 60, VERS_MIN = 5, RECENT_MIN = 15;
+  // Intel is vijf minuten geldig; daarna is het geen intel meer maar
+  // geschiedenis. Zelfde venster als op het dashboard. Meldingen ouder dan dit
+  // verdwijnen uit de lijst én van de kaart, binnen vijf seconden na verlopen
+  // (dan wordt het logbestand opnieuw gelezen).
+  var INTEL_MAX_MIN = 5, VERS_MIN = 2, RECENT_MIN = 4;
   var MSG_RE = /^\[\s*(\d{4}\.\d{2}\.\d{2}\s+\d{2}:\d{2}:\d{2})\s*\]\s*([^>]+)>\s*(.*)$/;
   var CLEAR_RE = /\b(clr|clear|clr\.|nv|no vis|niks|leeg)\b/i;
   var SPIKE_RE = /\b(spike|spiked|blob)\b/i;
@@ -1150,11 +1154,15 @@
         return;
       }
       recent.forEach(function (m) {
-        var min = Math.floor((nu - m.tijd) / 60000);
+        var sec = Math.max(0, Math.floor((nu - m.tijd) / 1000));
+        var min = sec / 60;
         var klasse = m.clear ? 'is-clear' : (min < VERS_MIN ? 'is-vers' :
                      (min < RECENT_MIN ? 'is-recent' : 'is-oud'));
         var r = el('div', 'fin-intel-regel ' + klasse);
-        r.appendChild(el('span', 'fin-intel-tijd', min < 1 ? 'nu' : min + 'm'));
+        // mm:ss — binnen vijf minuten zegt "3m" te weinig; je wil weten of iets
+        // van tien seconden of van vier minuten geleden is.
+        r.appendChild(el('span', 'fin-intel-tijd',
+          Math.floor(sec / 60) + ':' + ('0' + (sec % 60)).slice(-2)));
         var namen = m.systemen.map(function (sid) { return sys[sid] ? sys[sid][4] : sid; });
         if (namen.length) {
           var sysSpan = el('span', 'fin-intel-sys', namen.join(', '));
@@ -1228,7 +1236,7 @@
           });
           meldingen = samen;
           intel = perSysteem(meldingen);
-          zetIntelStatus(kanaal + ' — ' + meldingen.length + ' meldingen · ' +
+          zetIntelStatus(kanaal + ' — ' + meldingen.length + ' meldingen (5 min) · ' +
                          uitslag.bestanden.length + ' logbestand' +
                          (uitslag.bestanden.length === 1 ? '' : 'en'), 'aan');
           tekenIntelLijst();
@@ -1444,7 +1452,10 @@
 
     weergaveNaar('kaart');
     setInterval(haalStand, 15000);
-    setInterval(function () { leesIntel(); tekenIntelLijst(); }, 5000);
+    setInterval(function () { leesIntel(); }, 5000);
+    // De teller loopt per seconde; het inlezen blijft op vijf seconden staan
+    // zodat we niet elke seconde een megabyte log door de molen halen.
+    setInterval(function () { tekenIntelLijst(); }, 1000);
   }
 
   document.addEventListener('DOMContentLoaded', function () {
